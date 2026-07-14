@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NotaPlan
 
-## Getting Started
+Müzik okulları için operasyon SaaS: **program, yoklama, telafi planlama, ödemeler, WhatsApp şablonları, veli & öğretmen portalı**.
 
-First, run the development server:
+## İlk müşteri
+
+**[Nilüfer Acar Müzik Akademisi](https://www.niluferacar.com.tr)** — İzmir
+
+| Şube | Not |
+|------|-----|
+| **Erzene** (Merkez) | Erzene Mah. Türkeli Cad. No:18/A Bornova |
+| **Evka 3** | Bornova / İzmir |
+
+**Telefon:** 0553 848 16 58 · **E-posta:** merhaba@niluferacar.com.tr
+
+**Aktif enstrümanlar (şimdilik):** Piyano, Yan Flüt, Gitar, Bateri, Keman, Şan  
+*(Bağlama, ud, klarnet vb. sonra eklenebilir.)*
+
+## Sayfalar
+
+| URL | Açıklama |
+|-----|----------|
+| `/` | Landing + fiyatlandırma |
+| `/panel` | Yönetim paneli (özet) |
+| `/panel/telafi` | Telafi merkezi ★ |
+| `/panel/yoklama` | Yoklama → telafi hakkı |
+| `/panel/bildirimler` | WhatsApp mesaj kuyruğu |
+| `/veli` | Veli mobil portal (demo) |
+| `/ogretmen` | Öğretmen mobil portal (demo) |
+
+## Demo senaryosu
+
+1. `/panel/yoklama` → **Gelmedi (+telafi)**
+2. `/panel/telafi` → **Uygun slot öner** → **Onayla**
+3. `/panel/bildirimler` → **WhatsApp’ta aç**
+
+## Çalıştırma
 
 ```bash
+# Node 18+
+export PATH="$HOME/.local/node-v22.14.0-darwin-arm64/bin:$PATH"  # gerekirse
+
+cd notaplan
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+→ [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Demo verisini sıfırlamak: panel özet sayfasındaki **Demo verisini sıfırla**.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Teknik
 
-## Learn More
+- Next.js (App Router) + TypeScript + Tailwind
+- JSON store: `data/store.json` (demo, sıfır altyapı)
+- Telafi motoru: `src/lib/makeup-engine.ts` (şube + öğretmen + oda skoru)
+- WhatsApp şablonları: `src/lib/whatsapp-templates.ts`
 
-To learn more about Next.js, take a look at the following resources:
+## Fiyat (referans)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Başlangıç: ~2.500 ₺/ay (1 şube)
+- Akademi: ~4.500 ₺/ay (2 şube + portaller) — **önerilen**
+- Kurumsal: özel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Repo
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+https://github.com/hidircan/notaplan
