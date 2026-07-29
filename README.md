@@ -47,22 +47,29 @@ npm run dev
 
 → [http://localhost:3000](http://localhost:3000)
 
-## Vercel + MySQL canlıya alma
+## Canlıya alma
 
-1. Vercel projesini GitHub repo ile bağla.
-2. Vercel Dashboard -> Project Settings -> Environment Variables bölümüne aşağıdakileri ekle:
+### Hızlı demo (varsayılan)
+`STORE_MODE=memory` veya `json` — Vercel üzerinde MySQL olmadan da çalışır (demo veri).
 
+Vercel env:
+```env
+STORE_MODE=memory
+```
+
+### Kalıcı production (MySQL)
 ```env
 STORE_MODE=db
 DATABASE_PROVIDER=mysql
 DATABASE_URL=mysql://user:password@host:3306/database
 ```
 
-3. Vercel build komutunu `npm run build` olarak ayarla.
-4. Vercel, `prebuild` betiği sayesinde önce `npx prisma generate` çalıştıracak.
-5. Deploy tamamlandıktan sonra uygulama DB modunda çalışacak.
+1. GitHub repo: https://github.com/hidircan/notaplan
+2. [vercel.com/new](https://vercel.com/new) → Import `hidircan/notaplan`
+3. Env variables ekle → Deploy
+4. `prebuild` otomatik `prisma generate` çalıştırır
 
-> Not: Vercel için kalıcı veri saklamak istersen `sqlite` yerine MySQL / PlanetScale / Amazon RDS / Neon gibi bir DB kullan.
+> Not: `STORE_MODE=db` için MySQL/MariaDB (PlanetScale, RDS, Aiven vb.) gerekir.
 
 ## Teknik
 
