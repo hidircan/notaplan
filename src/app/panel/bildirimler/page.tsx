@@ -22,8 +22,8 @@ export default async function BildirimlerPage() {
           <div>
             <p className="font-semibold text-slate-900">Nasıl kullanılır?</p>
             <p className="mt-1 text-sm text-slate-600">
-              1) Telafi onayla veya yoklama al → 2) Hazır mesajlar bu sayfada birikir → 3) “WhatsApp’ta aç” ile veli/öğretmene gönder.
-              Bu sayfa, manuel WhatsApp sürecini düzenli hale getirir.
+              1) Telafi onayla veya yoklama al → 2) Bu sayfada mesaj otomatik listelenir → 3) “WhatsApp’ta
+              aç” ile veli/öğretmene gönder. İleride resmi WhatsApp Business API bağlanabilir.
             </p>
           </div>
         </div>
