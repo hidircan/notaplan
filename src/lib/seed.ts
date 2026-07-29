@@ -1,5 +1,6 @@
 import type { AppData, BranchId, Instrument } from "./types";
 import { addDays, setHours, setMinutes, startOfDay, formatISO } from "date-fns";
+import { DEFAULT_TENANT_ID } from "./auth/config";
 
 function at(dayOffset: number, hour: number, minute = 0) {
   const base = startOfDay(new Date());
@@ -396,6 +397,7 @@ export function createSeedData(): AppData {
 
   return {
     settings: {
+      tenantId: DEFAULT_TENANT_ID,
       name: "Nilüfer Acar Müzik Akademisi",
       shortName: "Nilüfer Acar",
       city: "İzmir",

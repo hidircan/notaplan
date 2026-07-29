@@ -3,6 +3,8 @@
  * Process warm olduğu sürece veri kalır; cold start'ta seed yeniden yüklenir.
  */
 import { createSeedData } from "./seed";
+import { tryTenantId } from "./tenant-context";
+import { DEFAULT_TENANT_ID } from "./auth/config";
 import type {
   AppData,
   Attendance,
@@ -17,17 +19,35 @@ import { suggestMakeupSlots, confirmMakeupSlot } from "./makeup-engine";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
-const g = globalThis as unknown as { __notaplanData?: AppData };
+const g = globalThis as unknown as { __notaplanByTenant?: Record<string, AppData> };
+
+function tenantKey(): string {
+  return tryTenantId() ?? DEFAULT_TENANT_ID;
+}
 
 function load(): AppData {
-  if (!g.__notaplanData) {
-    g.__notaplanData = createSeedData();
+  if (!g.__notaplanByTenant) g.__notaplanByTenant = {};
+  const tid = tenantKey();
+  if (!g.__notaplanByTenant[tid]) {
+    const seed = createSeedData();
+    seed.settings.tenantId = tid;
+    g.__notaplanByTenant[tid] = seed;
   }
-  return g.__notaplanData;
+  const data = g.__notaplanByTenant[tid];
+  if (data.settings.tenantId !== tid) {
+    throw new Error("Cross-tenant access denied");
+  }
+  return data;
 }
 
 function save(data: AppData): AppData {
-  g.__notaplanData = data;
+  const tid = tenantKey();
+  if ((data.settings.tenantId || tid) !== tid) {
+    throw new Error("Cross-tenant access denied");
+  }
+  data.settings.tenantId = tid;
+  if (!g.__notaplanByTenant) g.__notaplanByTenant = {};
+  g.__notaplanByTenant[tid] = data;
   return data;
 }
 

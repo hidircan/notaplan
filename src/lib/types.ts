@@ -137,6 +137,8 @@ export interface Payment {
 }
 
 export interface SchoolSettings {
+  /** Multi-tenant id — set at seed / DB; never from client */
+  tenantId: string;
   name: string;
   shortName: string;
   city: string;

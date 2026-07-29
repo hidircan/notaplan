@@ -2,6 +2,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "./config";
 import { createSeedData } from "./seed";
+import { tryTenantId } from "./tenant-context";
+import { DEFAULT_TENANT_ID } from "./auth/config";
 import type {
   AppData,
   Attendance,
@@ -29,13 +31,25 @@ async function ensureDataFile() {
   }
 }
 
+function assertTenant(data: AppData) {
+  const tid = tryTenantId() ?? DEFAULT_TENANT_ID;
+  const dataTenant = data.settings.tenantId || DEFAULT_TENANT_ID;
+  if (dataTenant !== tid) {
+    throw new Error("Cross-tenant access denied");
+  }
+}
+
 export async function readData(): Promise<AppData> {
   await ensureDataFile();
   const raw = await fs.readFile(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as AppData;
+  const data = JSON.parse(raw) as AppData;
+  if (!data.settings.tenantId) data.settings.tenantId = DEFAULT_TENANT_ID;
+  assertTenant(data);
+  return data;
 }
 
 export async function writeData(data: AppData): Promise<void> {
+  assertTenant(data);
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
 }

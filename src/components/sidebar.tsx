@@ -14,11 +14,22 @@ import {
   MessageCircle,
   Home,
   UserRound,
+  Sparkles,
+  Activity,
+  ScrollText,
+  Workflow,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/logout-button";
 
 const nav = [
   { href: "/panel", label: "Özet", icon: LayoutDashboard },
+  { href: "/panel/chat", label: "AI Asistan", icon: Sparkles },
+  { href: "/panel/workflows", label: "Workflows", icon: Workflow },
+  { href: "/panel/ai", label: "AI Dashboard", icon: Activity },
+  { href: "/panel/ai/logs", label: "AI Logları", icon: ScrollText },
+  { href: "/panel/ai/memory", label: "AI Memory", icon: Brain },
   { href: "/panel/program", label: "Ders Programı", icon: CalendarDays },
   { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
   { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
@@ -34,7 +45,15 @@ const portals = [
   { href: "/", label: "Landing", icon: Home },
 ];
 
-export function Sidebar({ schoolName }: { schoolName: string }) {
+export function Sidebar({
+  schoolName,
+  userLabel,
+  roleLabel,
+}: {
+  schoolName: string;
+  userLabel?: string;
+  roleLabel?: string;
+}) {
   const pathname = usePathname();
 
   return (
@@ -51,7 +70,9 @@ export function Sidebar({ schoolName }: { schoolName: string }) {
         </div>
         <div className="mt-4 rounded-xl bg-white/5 px-3 py-2">
           <p className="truncate text-xs font-medium text-violet-200">{schoolName}</p>
-          <p className="text-[10px] text-slate-500">Erzene · Evka 3 · İzmir</p>
+          <p className="text-[10px] text-slate-500">
+            {roleLabel || "Oturum"} · {userLabel || "—"}
+          </p>
         </div>
       </div>
 
@@ -100,9 +121,7 @@ export function Sidebar({ schoolName }: { schoolName: string }) {
       </nav>
 
       <div className="border-t border-white/10 p-4">
-        <p className="text-[11px] leading-relaxed text-slate-500">
-          İlk müşteri: Nilüfer Acar Müzik Akademisi · 2 şube
-        </p>
+        <LogoutButton className="w-full justify-start text-slate-300 hover:text-white" />
       </div>
     </aside>
   );

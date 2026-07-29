@@ -91,17 +91,17 @@ export default function LandingPage() {
             İlk okul
           </a>
           <Link
-            href="/panel"
+            href="/login"
             className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-violet-100"
           >
-            Panele gir
+            Giriş
           </Link>
         </nav>
         <Link
-          href="/panel"
+          href="/login"
           className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-900 sm:hidden"
         >
-          Panel
+          Giriş
         </Link>
       </header>
 

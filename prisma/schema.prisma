@@ -6,8 +6,49 @@ datasource db {
   provider = "mysql"
 }
 
+/// Top-level multi-tenant boundary
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  active    Boolean  @default(true)
+  users     User[]
+  schools   School[]
+  branches  Branch[]
+  teachers  Teacher[]
+  students  Student[]
+  rooms     Room[]
+  lessons   Lesson[]
+  attendances Attendance[]
+  makeupRequests MakeupRequest[]
+  payments  Payment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Auth identity — passwordHash is Argon2/bcrypt; never store plaintext
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  passwordHash String
+  role         String
+  teacherId    String?
+  studentId    String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([tenantId])
+}
+
 model School {
   id                    String    @id @default(cuid())
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                  String
   shortName             String
   city                  String
@@ -31,11 +72,16 @@ model School {
   payments              Payment[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+
+  @@unique([tenantId])
+  @@index([tenantId])
 }
 
 model Branch {
-  id             String    @id @default(cuid())
-  school         School    @relation(fields: [schoolId], references: [id])
+  id             String    @id
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  school         School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId       String
   name           String
   shortName      String
@@ -47,118 +93,146 @@ model Branch {
   rooms          Room[]
   lessons        Lesson[]
   makeupRequests MakeupRequest[]
+
+  @@index([tenantId])
+  @@index([schoolId])
 }
 
 model Teacher {
-  id             String   @id @default(cuid())
-  name           String
-  email          String
-  phone          String
-  branch         Branch   @relation(fields: [branchId], references: [id])
-  branchId       String
-  school         School   @relation(fields: [schoolId], references: [id])
-  schoolId       String
-  instruments    Json
-  availability   Json
+  id              String   @id
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  email           String
+  phone           String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  branchId        String
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId        String
+  instruments     Json
+  availability    Json
   maxDailyLessons Int
-  active         Boolean
-  color          String
-  students       Student[]
-  lessons        Lesson[]
-  makeupRequests MakeupRequest[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  active          Boolean
+  color           String
+  students        Student[]
+  lessons         Lesson[]
+  makeupRequests  MakeupRequest[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([schoolId])
 }
 
 model Student {
-  id               String    @id @default(cuid())
-  name             String
-  email            String
-  phone            String
-  parentName       String
-  parentPhone      String
-  branch           Branch    @relation(fields: [branchId], references: [id])
-  branchId         String
-  school           School    @relation(fields: [schoolId], references: [id])
-  schoolId         String
-  instruments      Json
-  teacher          Teacher   @relation(fields: [teacherId], references: [id])
-  teacherId        String
-  packageName      String
+  id                String    @id
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  email             String
+  phone             String
+  parentName        String
+  parentPhone       String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+  branchId          String
+  school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId          String
+  instruments       Json
+  teacher           Teacher   @relation(fields: [teacherId], references: [id])
+  teacherId         String
+  packageName       String
   weeklyLessonCount Int
-  monthlyFee       Int
-  active           Boolean
-  notes            String
-  createdAt        DateTime  @default(now())
-  lessons          Lesson[]
-  attendances      Attendance[]
-  payments         Payment[]
-  makeupRequests   MakeupRequest[]
+  monthlyFee        Int
+  active            Boolean
+  notes             String
+  createdAt         DateTime  @default(now())
+  lessons           Lesson[]
+  attendances       Attendance[]
+  payments          Payment[]
+  makeupRequests    MakeupRequest[]
+
+  @@index([tenantId])
+  @@index([schoolId])
 }
 
 model Room {
-  id          String    @id @default(cuid())
+  id          String   @id
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
-  branch      Branch    @relation(fields: [branchId], references: [id])
+  branch      Branch   @relation(fields: [branchId], references: [id])
   branchId    String
-  school      School    @relation(fields: [schoolId], references: [id])
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId    String
   capacity    Int
   instruments Json
   lessons     Lesson[]
+
+  @@index([tenantId])
 }
 
 model Lesson {
-  id              String    @id @default(cuid())
-  student         Student   @relation(fields: [studentId], references: [id])
+  id              String       @id
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         Student      @relation(fields: [studentId], references: [id])
   studentId       String
-  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  teacher         Teacher      @relation(fields: [teacherId], references: [id])
   teacherId       String
-  room            Room      @relation(fields: [roomId], references: [id])
+  room            Room         @relation(fields: [roomId], references: [id])
   roomId          String
-  branch          Branch    @relation(fields: [branchId], references: [id])
+  branch          Branch       @relation(fields: [branchId], references: [id])
   branchId        String
-  school          School    @relation(fields: [schoolId], references: [id])
+  school          School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId        String
   instrument      String
   startAt         DateTime
   endAt           DateTime
   type            String
   status          String
-  makeupRequestId String? 
+  makeupRequestId String?
   notes           String?
   attendances     Attendance[]
+
+  @@index([tenantId])
+  @@index([schoolId])
 }
 
 model Attendance {
-  id                   String   @id @default(cuid())
-  lesson               Lesson   @relation(fields: [lessonId], references: [id])
-  lessonId             String   @unique
-  student              Student  @relation(fields: [studentId], references: [id])
-  studentId            String
-  status               String
-  reason               String?
-  markedAt             DateTime
-  createsMakeupCredit  Boolean
-  school               School   @relation(fields: [schoolId], references: [id])
-  schoolId             String
-  makeupRequest        MakeupRequest?
+  id                  String         @id @default(cuid())
+  tenantId            String
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson              Lesson         @relation(fields: [lessonId], references: [id])
+  lessonId            String         @unique
+  student             Student        @relation(fields: [studentId], references: [id])
+  studentId           String
+  status              String
+  reason              String?
+  markedAt            DateTime
+  createsMakeupCredit Boolean
+  school              School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId            String
+  makeupRequest       MakeupRequest?
+
+  @@index([tenantId])
 }
 
 model MakeupRequest {
-  id                String       @id @default(cuid())
-  student           Student      @relation(fields: [studentId], references: [id])
+  id                String     @id @default(cuid())
+  tenantId          String
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student           Student    @relation(fields: [studentId], references: [id])
   studentId         String
-  teacher           Teacher      @relation(fields: [teacherId], references: [id])
+  teacher           Teacher    @relation(fields: [teacherId], references: [id])
   teacherId         String
-  branch            Branch       @relation(fields: [branchId], references: [id])
+  branch            Branch     @relation(fields: [branchId], references: [id])
   branchId          String
-  school            School       @relation(fields: [schoolId], references: [id])
+  school            School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId          String
   instrument        String
   sourceLessonId    String
-  attendance        Attendance    @relation(fields: [attendanceId], references: [id])
-  attendanceId      String      @unique
+  attendance        Attendance @relation(fields: [attendanceId], references: [id])
+  attendanceId      String     @unique
   status            String
   reason            String
   expiresAt         DateTime
@@ -167,14 +241,17 @@ model MakeupRequest {
   createdAt         DateTime
   policyNote        String
 
+  @@index([tenantId])
   @@index([sourceLessonId])
 }
 
 model Payment {
-  id          String   @id @default(cuid())
-  student     Student  @relation(fields: [studentId], references: [id])
+  id          String    @id
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id])
   studentId   String
-  school      School   @relation(fields: [schoolId], references: [id])
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId    String
   amount      Int
   paidAmount  Int
@@ -183,6 +260,8 @@ model Payment {
   paidAt      DateTime?
   description String
   method      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId])
 }

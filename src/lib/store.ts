@@ -40,12 +40,31 @@ function getStore(): StoreApi {
 
 const store = getStore();
 
+/** Bind tenant from ALS or authenticated web session */
+async function withTenantScope<T>(fn: () => Promise<T>): Promise<T> {
+  const { tryTenantId, runWithTenantAsync } = await import("./tenant-context");
+  if (tryTenantId()) return fn();
+
+  try {
+    const { getSessionContext } = await import("./auth/session");
+    const session = await getSessionContext();
+    if (session?.tenantId) {
+      return runWithTenantAsync(session.tenantId, fn);
+    }
+  } catch {
+    // no session (public / build)
+  }
+
+  const { DEFAULT_TENANT_ID } = await import("./auth/config");
+  return runWithTenantAsync(DEFAULT_TENANT_ID, fn);
+}
+
 export async function readData(): Promise<AppData> {
-  return store.readData();
+  return withTenantScope(() => store.readData());
 }
 
 export async function resetData(): Promise<AppData> {
-  return store.resetData();
+  return withTenantScope(() => store.resetData());
 }
 
 export async function markAttendance(input: {
@@ -53,35 +72,35 @@ export async function markAttendance(input: {
   status: AttendanceStatus;
   reason?: string;
 }): Promise<AppData> {
-  return store.markAttendance(input);
+  return withTenantScope(() => store.markAttendance(input));
 }
 
 export async function generateSuggestions(requestId: string): Promise<AppData> {
-  return store.generateSuggestions(requestId);
+  return withTenantScope(() => store.generateSuggestions(requestId));
 }
 
 export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
-  return store.confirmSlot(requestId, slot);
+  return withTenantScope(() => store.confirmSlot(requestId, slot));
 }
 
 export async function cancelMakeup(requestId: string): Promise<AppData> {
-  return store.cancelMakeup(requestId);
+  return withTenantScope(() => store.cancelMakeup(requestId));
 }
 
 export async function addStudent(
   student: Omit<Student, "id" | "createdAt" | "active">
 ): Promise<AppData> {
-  return store.addStudent(student);
+  return withTenantScope(() => store.addStudent(student));
 }
 
 export async function addTeacher(
   teacher: Omit<Teacher, "id" | "active" | "color">
 ): Promise<AppData> {
-  return store.addTeacher(teacher);
+  return withTenantScope(() => store.addTeacher(teacher));
 }
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
-  return store.markPaymentPaid(paymentId);
+  return withTenantScope(() => store.markPaymentPaid(paymentId));
 }
 
 export function getDashboardStats(data: AppData) {

@@ -6,9 +6,15 @@ export const attendanceSchema = z.object({
   reason: z.string().optional(),
 });
 
+const optionalEmail = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() ? v : undefined))
+  .pipe(z.string().email().optional());
+
 export const studentSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email().optional(),
+  email: optionalEmail,
   phone: z.string().min(1),
   parentName: z.string().min(1),
   parentPhone: z.string().min(1),
@@ -23,7 +29,7 @@ export const studentSchema = z.object({
 
 export const teacherSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email().optional(),
+  email: optionalEmail,
   phone: z.string().min(1),
   branchId: z.enum(["erzene", "evka3"]),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),

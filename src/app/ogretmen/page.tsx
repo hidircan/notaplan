@@ -1,16 +1,29 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { readData } from "@/lib/store";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { actionMarkAttendance } from "@/lib/actions";
 import { CalendarDays, Home, Music2, Users } from "lucide-react";
+import { requireSessionContext } from "@/lib/auth/session";
+import { LogoutButton } from "@/components/logout-button";
 
 export const dynamic = "force-dynamic";
 
-/** Demo öğretmen portalı — örnek: Can Yılmaz (Gitar / Erzene) */
+/** Öğretmen portalı — oturumdaki teacherId ile kapsamlanır */
 export default async function OgretmenPortalPage() {
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/ogretmen");
+  }
+  if (session.role === "PARENT") redirect("/veli");
+
   const data = await readData();
-  const teacher = data.teachers.find((t) => t.id === "t2") ?? data.teachers[0];
+  const teacherId = session.teacherId || "t2";
+  const teacher = data.teachers.find((t) => t.id === teacherId) ?? data.teachers[0];
+  if (!teacher) redirect("/login");
   const branch = data.settings.branches.find((b) => b.id === teacher.branchId);
   const students = data.students.filter((s) => s.teacherId === teacher.id && s.active);
 
@@ -47,9 +60,12 @@ export default async function OgretmenPortalPage() {
               </p>
             </div>
           </div>
-          <Link href="/" className="text-slate-400">
-            <Home className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <LogoutButton className="!text-xs" />
+            <Link href="/" className="text-slate-400">
+              <Home className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -1,16 +1,33 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { readData } from "@/lib/store";
 import { Badge, Card } from "@/components/ui";
 import { formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { CalendarDays, Home, Music2, RefreshCcw, CreditCard } from "lucide-react";
+import { requireSessionContext } from "@/lib/auth/session";
+import { LogoutButton } from "@/components/logout-button";
 
 export const dynamic = "force-dynamic";
 
-/** Demo veli portalı — örnek: Selin Arslan (Zeynep'in velisi) */
+/** Veli portalı — oturumdaki studentId ile kapsamlanır */
 export default async function VeliPortalPage() {
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/veli");
+  }
+  if (session.role === "TEACHER") redirect("/ogretmen");
+  if (session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN") {
+    // admins may preview; fall through
+  } else if (session.role !== "PARENT" && session.role !== "AI_AGENT") {
+    redirect("/login?next=/veli");
+  }
+
   const data = await readData();
-  // Demo: ilk öğrencinin velisi gibi göster; gerçekte login olur
-  const student = data.students.find((s) => s.id === "s1") ?? data.students[0];
+  const studentId = session.studentId || "s1";
+  const student = data.students.find((s) => s.id === studentId) ?? data.students[0];
+  if (!student) redirect("/login");
   const teacher = data.teachers.find((t) => t.id === student.teacherId);
   const branch = data.settings.branches.find((b) => b.id === student.branchId);
 
@@ -39,9 +56,12 @@ export default async function VeliPortalPage() {
               <p className="text-[11px] text-slate-500">Veli portalı</p>
             </div>
           </div>
-          <Link href="/" className="text-xs text-violet-600">
-            <Home className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <LogoutButton className="!text-xs text-slate-500" />
+            <Link href="/" className="text-xs text-violet-600">
+              <Home className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </header>
 

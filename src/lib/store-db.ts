@@ -13,6 +13,13 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot } from "./makeup-engine";
 import { addDays } from "date-fns";
+import { requireTenantId, tryTenantId } from "./tenant-context";
+import { DEFAULT_TENANT_ID } from "./auth/config";
+import { getBootstrapUsersForSeed } from "./auth/users";
+
+function tenantId(): string {
+  return tryTenantId() ?? DEFAULT_TENANT_ID;
+}
 
 type PrismaSchoolWithRelations = Prisma.SchoolGetPayload<{
   include: {
@@ -30,6 +37,7 @@ type PrismaSchoolWithRelations = Prisma.SchoolGetPayload<{
 function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
   return {
     settings: {
+      tenantId: school.tenantId,
       name: school.name,
       shortName: school.shortName,
       city: school.city,
@@ -173,20 +181,35 @@ export function getDashboardStats(data: AppData) {
 }
 
 async function seedDatabase(seed: AppData) {
+  const tid = seed.settings.tenantId || tenantId();
+
   await prisma.$transaction([
-    prisma.attendance.deleteMany(),
-    prisma.makeupRequest.deleteMany(),
-    prisma.payment.deleteMany(),
-    prisma.lesson.deleteMany(),
-    prisma.student.deleteMany(),
-    prisma.teacher.deleteMany(),
-    prisma.room.deleteMany(),
-    prisma.branch.deleteMany(),
-    prisma.school.deleteMany(),
+    prisma.user.deleteMany({ where: { tenantId: tid } }),
+    prisma.attendance.deleteMany({ where: { tenantId: tid } }),
+    prisma.makeupRequest.deleteMany({ where: { tenantId: tid } }),
+    prisma.payment.deleteMany({ where: { tenantId: tid } }),
+    prisma.lesson.deleteMany({ where: { tenantId: tid } }),
+    prisma.student.deleteMany({ where: { tenantId: tid } }),
+    prisma.teacher.deleteMany({ where: { tenantId: tid } }),
+    prisma.room.deleteMany({ where: { tenantId: tid } }),
+    prisma.branch.deleteMany({ where: { tenantId: tid } }),
+    prisma.school.deleteMany({ where: { tenantId: tid } }),
   ]);
+
+  await prisma.tenant.upsert({
+    where: { id: tid },
+    create: {
+      id: tid,
+      name: seed.settings.name,
+      slug: tid,
+      active: true,
+    },
+    update: { name: seed.settings.name, active: true },
+  });
 
   const school = await prisma.school.create({
     data: {
+      tenantId: tid,
       name: seed.settings.name,
       shortName: seed.settings.shortName,
       city: seed.settings.city,
@@ -203,6 +226,7 @@ async function seedDatabase(seed: AppData) {
       branches: {
         create: seed.settings.branches.map((branch) => ({
           id: branch.id,
+          tenantId: tid,
           name: branch.name,
           shortName: branch.shortName,
           address: branch.address,
@@ -218,6 +242,7 @@ async function seedDatabase(seed: AppData) {
       prisma.teacher.create({
         data: {
           id: teacher.id,
+          tenantId: tid,
           name: teacher.name,
           email: teacher.email,
           phone: teacher.phone,
@@ -238,6 +263,7 @@ async function seedDatabase(seed: AppData) {
       prisma.room.create({
         data: {
           id: room.id,
+          tenantId: tid,
           name: room.name,
           branchId: room.branchId,
           schoolId: school.id,
@@ -253,6 +279,7 @@ async function seedDatabase(seed: AppData) {
       prisma.student.create({
         data: {
           id: student.id,
+          tenantId: tid,
           name: student.name,
           email: student.email,
           phone: student.phone,
@@ -278,6 +305,7 @@ async function seedDatabase(seed: AppData) {
       prisma.lesson.create({
         data: {
           id: lesson.id,
+          tenantId: tid,
           studentId: lesson.studentId,
           teacherId: lesson.teacherId,
           roomId: lesson.roomId,
@@ -300,6 +328,7 @@ async function seedDatabase(seed: AppData) {
       prisma.attendance.create({
         data: {
           id: attendance.id,
+          tenantId: tid,
           lessonId: attendance.lessonId,
           studentId: attendance.studentId,
           schoolId: school.id,
@@ -317,6 +346,7 @@ async function seedDatabase(seed: AppData) {
       prisma.payment.create({
         data: {
           id: payment.id,
+          tenantId: tid,
           studentId: payment.studentId,
           schoolId: school.id,
           amount: payment.amount,
@@ -336,6 +366,7 @@ async function seedDatabase(seed: AppData) {
       prisma.makeupRequest.create({
         data: {
           id: request.id,
+          tenantId: tid,
           studentId: request.studentId,
           teacherId: request.teacherId,
           branchId: request.branchId,
@@ -355,37 +386,43 @@ async function seedDatabase(seed: AppData) {
     )
   );
 
+  // Auth users for this tenant (bcrypt hashed)
+  await prisma.user.createMany({
+    data: getBootstrapUsersForSeed(tid).map((u) => ({
+      ...u,
+      email: u.email.toLowerCase(),
+    })),
+  });
+
   return school;
 }
 
+const schoolInclude = {
+  branches: true,
+  teachers: true,
+  students: true,
+  rooms: true,
+  lessons: true,
+  attendances: true,
+  makeupRequests: true,
+  payments: true,
+} as const;
+
 export async function readData(): Promise<AppData> {
+  const tid = tenantId();
   const school = await prisma.school.findFirst({
-    include: {
-      branches: true,
-      teachers: true,
-      students: true,
-      rooms: true,
-      lessons: true,
-      attendances: true,
-      makeupRequests: true,
-      payments: true,
-    },
+    where: { tenantId: tid },
+    include: schoolInclude,
   });
 
   if (!school) {
-    logger.info("readData", "no school found, seeding demo data");
-    await seedDatabase(createSeedData());
+    logger.info("readData", "no school for tenant, seeding", tid);
+    const seed = createSeedData();
+    seed.settings.tenantId = tid;
+    await seedDatabase(seed);
     const seededSchool = await prisma.school.findFirst({
-      include: {
-        branches: true,
-        teachers: true,
-        students: true,
-        rooms: true,
-        lessons: true,
-        attendances: true,
-        makeupRequests: true,
-        payments: true,
-      },
+      where: { tenantId: tid },
+      include: schoolInclude,
     });
     if (!seededSchool) throw new Error("Okul verisi bulunamadı");
     return mapSchoolToAppData(seededSchool);
@@ -395,8 +432,10 @@ export async function readData(): Promise<AppData> {
 }
 
 export async function resetData(): Promise<AppData> {
-  logger.info("resetData", "resetting db demo data");
-  await seedDatabase(createSeedData());
+  logger.info("resetData", "resetting tenant demo data");
+  const seed = createSeedData();
+  seed.settings.tenantId = tenantId();
+  await seedDatabase(seed);
   return readData();
 }
 
@@ -407,7 +446,10 @@ export async function markAttendance(input: {
 }): Promise<AppData> {
   logger.info("markAttendance", input.lessonId, input.status);
 
-  const lesson = await prisma.lesson.findUnique({ where: { id: input.lessonId } });
+  const tid = requireTenantId();
+  const lesson = await prisma.lesson.findFirst({
+    where: { id: input.lessonId, tenantId: tid },
+  });
   if (!lesson) throw new Error("Ders bulunamadı");
 
   const createsMakeupCredit =
@@ -422,14 +464,14 @@ export async function markAttendance(input: {
       ? "cancelled"
       : lesson.status;
 
-  await prisma.lesson.update({
-    where: { id: input.lessonId },
+  await prisma.lesson.updateMany({
+    where: { id: input.lessonId, tenantId: tid },
     data: { status: lessonStatus },
   });
 
   let attendanceId: string;
   const existingAttendance = await prisma.attendance.findFirst({
-    where: { lessonId: input.lessonId },
+    where: { lessonId: input.lessonId, tenantId: tid },
   });
 
   if (existingAttendance) {
@@ -444,26 +486,31 @@ export async function markAttendance(input: {
     });
     attendanceId = updated.id;
   } else {
-      const created = await prisma.attendance.create({
-        data: {
-          lessonId: input.lessonId,
-          studentId: lesson.studentId,
-          schoolId: lesson.schoolId,
-          status: input.status,
-          reason: input.reason,
-          markedAt: new Date(),
-          createsMakeupCredit,
-        },
-      });
-      attendanceId = created.id;
-    }
+    const created = await prisma.attendance.create({
+      data: {
+        tenantId: tid,
+        lessonId: input.lessonId,
+        studentId: lesson.studentId,
+        schoolId: lesson.schoolId,
+        status: input.status,
+        reason: input.reason,
+        markedAt: new Date(),
+        createsMakeupCredit,
+      },
+    });
+    attendanceId = created.id;
+  }
   await prisma.makeupRequest.deleteMany({
-    where: { sourceLessonId: input.lessonId },
+    where: { sourceLessonId: input.lessonId, tenantId: tid },
   });
 
   if (createsMakeupCredit) {
-    const branch = await prisma.branch.findUnique({ where: { id: lesson.branchId } });
-    const school = await prisma.school.findUnique({ where: { id: lesson.schoolId } });
+    const branch = await prisma.branch.findFirst({
+      where: { id: lesson.branchId, tenantId: tid },
+    });
+    const school = await prisma.school.findFirst({
+      where: { id: lesson.schoolId, tenantId: tid },
+    });
     const policyNote =
       input.status === "cancelled_by_school"
         ? `Okul kaynaklı iptal — öncelikli yerleştirme · ${branch?.shortName ?? ""}`
@@ -471,6 +518,7 @@ export async function markAttendance(input: {
 
     await prisma.makeupRequest.create({
       data: {
+        tenantId: tid,
         studentId: lesson.studentId,
         teacherId: lesson.teacherId,
         branchId: lesson.branchId,
@@ -494,14 +542,19 @@ export async function markAttendance(input: {
 
 export async function generateSuggestions(requestId: string): Promise<AppData> {
   logger.info("generateSuggestions", requestId);
+  const tid = requireTenantId();
   const data = await readData();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
   const slots = suggestMakeupSlots(data, request);
   const slotsJson = JSON.parse(JSON.stringify(slots)) as Prisma.JsonArray;
+  const existing = await prisma.makeupRequest.findFirst({
+    where: { id: requestId, tenantId: tid },
+  });
+  if (!existing) throw new Error("Telafi talebi bulunamadı");
   await prisma.makeupRequest.update({
-    where: { id: requestId },
+    where: { id: existing.id },
     data: { status: "suggested", suggestedSlots: slotsJson },
   });
   return readData();
@@ -509,18 +562,22 @@ export async function generateSuggestions(requestId: string): Promise<AppData> {
 
 export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
   logger.info("confirmSlot", requestId, slot.startAt, slot.teacherId, slot.roomId);
+  const tid = requireTenantId();
   const data = await readData();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
   const { lessonId } = confirmMakeupSlot(data, requestId, slot);
 
-  const branch = await prisma.branch.findUnique({ where: { id: request.branchId } });
+  const branch = await prisma.branch.findFirst({
+    where: { id: request.branchId, tenantId: tid },
+  });
   if (!branch) throw new Error("Şube bulunamadı");
 
   await prisma.lesson.create({
     data: {
       id: lessonId,
+      tenantId: tid,
       studentId: request.studentId,
       teacherId: slot.teacherId,
       roomId: slot.roomId,
@@ -536,8 +593,8 @@ export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<
     },
   });
 
-  await prisma.makeupRequest.update({
-    where: { id: requestId },
+  await prisma.makeupRequest.updateMany({
+    where: { id: requestId, tenantId: tid },
     data: { status: "confirmed", confirmedLessonId: lessonId },
   });
 
@@ -546,10 +603,12 @@ export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<
 
 export async function cancelMakeup(requestId: string): Promise<AppData> {
   logger.info("cancelMakeup", requestId);
-  await prisma.makeupRequest.update({
-    where: { id: requestId },
+  const tid = requireTenantId();
+  const updated = await prisma.makeupRequest.updateMany({
+    where: { id: requestId, tenantId: tid },
     data: { status: "cancelled" },
   });
+  if (updated.count === 0) throw new Error("Telafi talebi bulunamadı");
   return readData();
 }
 
@@ -557,12 +616,16 @@ export async function addStudent(
   student: Omit<Student, "id" | "createdAt" | "active">
 ): Promise<AppData> {
   logger.info("addStudent", student.name);
-  const branch = await prisma.branch.findUnique({ where: { id: student.branchId } });
+  const tid = requireTenantId();
+  const branch = await prisma.branch.findFirst({
+    where: { id: student.branchId, tenantId: tid },
+  });
   if (!branch) throw new Error("Şube bulunamadı");
   await prisma.student.create({
     data: {
       ...student,
       id: `stu_${Date.now().toString(36)}`,
+      tenantId: tid,
       schoolId: branch.schoolId,
       active: true,
       createdAt: new Date(),
@@ -576,13 +639,17 @@ export async function addTeacher(
   teacher: Omit<Teacher, "id" | "active" | "color">
 ): Promise<AppData> {
   logger.info("addTeacher", teacher.name);
-  const branch = await prisma.branch.findUnique({ where: { id: teacher.branchId } });
+  const tid = requireTenantId();
+  const branch = await prisma.branch.findFirst({
+    where: { id: teacher.branchId, tenantId: tid },
+  });
   if (!branch) throw new Error("Şube bulunamadı");
   const colors = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
   await prisma.teacher.create({
     data: {
       ...teacher,
       id: `tch_${Date.now().toString(36)}`,
+      tenantId: tid,
       schoolId: branch.schoolId,
       active: true,
       color: colors[Math.floor(Math.random() * colors.length)],
@@ -595,11 +662,14 @@ export async function addTeacher(
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   logger.info("markPaymentPaid", paymentId);
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  const tid = requireTenantId();
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, tenantId: tid },
+  });
   if (!payment) throw new Error("Ödeme bulunamadı");
 
-  await prisma.payment.update({
-    where: { id: paymentId },
+  await prisma.payment.updateMany({
+    where: { id: paymentId, tenantId: tid },
     data: {
       status: "paid",
       paidAmount: payment.amount,
