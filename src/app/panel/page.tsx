@@ -56,7 +56,7 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Bugünkü dersler"
-          value={stats.todayLessons}
+          value={stats.todayLessonCount}
           hint="Planlanan seanslar"
           accent="violet"
           icon={<CalendarDays className="h-5 w-5" />}

@@ -166,7 +166,7 @@ export function getDashboardStats(data: AppData) {
     overdueCount: overduePayments.length,
     revenuePaid,
     revenueDue,
-    todayLessons: todayLessons.length,
+    todayLessonCount: todayLessons.length,
     activeStudents,
     activeTeachers,
   };

@@ -1,6 +1,7 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { resolveDataDir } from "./config";
+/**
+ * Serverless / demo memory store.
+ * Process warm olduğu sürece veri kalır; cold start'ta seed yeniden yüklenir.
+ */
 import { createSeedData } from "./seed";
 import type {
   AppData,
@@ -16,34 +17,30 @@ import { suggestMakeupSlots, confirmMakeupSlot } from "./makeup-engine";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
-const DATA_DIR = resolveDataDir(path.join(process.cwd(), "data"));
-const DATA_FILE = path.join(DATA_DIR, "store.json");
+const g = globalThis as unknown as { __notaplanData?: AppData };
 
-async function ensureDataFile() {
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    const seed = createSeedData();
-    await fs.writeFile(DATA_FILE, JSON.stringify(seed, null, 2), "utf-8");
+function load(): AppData {
+  if (!g.__notaplanData) {
+    g.__notaplanData = createSeedData();
   }
+  return g.__notaplanData;
+}
+
+function save(data: AppData): AppData {
+  g.__notaplanData = data;
+  return data;
 }
 
 export async function readData(): Promise<AppData> {
-  await ensureDataFile();
-  const raw = await fs.readFile(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as AppData;
+  return load();
 }
 
 export async function writeData(data: AppData): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+  save(data);
 }
 
 export async function resetData(): Promise<AppData> {
-  const seed = createSeedData();
-  await writeData(seed);
-  return seed;
+  return save(createSeedData());
 }
 
 export async function markAttendance(input: {
@@ -51,7 +48,7 @@ export async function markAttendance(input: {
   status: AttendanceStatus;
   reason?: string;
 }): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const lesson = data.lessons.find((l) => l.id === input.lessonId);
   if (!lesson) throw new Error("Ders bulunamadı");
 
@@ -104,18 +101,16 @@ export async function markAttendance(input: {
     makeupRequests = [...makeupRequests, req];
   }
 
-  const next: AppData = {
+  return save({
     ...data,
     lessons,
     attendances: [...filtered, attendance],
     makeupRequests,
-  };
-  await writeData(next);
-  return next;
+  });
 }
 
 export async function generateSuggestions(requestId: string): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
@@ -125,47 +120,40 @@ export async function generateSuggestions(requestId: string): Promise<AppData> {
       ? { ...m, status: "suggested" as const, suggestedSlots: slots }
       : m
   );
-  const next = { ...data, makeupRequests };
-  await writeData(next);
-  return next;
+  return save({ ...data, makeupRequests });
 }
 
 export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const { data: next } = confirmMakeupSlot(data, requestId, slot);
-  await writeData(next);
-  return next;
+  return save(next);
 }
 
 export async function cancelMakeup(requestId: string): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const makeupRequests = data.makeupRequests.map((m) =>
     m.id === requestId ? { ...m, status: "cancelled" as const } : m
   );
-  const next = { ...data, makeupRequests };
-  await writeData(next);
-  return next;
+  return save({ ...data, makeupRequests });
 }
 
 export async function addStudent(
   student: Omit<Student, "id" | "createdAt" | "active">
 ): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const s: Student = {
     ...student,
     id: uid("stu"),
     active: true,
     createdAt: new Date().toISOString(),
   };
-  const next = { ...data, students: [...data.students, s] };
-  await writeData(next);
-  return next;
+  return save({ ...data, students: [...data.students, s] });
 }
 
 export async function addTeacher(
   teacher: Omit<Teacher, "id" | "active" | "color">
 ): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const colors = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
   const t: Teacher = {
     ...teacher,
@@ -173,13 +161,11 @@ export async function addTeacher(
     active: true,
     color: colors[data.teachers.length % colors.length],
   };
-  const next = { ...data, teachers: [...data.teachers, t] };
-  await writeData(next);
-  return next;
+  return save({ ...data, teachers: [...data.teachers, t] });
 }
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
-  const data = await readData();
+  const data = load();
   const payments: Payment[] = data.payments.map((p) =>
     p.id === paymentId
       ? {
@@ -191,9 +177,7 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
         }
       : p
   );
-  const next = { ...data, payments };
-  await writeData(next);
-  return next;
+  return save({ ...data, payments });
 }
 
 export function getDashboardStats(data: AppData) {
