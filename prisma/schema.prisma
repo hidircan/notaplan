@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model School {
+  id                    String    @id @default(cuid())
+  name                  String
+  shortName             String
+  city                  String
+  website               String
+  email                 String
+  phone                 String
+  logoUrl               String
+  makeupWindowDays      Int
+  lessonDurationMinutes Int
+  workingHoursStart     String
+  workingHoursEnd       String
+  workingDays           Json
+  currency              String
+  branches              Branch[]
+  teachers              Teacher[]
+  students              Student[]
+  rooms                 Room[]
+  lessons               Lesson[]
+  attendances           Attendance[]
+  makeupRequests        MakeupRequest[]
+  payments              Payment[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Branch {
+  id             String    @id @default(cuid())
+  school         School    @relation(fields: [schoolId], references: [id])
+  schoolId       String
+  name           String
+  shortName      String
+  address        String
+  phone          String
+  city           String
+  teachers       Teacher[]
+  students       Student[]
+  rooms          Room[]
+  lessons        Lesson[]
+  makeupRequests MakeupRequest[]
+}
+
+model Teacher {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  phone          String
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  branchId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  schoolId       String
+  instruments    Json
+  availability   Json
+  maxDailyLessons Int
+  active         Boolean
+  color          String
+  students       Student[]
+  lessons        Lesson[]
+  makeupRequests MakeupRequest[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Student {
+  id               String    @id @default(cuid())
+  name             String
+  email            String
+  phone            String
+  parentName       String
+  parentPhone      String
+  branch           Branch    @relation(fields: [branchId], references: [id])
+  branchId         String
+  school           School    @relation(fields: [schoolId], references: [id])
+  schoolId         String
+  instruments      Json
+  teacher          Teacher   @relation(fields: [teacherId], references: [id])
+  teacherId        String
+  packageName      String
+  weeklyLessonCount Int
+  monthlyFee       Int
+  active           Boolean
+  notes            String
+  createdAt        DateTime  @default(now())
+  lessons          Lesson[]
+  attendances      Attendance[]
+  payments         Payment[]
+  makeupRequests   MakeupRequest[]
+}
+
+model Room {
+  id          String    @id @default(cuid())
+  name        String
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  branchId    String
+  school      School    @relation(fields: [schoolId], references: [id])
+  schoolId    String
+  capacity    Int
+  instruments Json
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id              String    @id @default(cuid())
+  student         Student   @relation(fields: [studentId], references: [id])
+  studentId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  teacherId       String
+  room            Room      @relation(fields: [roomId], references: [id])
+  roomId          String
+  branch          Branch    @relation(fields: [branchId], references: [id])
+  branchId        String
+  school          School    @relation(fields: [schoolId], references: [id])
+  schoolId        String
+  instrument      String
+  startAt         DateTime
+  endAt           DateTime
+  type            String
+  status          String
+  makeupRequestId String? 
+  notes           String?
+  attendances     Attendance[]
+}
+
+model Attendance {
+  id                   String   @id @default(cuid())
+  lesson               Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId             String   @unique
+  student              Student  @relation(fields: [studentId], references: [id])
+  studentId            String
+  status               String
+  reason               String?
+  markedAt             DateTime
+  createsMakeupCredit  Boolean
+  school               School   @relation(fields: [schoolId], references: [id])
+  schoolId             String
+  makeupRequest        MakeupRequest?
+}
+
+model MakeupRequest {
+  id                String       @id @default(cuid())
+  student           Student      @relation(fields: [studentId], references: [id])
+  studentId         String
+  teacher           Teacher      @relation(fields: [teacherId], references: [id])
+  teacherId         String
+  branch            Branch       @relation(fields: [branchId], references: [id])
+  branchId          String
+  school            School       @relation(fields: [schoolId], references: [id])
+  schoolId          String
+  instrument        String
+  sourceLessonId    String
+  attendance        Attendance    @relation(fields: [attendanceId], references: [id])
+  attendanceId      String      @unique
+  status            String
+  reason            String
+  expiresAt         DateTime
+  suggestedSlots    Json
+  confirmedLessonId String?
+  createdAt         DateTime
+  policyNote        String
+
+  @@index([sourceLessonId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  student     Student  @relation(fields: [studentId], references: [id])
+  studentId   String
+  school      School   @relation(fields: [schoolId], references: [id])
+  schoolId    String
+  amount      Int
+  paidAmount  Int
+  status      String
+  dueDate     DateTime
+  paidAt      DateTime?
+  description String
+  method      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
