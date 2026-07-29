@@ -23,7 +23,7 @@ export default async function TelafiPage() {
     <div>
       <PageHeader
         title="Telafi Merkezi"
-        description="Devamsızlık ve okul iptallerinden doğan telafi haklarını otomatik slot önerisiyle planlayın. Bu ürünün en güçlü satış noktası."
+        description="Açık telafi taleplerini listeleyin, şube / öğretmen / oda çakışmalarını tarayın ve en iyi slotu onaylayarak dersi programa alın."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -49,7 +49,7 @@ export default async function TelafiPage() {
       {open.length === 0 ? (
         <EmptyState
           title="Açık telafi talebi yok"
-          description="Yoklama sayfasından devamsızlık işaretlediğinizde burada otomatik görünür."
+          description="Gelmedi veya okul iptalini işaretlediğiniz dersler buraya gelir; ardından uygun slot önerisi yapabilirsiniz."
         />
       ) : (
         <div className="space-y-4">

@@ -47,13 +47,16 @@ export default async function VeliPortalPage() {
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <Card className="border-violet-100 bg-white">
-          <p className="text-xs font-medium uppercase tracking-wide text-violet-600">Hoş geldiniz</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-violet-600">Veliler için demo</p>
           <h1 className="mt-1 text-xl font-semibold text-slate-900">{student.parentName}</h1>
           <p className="mt-1 text-sm text-slate-600">
             Öğrenci: <strong>{student.name}</strong> · {student.instruments.join(", ")}
           </p>
           <p className="text-sm text-slate-500">
             {branch?.name} · Öğretmen: {teacher?.name}
+          </p>
+          <p className="mt-2 text-xs text-slate-400">
+            Bu sayfa demo görünümüdür. Gerçekte veli kendi hesabıyla giriş yapar ve telafi / ödeme bilgilerini görür.
           </p>
         </Card>
 

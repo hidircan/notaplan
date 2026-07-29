@@ -35,7 +35,7 @@ export default async function DashboardPage() {
     <div>
       <PageHeader
         title="Günlük özet"
-        description={`${data.settings.name} · Erzene & Evka 3 · ${data.settings.city} — telafi, program ve tahsilat.`}
+        description={`${data.settings.name} demo paneli — Erzene & Evka 3 için günlük ders programı, açık telafiler ve tahsilat uyarılarını gösterir.`}
         actions={
           <>
             <Link href="/panel/telafi">
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Bugünkü dersler"
-          value={stats.todayLessonCount}
+          value={stats.todayLessons}
           hint="Planlanan seanslar"
           accent="violet"
           icon={<CalendarDays className="h-5 w-5" />}
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
               <p className="font-semibold text-slate-900">Satış demo senaryosu</p>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
                 1) Yoklamada devamsızlık işaretle → 2) Telafi hakkı oluşsun → 3) Otomatik slot öner → 4)
-                Onayla ve programa yaz. Müzik okulu müdürüne 5 dakikada anlatılabilir.
+                Onayla ve programa yaz. Bu akış müzik okulu müdürünün günlük işini destekler.
               </p>
             </div>
           </div>
