@@ -47,31 +47,12 @@ npm run dev
 
 → [http://localhost:3000](http://localhost:3000)
 
-## Vercel + MySQL canlıya alma
-
-1. Vercel projesini GitHub repo ile bağla.
-2. Vercel Dashboard -> Project Settings -> Environment Variables bölümüne aşağıdakileri ekle:
-
-```env
-STORE_MODE=db
-DATABASE_PROVIDER=mysql
-DATABASE_URL=mysql://user:password@host:3306/database
-```
-
-3. Vercel build komutunu `npm run build` olarak ayarla.
-4. Vercel, `prebuild` betiği sayesinde önce `npx prisma generate` çalıştıracak.
-5. Deploy tamamlandıktan sonra uygulama DB modunda çalışacak.
-
-> Not: Vercel için kalıcı veri saklamak istersen `sqlite` yerine MySQL / PlanetScale / Amazon RDS / Neon gibi bir DB kullan.
-
-## Teknik
-
 Demo verisini sıfırlamak: panel özet sayfasındaki **Demo verisini sıfırla**.
 
 ## Teknik
 
 - Next.js (App Router) + TypeScript + Tailwind
-- Prisma + MySQL production-ready persistence
+- JSON store: `data/store.json` (demo, sıfır altyapı)
 - Telafi motoru: `src/lib/makeup-engine.ts` (şube + öğretmen + oda skoru)
 - WhatsApp şablonları: `src/lib/whatsapp-templates.ts`
 

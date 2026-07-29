@@ -9,8 +9,7 @@ export default async function YoklamaPage() {
   const data = await readData();
 
   // Son 14 gün + bugün + yarın dersleri
-  const now = new Date();
-  const cutoff = now.getTime() - 14 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
   const lessons = [...data.lessons]
     .filter((l) => new Date(l.startAt).getTime() >= cutoff)
     .sort((a, b) => b.startAt.localeCompare(a.startAt));
@@ -19,19 +18,15 @@ export default async function YoklamaPage() {
     <div>
       <PageHeader
         title="Yoklama"
-        description="Ders yoklamasını buradan kaydedin. Gelmedi veya okul iptal seçildiğinde telafi hakkı otomatik oluşturulur."
+        description="Dersi işaretleyin. Devamsızlık veya okul iptali otomatik telafi hakkı oluşturur."
       />
-
-      <Card className="mb-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        Gelmedi / okul iptal seçenekleri telafi hakkı üretir. Sonra Telafi Merkezi’ne gidip uygun slotu seçin ve veli/öğretmene haber verin.
-      </Card>
 
       <div className="space-y-3">
         {lessons.map((lesson) => {
           const student = data.students.find((s) => s.id === lesson.studentId);
           const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
           const attendance = data.attendances.find((a) => a.lessonId === lesson.id);
-          const isPast = new Date(lesson.startAt).getTime() < now.getTime();
+          const isPast = new Date(lesson.startAt).getTime() < Date.now();
 
           return (
             <Card key={lesson.id}>

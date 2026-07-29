@@ -4,15 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npx prisma generate",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "prisma:generate": "prisma generate",
-    "db:push": "npx prisma db push"
+    "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/adapter-mariadb": "7.9.1",
     "@prisma/client": "^7.8.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

@@ -120,7 +120,8 @@ export default function LandingPage() {
           kurtar
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base text-slate-300 sm:text-lg">
-          Yoklama, telafi, program, ödeme ve veli/öğretmen bildirimi bir arada. Nilüfer Acar Müzik Akademisi için geliştirilmiş canlı demo verisiyle, Erzene ve Evka 3 şubelerinin günlük iş akışını gösteriyor.
+          Yoklama, program, telafi planlama, ödemeler ve veli bildirimi tek panelde. İlk uygulama:{" "}
+          <strong className="text-white">Nilüfer Acar Müzik Akademisi</strong> — Erzene & Evka 3.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -218,7 +219,7 @@ export default function LandingPage() {
       <section id="ozellikler" className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="text-center text-3xl font-semibold">Okulun her gün kullandığı araçlar</h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-slate-400">
-          Excel ve WhatsApp gruplarını bırakın. Okul, öğretmen, veli ve öğrenci verisini tek yerden yönetin.
+          Excel ve sohbet grupları yerine tek sistem. Müdüre 5 dakikada anlatılır.
         </p>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {features.map((f) => (
@@ -233,49 +234,8 @@ export default function LandingPage() {
           ))}
         </div>
         <div className="mt-8 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5 text-sm text-amber-100">
-          <strong>Demo akışı:</strong> Yoklama al → Gelmedi / iptal seç → Telafi hakkı oluşur → Uygun slot önerilir → Onayla → WhatsApp mesajı hazır.
-        </div>
-      </section>
-
-      {/* Workflow */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <h2 className="text-center text-3xl font-semibold">Gerçek kullanım akışı</h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-slate-400">
-          Uygulamayı bir müzik okulu yöneticisi gibi kullanın: yoklamayı kaydedin, telafi hakkını yönetin, uygun slotları önerin ve veli/öğretmene bildirim gönderin.
-        </p>
-        <div className="mt-10 grid gap-5 md:grid-cols-4">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
-              1. Yoklama
-            </p>
-            <p className="mt-4 text-sm text-slate-300">
-              Dersi seçin, devamsızlık veya okul iptalini işaretleyin. Sistem otomatik telafi hakkı oluşturur.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
-              2. Telafi talebi
-            </p>
-            <p className="mt-4 text-sm text-slate-300">
-              Açık telafi talepleri panelde görünür. Hangi öğrencinin hangi dersi telafi edeceğini izleyin.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
-              3. Uygun slot
-            </p>
-            <p className="mt-4 text-sm text-slate-300">
-              Şube, öğretmen ve oda müsaitliğine göre öneriler sunar. Tek tıkla en iyi telafi zamanını seçin.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
-              4. Bildirim
-            </p>
-            <p className="mt-4 text-sm text-slate-300">
-              Onaylanan telafir için veliye ve öğretmene WhatsApp mesajı hazırlar. Manuel gönderim ya da ileride API entegrasyonu.
-            </p>
-          </div>
+          <strong>Demo akışı:</strong> Yoklama → Gelmedi → Telafi hakkı → Slot öner → Onayla →
+          WhatsApp mesajı hazır.
         </div>
       </section>
 
