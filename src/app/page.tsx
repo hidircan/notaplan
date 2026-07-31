@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   CalendarDays,
   Check,
@@ -10,6 +11,7 @@ import {
   ExternalLink,
   ArrowRight,
 } from "lucide-react";
+import { getSessionContext, homePathForRole } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,12 @@ const plans = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await getSessionContext();
+  if (session) {
+    redirect(homePathForRole(session.role));
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0612] text-white">
       {/* Nav */}
