@@ -41,10 +41,12 @@ export function TahsilatMessageApproval({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasPhone = parentPhone.trim().length > 0;
   const waLink = useMemo(
-    () => `https://wa.me/${phoneToWa(parentPhone)}?text=${encodeURIComponent(message)}`,
-    [message, parentPhone]
+    () => (hasPhone ? `https://wa.me/${phoneToWa(parentPhone)}?text=${encodeURIComponent(message)}` : null),
+    [hasPhone, message, parentPhone]
   );
+  const hasCase = Boolean(caseId);
   const approved = status !== "draft";
 
   async function saveStatus(nextStatus: FollowUpStatus) {
@@ -67,7 +69,11 @@ export function TahsilatMessageApproval({
         setStatus(nextStatus);
         setSaved(true);
         router.refresh();
+      } else {
+        setError("İşlem kaydedilemedi. Lütfen tekrar deneyin.");
       }
+    } catch {
+      setError("İşlem kaydedilemedi. Lütfen tekrar deneyin.");
     } finally {
       setBusy(false);
     }
@@ -94,11 +100,11 @@ export function TahsilatMessageApproval({
   }
 
   const statusLabel: Record<FollowUpStatus, string> = {
-    draft: "Göndermeden önce onay gerekli",
-    approved: "Onaylandı",
-    sent: "Gönderildi",
+    draft: "Taslak · henüz takip başlatılmadı",
+    approved: "Onaylandı · gönderime hazır",
+    sent: "Sistemde gönderildi olarak kaydedildi",
     replied: "Yanıt alındı",
-    paid: "Ödendi · ROI'ye eklendi",
+    paid: "Ödendi · ROI'ye eklendi",
     lost: "Kapatıldı (tahsil edilemedi)",
   };
 
@@ -117,34 +123,45 @@ export function TahsilatMessageApproval({
           onChange={(event) => setMessage(event.target.value)}
           rows={5}
           className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
-          aria-label={`${studentName} için veli mesajı`}
+          aria-label={`${studentName} için veli mesajı`}
         />
       ) : (
         <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2.5 text-sm leading-relaxed text-slate-600">{message}</p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={() => setEditing((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          <PencilLine className="h-4 w-4" /> {editing ? "Taslağı kaydet" : "Düzenle"}
+          <PencilLine className="h-4 w-4" /> {editing ? "Taslağı kaydet" : "Düzenle"}
         </button>
         {status === "draft" && (
           <button type="button" disabled={busy} onClick={() => void saveStatus("approved")} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
-            <CheckCircle2 className="h-4 w-4" /> Onayla
+            <CheckCircle2 className="h-4 w-4" /> {hasCase ? "Onayla" : "Takip başlat"}
           </button>
         )}
-        <a
-          href={waLink}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!approved}
-          onClick={(event) => {
-            if (!approved) { event.preventDefault(); return; }
-            if (status === "approved") void saveStatus("sent");
-          }}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white ${approved ? "bg-emerald-600 hover:bg-emerald-700" : "cursor-not-allowed bg-slate-300"}`}
-        >
-          {approved ? <ExternalLink className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          WhatsApp&apos;ta aç
-        </a>
+        {approved && hasPhone ? (
+          <a
+            href={waLink ?? undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            <ExternalLink className="h-4 w-4" />
+            WhatsApp&apos;ta aç
+          </a>
+        ) : approved ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+            <Send className="h-4 w-4" /> Veli telefonu eksik — WhatsApp linki oluşturulamıyor
+          </span>
+        ) : null}
+        {status === "approved" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void saveStatus("sent")}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Sistemde gönderildi olarak kaydet
+          </button>
+        )}
         {status === "sent" || status === "replied" ? (
           <>
             {status === "sent" && (
@@ -153,7 +170,7 @@ export function TahsilatMessageApproval({
               </button>
             )}
             <button type="button" disabled={busy} onClick={() => void markPaid()} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-              <CircleDollarSign className="h-4 w-4" /> Ödendi işaretle
+              <CircleDollarSign className="h-4 w-4" /> Ödendi işaretle
             </button>
           </>
         ) : null}
