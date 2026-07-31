@@ -230,6 +230,9 @@ export function confirmMakeupSlot(
 ): { data: AppData; lessonId: string } {
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
+  if (request.status !== "pending" && request.status !== "suggested") {
+    throw new Error("Bu telafi talebi zaten sonuçlandırılmış");
+  }
 
   const lessonId = `l_mk_${Date.now().toString(36)}`;
   const lesson: Lesson = {

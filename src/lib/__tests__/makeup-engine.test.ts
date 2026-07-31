@@ -248,4 +248,26 @@ describe("makeup-engine · confirmMakeupSlot", () => {
       "Telafi talebi bulunamadı"
     );
   });
+
+  it("zaten onaylanmış talebi tekrar onaylatmaz (çift onay koruması)", () => {
+    const data = buildFixture();
+    const request = data.makeupRequests[0];
+    const slot: MakeupSlot = {
+      startAt: at(8, 10, 0),
+      endAt: at(8, 10, 45),
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      score: 90,
+      reasons: ["Aynı öğretmen"],
+    };
+
+    const { data: confirmed } = confirmMakeupSlot(data, request.id, slot);
+    const lessonCountAfterFirst = confirmed.lessons.length;
+
+    expect(() => confirmMakeupSlot(confirmed, request.id, slot)).toThrow(
+      "Bu telafi talebi zaten sonuçlandırılmış"
+    );
+    expect(confirmed.lessons.length).toBe(lessonCountAfterFirst);
+  });
 });
