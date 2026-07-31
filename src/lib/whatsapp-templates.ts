@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { AppData, Lesson, MakeupRequest, Student, Teacher } from "./types";
 
@@ -154,10 +154,10 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
   const school = data.settings.name;
   const msgs: WaMessage[] = [];
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const now = new Date();
   for (const att of data.attendances.filter((a) => a.status === "absent")) {
     const lesson = data.lessons.find((l) => l.id === att.lessonId);
-    if (!lesson || !lesson.startAt.startsWith(todayKey)) continue;
+    if (!lesson || !isSameDay(parseISO(lesson.startAt), now)) continue;
     const student = data.students.find((s) => s.id === att.studentId);
     if (!student) continue;
     msgs.push(templateAbsenceNotice(school, student, lesson, att.reason || "Devamsızlık"));
