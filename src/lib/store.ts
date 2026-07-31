@@ -16,7 +16,7 @@ type StoreApi = {
     status: AttendanceStatus;
     reason?: string;
   }) => Promise<AppData>;
-  generateSuggestions: (requestId: string) => Promise<AppData>;
+  generateSuggestions: (requestId: string, options?: { maxSlots?: number }) => Promise<AppData>;
   confirmSlot: (requestId: string, slot: MakeupSlot) => Promise<AppData>;
   cancelMakeup: (requestId: string) => Promise<AppData>;
   addStudent: (student: Omit<Student, "id" | "createdAt" | "active">) => Promise<AppData>;
@@ -93,8 +93,11 @@ export async function markAttendance(input: {
   return withTenantScope(() => store.markAttendance(input));
 }
 
-export async function generateSuggestions(requestId: string): Promise<AppData> {
-  return withTenantScope(() => store.generateSuggestions(requestId));
+export async function generateSuggestions(
+  requestId: string,
+  options?: { maxSlots?: number }
+): Promise<AppData> {
+  return withTenantScope(() => store.generateSuggestions(requestId, options));
 }
 
 export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {

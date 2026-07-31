@@ -129,12 +129,15 @@ export async function markAttendance(input: {
   });
 }
 
-export async function generateSuggestions(requestId: string): Promise<AppData> {
+export async function generateSuggestions(
+  requestId: string,
+  options?: { maxSlots?: number }
+): Promise<AppData> {
   const data = load();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
-  const slots = suggestMakeupSlots(data, request);
+  const slots = suggestMakeupSlots(data, request, options);
   const makeupRequests = data.makeupRequests.map((m) =>
     m.id === requestId
       ? { ...m, status: "suggested" as const, suggestedSlots: slots }

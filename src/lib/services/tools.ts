@@ -83,7 +83,13 @@ export async function findAvailableSlotsTool(
   const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "AI_AGENT", "SUPER_ADMIN"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
-  const v = parseOrFail(z.object({ requestId: z.string().min(1) }), input);
+  const v = parseOrFail(
+    z.object({
+      requestId: z.string().min(1),
+      maxSlots: z.number().int().positive().max(50).optional(),
+    }),
+    input
+  );
   if (!v.ok) return v;
 
   try {
@@ -91,9 +97,10 @@ export async function findAvailableSlotsTool(
     const request = data.makeupRequests.find((m) => m.id === v.data.requestId);
     if (!request) return fail("NOT_FOUND", "Makeup request not found");
 
-    const slots = suggestMakeupSlots(data, request);
+    const options = v.data.maxSlots ? { maxSlots: v.data.maxSlots } : undefined;
+    const slots = suggestMakeupSlots(data, request, options);
     // Persist suggestions via existing store path
-    await generateSuggestions(v.data.requestId);
+    await generateSuggestions(v.data.requestId, options);
     return ok({ requestId: v.data.requestId, slots });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "findAvailableSlots failed");

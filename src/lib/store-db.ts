@@ -540,14 +540,17 @@ export async function markAttendance(input: {
   return readData();
 }
 
-export async function generateSuggestions(requestId: string): Promise<AppData> {
+export async function generateSuggestions(
+  requestId: string,
+  options?: { maxSlots?: number }
+): Promise<AppData> {
   logger.info("generateSuggestions", requestId);
   const tid = requireTenantId();
   const data = await readData();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
-  const slots = suggestMakeupSlots(data, request);
+  const slots = suggestMakeupSlots(data, request, options);
   const slotsJson = JSON.parse(JSON.stringify(slots)) as Prisma.JsonArray;
   const existing = await prisma.makeupRequest.findFirst({
     where: { id: requestId, tenantId: tid },

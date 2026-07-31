@@ -69,10 +69,13 @@ export async function actionMarkAttendance(formData: FormData) {
 
 export async function actionGenerateSuggestions(formData: FormData) {
   try {
+    const rawMaxSlots = Number(formData.get("maxSlots"));
+    const maxSlots = Number.isFinite(rawMaxSlots) && rawMaxSlots > 0 ? rawMaxSlots : undefined;
     await withAuthContext(async (ctx) => {
       assertOk(
         await findAvailableSlotsTool(ctx, {
           requestId: String(formData.get("requestId") || ""),
+          maxSlots,
         })
       );
     });
