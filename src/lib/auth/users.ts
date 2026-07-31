@@ -39,6 +39,24 @@ const BOOTSTRAP: BootstrapUser[] = [
     studentId: "s1",
   },
   {
+    /** Demo persona: gecikmiş ödeme + açık telafi talebi (s5) */
+    userId: "user_parent_s5",
+    email: "deniz@email.com",
+    password: process.env.AUTH_PARENT_PASSWORD || "demo-parent",
+    role: "PARENT",
+    tenantId: DEFAULT_TENANT_ID,
+    studentId: "s5",
+  },
+  {
+    /** Demo persona: kısmi ödeme + öncelikli (okul kaynaklı) telafi talebi (s4) */
+    userId: "user_parent_s4",
+    email: "mehmet@email.com",
+    password: process.env.AUTH_PARENT_PASSWORD || "demo-parent",
+    role: "PARENT",
+    tenantId: DEFAULT_TENANT_ID,
+    studentId: "s4",
+  },
+  {
     userId: "user_agent",
     email: "agent@notaplan.app",
     password: process.env.AUTH_AGENT_PASSWORD || "demo-agent",
