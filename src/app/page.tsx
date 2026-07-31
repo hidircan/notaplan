@@ -7,8 +7,6 @@ import {
   Music2,
   RefreshCcw,
   Sparkles,
-  MapPin,
-  ExternalLink,
   ArrowRight,
 } from "lucide-react";
 import { getSessionContext, homePathForRole } from "@/lib/auth/session";
@@ -33,8 +31,6 @@ const features = [
   },
 ];
 
-const instruments = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"];
-
 const plans = [
   {
     name: "Başlangıç",
@@ -49,7 +45,7 @@ const plans = [
     name: "Akademi",
     price: "4.500 ₺",
     period: "/ay",
-    blurb: "Nilüfer Acar gibi 2 şubeli okullar için",
+    blurb: "2 şubeli okullar için",
     features: [
       "2 şube (Erzene + Evka 3)",
       "Telafi + öncelikli yerleştirme",
@@ -94,9 +90,6 @@ export default async function LandingPage() {
           <a href="#fiyat" className="hover:text-white">
             Fiyatlandırma
           </a>
-          <a href="#musteri" className="hover:text-white">
-            İlk okul
-          </a>
           <Link
             href="/login"
             className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-violet-100"
@@ -127,97 +120,29 @@ export default async function LandingPage() {
           kurtar
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base text-slate-300 sm:text-lg">
-          Yoklama, telafi, program, ödeme ve veli/öğretmen bildirimi bir arada. Nilüfer Acar Müzik Akademisi için geliştirilmiş canlı demo verisiyle, Erzene ve Evka 3 şubelerinin günlük iş akışını gösteriyor.
+          Yoklama, telafi, program, ödeme ve veli/öğretmen bildirimi bir arada. Gerçekçi demo
+          verisiyle çok şubeli bir müzik okulunun günlük iş akışını gösteriyor.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/panel"
+            href="/login"
             className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold shadow-lg shadow-violet-600/30 hover:bg-violet-500"
           >
-            Canlı demo paneli
+            Demo panelini aç
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href="/veli"
+            href="/login?next=/veli"
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium hover:bg-white/10"
           >
             Veli portalı
           </Link>
           <Link
-            href="/ogretmen"
+            href="/login?next=/ogretmen"
             className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium hover:bg-white/10"
           >
             Öğretmen portalı
           </Link>
-        </div>
-      </section>
-
-      {/* First customer */}
-      <section id="musteri" className="border-y border-white/10 bg-white/[0.03] py-14">
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-2 md:items-center">
-          <div>
-            <p className="text-sm font-medium text-violet-300">İlk sunum müşterisi</p>
-            <h2 className="mt-2 text-3xl font-semibold">Nilüfer Acar Müzik Akademisi</h2>
-            <p className="mt-3 text-slate-300">
-              2016&apos;dan beri Bornova / İzmir. MEB&apos;e bağlı eğitim kurumu. Her yaşa uygun
-              enstrüman eğitimi.
-            </p>
-            <ul className="mt-5 space-y-2 text-sm text-slate-300">
-              <li className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
-                <span>
-                  <strong className="text-white">Erzene şubesi</strong> — Erzene Mah. Türkeli Cad.
-                  No:18/A Bornova
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
-                <span>
-                  <strong className="text-white">Evka 3 şubesi</strong> — Bornova / İzmir
-                </span>
-              </li>
-              <li className="text-slate-400">
-                Tel: 0553 848 16 58 · merhaba@niluferacar.com.tr
-              </li>
-            </ul>
-            <a
-              href="https://www.niluferacar.com.tr"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-violet-300 hover:text-violet-200"
-            >
-              niluferacar.com.tr
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">
-              Aktif dersler
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {instruments.map((i) => (
-                <span
-                  key={i}
-                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-sm"
-                >
-                  {i}
-                </span>
-              ))}
-            </div>
-            <p className="mt-4 text-xs text-slate-400">
-              Yeni enstrümanlar (bağlama, ud, klarnet vb.) panele kolayca eklenebilir.
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-2xl bg-black/30 p-4">
-                <p className="text-2xl font-semibold">2</p>
-                <p className="text-xs text-slate-400">Şube</p>
-              </div>
-              <div className="rounded-2xl bg-black/30 p-4">
-                <p className="text-2xl font-semibold">6</p>
-                <p className="text-xs text-slate-400">Enstrüman (şu an)</p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -347,26 +272,16 @@ export default async function LandingPage() {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
-            href="/panel"
+            href="/login"
             className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold hover:bg-violet-500"
           >
-            Yönetim paneli
-          </Link>
-          <Link
-            href="/panel/bildirimler"
-            className="rounded-xl border border-white/15 px-5 py-3 text-sm font-medium hover:bg-white/10"
-          >
-            WhatsApp mesajları
+            Giriş yap
           </Link>
         </div>
       </section>
 
       <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-500">
-        NotaPlan · İlk müşteri:{" "}
-        <a href="https://www.niluferacar.com.tr" className="text-violet-300 hover:underline">
-          Nilüfer Acar Müzik Akademisi
-        </a>{" "}
-        · github.com/hidircan
+        NotaPlan · github.com/hidircan
       </footer>
     </div>
   );
