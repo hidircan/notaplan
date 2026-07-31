@@ -154,6 +154,15 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
   const school = data.settings.name;
   const msgs: WaMessage[] = [];
 
+  const todayKey = new Date().toISOString().slice(0, 10);
+  for (const att of data.attendances.filter((a) => a.status === "absent")) {
+    const lesson = data.lessons.find((l) => l.id === att.lessonId);
+    if (!lesson || !lesson.startAt.startsWith(todayKey)) continue;
+    const student = data.students.find((s) => s.id === att.studentId);
+    if (!student) continue;
+    msgs.push(templateAbsenceNotice(school, student, lesson, att.reason || "Devamsızlık"));
+  }
+
   for (const req of data.makeupRequests.filter((m) => m.status === "pending" || m.status === "suggested")) {
     const student = data.students.find((s) => s.id === req.studentId);
     if (!student) continue;
