@@ -6,6 +6,8 @@
 
 import { z } from "zod";
 import {
+  addLesson,
+  addPayment,
   addRoom,
   addStudent,
   addTeacher,
@@ -27,7 +29,9 @@ import {
 } from "../whatsapp-templates";
 import {
   attendanceSchema,
+  lessonSchema,
   makeupSlotSchema,
+  paymentRecordSchema,
   roomSchema,
   studentSchema,
   teacherSchema,
@@ -490,6 +494,61 @@ export async function createRoomTool(
     return ok({ roomId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createRoom failed");
+  }
+}
+
+export async function createLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(lessonSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const before = await readData();
+    const ids = new Set(before.lessons.map((l) => l.id));
+    await addLesson({
+      studentId: v.data.studentId,
+      teacherId: v.data.teacherId,
+      roomId: v.data.roomId,
+      instrument: v.data.instrument as Instrument,
+      startAt: v.data.startAt,
+    });
+    const after = await readData();
+    const created = after.lessons.find((l) => !ids.has(l.id));
+    return ok({ lessonId: created?.id ?? "unknown" });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createLesson failed");
+  }
+}
+
+export async function createPaymentRecordTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ paymentId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(paymentRecordSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const before = await readData();
+    const ids = new Set(before.payments.map((p) => p.id));
+    await addPayment({
+      studentId: v.data.studentId,
+      description: v.data.description,
+      amount: v.data.amount,
+      dueDate: v.data.dueDate,
+    });
+    const after = await readData();
+    const created = after.payments.find((p) => !ids.has(p.id));
+    return ok({ paymentId: created?.id ?? "unknown" });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createPaymentRecord failed");
   }
 }
 

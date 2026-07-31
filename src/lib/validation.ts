@@ -44,6 +44,21 @@ export const roomSchema = z.object({
     .min(1),
 });
 
+export const lessonSchema = z.object({
+  studentId: z.string().min(1),
+  teacherId: z.string().min(1),
+  roomId: z.string().min(1),
+  instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
+  startAt: z.string().min(1),
+});
+
+export const paymentRecordSchema = z.object({
+  studentId: z.string().min(1),
+  description: z.string().min(1),
+  amount: z.coerce.number().int().min(1),
+  dueDate: z.string().min(1),
+});
+
 export const makeupSlotSchema = z.object({
   startAt: z.string().min(1),
   endAt: z.string().min(1),

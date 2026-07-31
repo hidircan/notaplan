@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { actionAddLesson } from "@/lib/actions";
 import { readData } from "@/lib/store";
-import { Badge, Card, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
 import { WeekDatePicker } from "@/components/week-date-picker";
 import { addDays, formatDate, formatTime, startOfWeek } from "@/lib/utils";
+import { INSTRUMENTS } from "@/lib/types";
 import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -85,6 +87,71 @@ export default async function ProgramPage({
 
         <WeekDatePicker value={weekStartParam} />
       </div>
+
+      <details className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700">
+          Yeni ders planla
+        </summary>
+        <form action={actionAddLesson} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <Label>Öğrenci</Label>
+            <Select name="studentId" defaultValue={data.students.find((s) => s.active)?.id}>
+              {data.students
+                .filter((s) => s.active)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Öğretmen</Label>
+            <Select name="teacherId" defaultValue={data.teachers.find((t) => t.active)?.id}>
+              {data.teachers
+                .filter((t) => t.active)
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Oda</Label>
+            <Select name="roomId" defaultValue={data.rooms[0]?.id}>
+              {data.rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Enstrüman</Label>
+            <Select name="instrument" defaultValue="Piyano">
+              {INSTRUMENTS.map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Tarih ve saat</Label>
+            <Input name="startAt" type="datetime-local" required />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" className="w-full">
+              Dersi planla
+            </Button>
+          </div>
+        </form>
+        <p className="mt-2 text-xs text-slate-400">
+          Ders süresi okul ayarına göre otomatik hesaplanır; çakışma ve müsaitlik kontrolleri
+          sunucuda yapılır.
+        </p>
+      </details>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {data.teachers.map((t) => (

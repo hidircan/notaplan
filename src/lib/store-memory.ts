@@ -9,6 +9,8 @@ import type {
   AppData,
   Attendance,
   AttendanceStatus,
+  Instrument,
+  Lesson,
   MakeupRequest,
   MakeupSlot,
   Payment,
@@ -16,7 +18,7 @@ import type {
   Student,
   Teacher,
 } from "./types";
-import { suggestMakeupSlots, confirmMakeupSlot } from "./makeup-engine";
+import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
@@ -208,6 +210,56 @@ export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   const data = load();
   const r: Room = { ...room, id: uid("room") };
   return save({ ...data, rooms: [...data.rooms, r] });
+}
+
+export async function addLesson(input: {
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  instrument: Instrument;
+  startAt: string;
+}): Promise<AppData> {
+  const data = load();
+  const validation = validateLessonSlot(
+    data,
+    { instrument: input.instrument, studentId: input.studentId },
+    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt }
+  );
+  if (!validation.ok) throw new Error(validation.message);
+  const slot = validation.slot;
+  const lesson: Lesson = {
+    id: uid("les"),
+    studentId: input.studentId,
+    teacherId: slot.teacherId,
+    roomId: slot.roomId,
+    branchId: slot.branchId,
+    instrument: input.instrument,
+    startAt: slot.startAt,
+    endAt: slot.endAt,
+    type: "regular",
+    status: "scheduled",
+  };
+  return save({ ...data, lessons: [...data.lessons, lesson] });
+}
+
+export async function addPayment(input: {
+  studentId: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+}): Promise<AppData> {
+  const data = load();
+  const isOverdue = new Date(input.dueDate).getTime() < Date.now();
+  const payment: Payment = {
+    id: uid("pay"),
+    studentId: input.studentId,
+    amount: input.amount,
+    paidAmount: 0,
+    status: isOverdue ? "overdue" : "pending",
+    dueDate: input.dueDate,
+    description: input.description,
+  };
+  return save({ ...data, payments: [...data.payments, payment] });
 }
 
 export function getDashboardStats(data: AppData) {

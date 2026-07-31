@@ -12,7 +12,7 @@ import type {
   Student,
   Teacher,
 } from "./types";
-import { suggestMakeupSlots, confirmMakeupSlot } from "./makeup-engine";
+import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { addDays } from "date-fns";
 import { requireTenantId, tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
@@ -700,6 +700,77 @@ export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
       branchId: room.branchId,
       capacity: room.capacity,
       instruments: room.instruments,
+    },
+  });
+  return readData();
+}
+
+export async function addLesson(input: {
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  instrument: Instrument;
+  startAt: string;
+}): Promise<AppData> {
+  logger.info("addLesson", input.studentId, input.teacherId, input.roomId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const validation = validateLessonSlot(
+    data,
+    { instrument: input.instrument, studentId: input.studentId },
+    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt }
+  );
+  if (!validation.ok) throw new Error(validation.message);
+  const slot = validation.slot;
+
+  const branch = await prisma.branch.findFirst({
+    where: { id: slot.branchId, tenantId: tid },
+  });
+  if (!branch) throw new Error("Şube bulunamadı");
+
+  await prisma.lesson.create({
+    data: {
+      id: `les_${Date.now().toString(36)}`,
+      tenantId: tid,
+      studentId: input.studentId,
+      teacherId: slot.teacherId,
+      roomId: slot.roomId,
+      branchId: slot.branchId,
+      schoolId: branch.schoolId,
+      instrument: input.instrument,
+      startAt: new Date(slot.startAt),
+      endAt: new Date(slot.endAt),
+      type: "regular",
+      status: "scheduled",
+    },
+  });
+  return readData();
+}
+
+export async function addPayment(input: {
+  studentId: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+}): Promise<AppData> {
+  logger.info("addPayment", input.studentId, input.amount);
+  const tid = requireTenantId();
+  const student = await prisma.student.findFirst({
+    where: { id: input.studentId, tenantId: tid },
+  });
+  if (!student) throw new Error("Öğrenci bulunamadı");
+  const isOverdue = new Date(input.dueDate).getTime() < Date.now();
+  await prisma.payment.create({
+    data: {
+      id: `pay_${Date.now().toString(36)}`,
+      tenantId: tid,
+      studentId: input.studentId,
+      schoolId: student.schoolId,
+      amount: input.amount,
+      paidAmount: 0,
+      status: isOverdue ? "overdue" : "pending",
+      dueDate: new Date(input.dueDate),
+      description: input.description,
     },
   });
   return readData();

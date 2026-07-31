@@ -3,6 +3,7 @@ import * as jsonStore from "./store-json";
 import type {
   AppData,
   AttendanceStatus,
+  Instrument,
   MakeupSlot,
   Room,
   Student,
@@ -24,6 +25,19 @@ type StoreApi = {
   addTeacher: (teacher: Omit<Teacher, "id" | "active" | "color">) => Promise<AppData>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
+  addLesson: (input: {
+    studentId: string;
+    teacherId: string;
+    roomId: string;
+    instrument: Instrument;
+    startAt: string;
+  }) => Promise<AppData>;
+  addPayment: (input: {
+    studentId: string;
+    description: string;
+    amount: number;
+    dueDate: string;
+  }) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -128,6 +142,25 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   return withTenantScope(() => store.addRoom(room));
+}
+
+export async function addLesson(input: {
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  instrument: Instrument;
+  startAt: string;
+}): Promise<AppData> {
+  return withTenantScope(() => store.addLesson(input));
+}
+
+export async function addPayment(input: {
+  studentId: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+}): Promise<AppData> {
+  return withTenantScope(() => store.addPayment(input));
 }
 
 export function getDashboardStats(data: AppData) {

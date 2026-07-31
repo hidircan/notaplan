@@ -15,6 +15,8 @@ import {
   createStudentTool,
   createTeacherTool,
   createRoomTool,
+  createLessonTool,
+  createPaymentRecordTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   resetDemoTool,
@@ -221,6 +223,49 @@ export async function actionAddRoom(formData: FormData) {
     revalidateAll();
   } catch (error) {
     logger.error("actionAddRoom failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+export async function actionAddLesson(formData: FormData) {
+  try {
+    await withAuthContext(async (ctx) => {
+      const startAtRaw = String(formData.get("startAt") || "");
+      const startAt = startAtRaw ? new Date(startAtRaw).toISOString() : "";
+      assertOk(
+        await createLessonTool(ctx, {
+          studentId: String(formData.get("studentId") || ""),
+          teacherId: String(formData.get("teacherId") || ""),
+          roomId: String(formData.get("roomId") || ""),
+          instrument: String(formData.get("instrument") || "Piyano"),
+          startAt,
+        })
+      );
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionAddLesson failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+export async function actionAddPayment(formData: FormData) {
+  try {
+    await withAuthContext(async (ctx) => {
+      assertOk(
+        await createPaymentRecordTool(ctx, {
+          studentId: String(formData.get("studentId") || ""),
+          description: String(formData.get("description") || ""),
+          amount: Number(formData.get("amount") || 0),
+          dueDate: String(formData.get("dueDate") || ""),
+        })
+      );
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionAddPayment failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
   }

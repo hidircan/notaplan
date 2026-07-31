@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { addDays } from "date-fns";
-import { confirmMakeupSlot, suggestMakeupSlots, validateMakeupSlot } from "../makeup-engine";
+import { confirmMakeupSlot, suggestMakeupSlots, validateLessonSlot } from "../makeup-engine";
 import { createSeedData } from "../seed";
 import type { AppData, Lesson } from "../types";
 
@@ -131,7 +131,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     const startAt = at(offset, 15, 0);
     expect(defaultSuggestions.some((s) => s.startAt === startAt)).toBe(false);
 
-    const validation = validateMakeupSlot(data, request, {
+    const validation = validateLessonSlot(data, request, {
       teacherId: "t1",
       roomId: "r1",
       startAt,
@@ -173,7 +173,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     };
     data.lessons.push(conflict);
 
-    const result = validateMakeupSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
+    const result = validateLessonSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("TEACHER_CONFLICT");
   });
@@ -197,7 +197,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     };
     data.lessons.push(conflict);
 
-    const result = validateMakeupSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
+    const result = validateLessonSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("STUDENT_CONFLICT");
   });
@@ -221,7 +221,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     };
     data.lessons.push(conflict);
 
-    const result = validateMakeupSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
+    const result = validateLessonSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("ROOM_CONFLICT");
   });
@@ -233,7 +233,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     const mondayOffset = nextDayOffsetForWeekday(1, 3);
     const startAt = at(mondayOffset, 16, 0);
 
-    const result = validateMakeupSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
+    const result = validateLessonSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("TEACHER_UNAVAILABLE");
   });
@@ -245,7 +245,7 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     const offset = nextWorkingDayOffset(10);
     const startAt = at(offset, 11, 0);
 
-    const result = validateMakeupSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
+    const result = validateLessonSlot(data, request, { teacherId: "t1", roomId: "r1", startAt });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("AFTER_EXPIRY");
   });
@@ -288,7 +288,7 @@ describe("makeup-engine · demo senaryosu (Lara) uçtan uca manuel planlama", ()
     for (let offset = 10; offset >= 1 && !targetStart; offset--) {
       const candidate = at(offset, 11, 0);
       if (defaultSuggestions.some((s) => s.startAt === candidate)) continue;
-      const check = validateMakeupSlot(seed, laraRequest!, {
+      const check = validateLessonSlot(seed, laraRequest!, {
         teacherId: laraRequest!.teacherId,
         roomId: "r1",
         startAt: candidate,

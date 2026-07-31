@@ -13,9 +13,11 @@ import {
 import type {
   AppData,
   BranchId,
+  Instrument,
   Lesson,
   MakeupRequest,
   MakeupSlot,
+  MakeupStatus,
   Room,
   Teacher,
 } from "./types";
@@ -135,13 +137,27 @@ type SlotValidationResult =
   | { ok: false; code: SlotValidationCode; message: string };
 
 /**
- * Tek doğrulama kaynağı — hem öneri motoru hem manuel telafi planlama
- * bu fonksiyonu kullanır. Bitiş saati her zaman burada, okul ders süresine
- * göre yeniden hesaplanır; çağıranın gönderdiği bitiş saatine güvenilmez.
+ * Doğrulama için gerekli en küçük bağlam. Bir telafi talebi (MakeupRequest)
+ * bunun bir üst kümesidir, bu yüzden mevcut telafi çağrıları değişmeden
+ * çalışır. `status`/`expiresAt` verilmezse o kurallar atlanır — bu, telafi
+ * dışı (ör. ilk ders planlama) çağrılar içindir.
  */
-export function validateMakeupSlot(
+export type SlotValidationContext = {
+  instrument: Instrument;
+  studentId: string;
+  status?: MakeupStatus;
+  expiresAt?: string;
+};
+
+/**
+ * Tek doğrulama kaynağı — telafi öneri motoru, telafi manuel planlama VE
+ * sıradan (telafi dışı) ders planlama aynı fonksiyonu kullanır. Bitiş saati
+ * her zaman burada, okul ders süresine göre yeniden hesaplanır; çağıranın
+ * gönderdiği bitiş saatine güvenilmez.
+ */
+export function validateLessonSlot(
   data: AppData,
-  request: MakeupRequest,
+  context: SlotValidationContext,
   input: { teacherId: string; roomId: string; startAt: string },
   options?: { excludeLessonId?: string; now?: Date }
 ): SlotValidationResult {
@@ -151,7 +167,11 @@ export function validateMakeupSlot(
     message: SLOT_ERROR_MESSAGES[code],
   });
 
-  if (request.status !== "pending" && request.status !== "suggested") {
+  if (
+    context.status !== undefined &&
+    context.status !== "pending" &&
+    context.status !== "suggested"
+  ) {
     return fail("REQUEST_NOT_OPEN");
   }
 
@@ -164,8 +184,10 @@ export function validateMakeupSlot(
   const duration = data.settings.lessonDurationMinutes;
   const end = addMinutes(start, duration);
 
-  const expire = parseISO(request.expiresAt);
-  if (end > expire) return fail("AFTER_EXPIRY");
+  if (context.expiresAt !== undefined) {
+    const expire = parseISO(context.expiresAt);
+    if (end > expire) return fail("AFTER_EXPIRY");
+  }
 
   const day = startOfDay(start);
   if (!data.settings.workingDays.includes(getDay(day))) return fail("OUTSIDE_WORKING_DAY");
@@ -179,7 +201,7 @@ export function validateMakeupSlot(
   const teacher = data.teachers.find((t) => t.id === input.teacherId);
   if (!teacher) return fail("TEACHER_NOT_FOUND");
   if (!teacher.active) return fail("TEACHER_INACTIVE");
-  if (!teacher.instruments.includes(request.instrument as Teacher["instruments"][number])) {
+  if (!teacher.instruments.includes(context.instrument)) {
     return fail("TEACHER_INSTRUMENT_MISMATCH");
   }
   if (!teacherAvailableOnDay(teacher, day, start, end)) return fail("TEACHER_UNAVAILABLE");
@@ -192,7 +214,7 @@ export function validateMakeupSlot(
 
   const room = data.rooms.find((r) => r.id === input.roomId);
   if (!room) return fail("ROOM_NOT_FOUND");
-  if (!roomSupports(room, request.instrument)) return fail("ROOM_INSTRUMENT_MISMATCH");
+  if (!roomSupports(room, context.instrument)) return fail("ROOM_INSTRUMENT_MISMATCH");
   if (room.branchId !== teacher.branchId) return fail("ROOM_BRANCH_MISMATCH");
   if (!roomFree(room.id, start, end, data.lessons, options?.excludeLessonId)) {
     return fail("ROOM_CONFLICT");
@@ -200,7 +222,7 @@ export function validateMakeupSlot(
 
   const studentBusy = data.lessons.some((l) => {
     if (options?.excludeLessonId && l.id === options.excludeLessonId) return false;
-    if (l.studentId !== request.studentId || l.status === "cancelled") return false;
+    if (l.studentId !== context.studentId || l.status === "cancelled") return false;
     return overlaps(start, end, parseISO(l.startAt), parseISO(l.endAt));
   });
   if (studentBusy) return fail("STUDENT_CONFLICT");
@@ -220,7 +242,7 @@ export function validateMakeupSlot(
 /**
  * Telafi slot motoru:
  * - Aynı öğretmen + enstrüman tercihi
- * - Uygunluk/çakışma kontrolü validateMakeupSlot() ile tek kaynaktan yapılır
+ * - Uygunluk/çakışma kontrolü validateLessonSlot() ile tek kaynaktan yapılır
  * - Skor: öğretmen uyumu, yakınlık, yoğunluk, okul kaynaklı öncelik
  */
 export function suggestMakeupSlots(
@@ -280,7 +302,7 @@ export function suggestMakeupSlots(
         const teacherRooms = roomsFallback.filter((r) => r.branchId === teacher.branchId);
         let matched: ValidatedSlot | null = null;
         for (const room of teacherRooms) {
-          const result = validateMakeupSlot(data, request, {
+          const result = validateLessonSlot(data, request, {
             teacherId: teacher.id,
             roomId: room.id,
             startAt: cursor.toISOString(),
@@ -357,7 +379,7 @@ export function confirmMakeupSlot(
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
-  const validation = validateMakeupSlot(data, request, input);
+  const validation = validateLessonSlot(data, request, input);
   if (!validation.ok) throw new Error(validation.message);
   const slot = validation.slot;
 
