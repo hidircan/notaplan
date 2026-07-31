@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { actionMarkAttendance } from "@/lib/actions";
 import { CalendarDays, Home, Music2, Users } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
+import { TelafiSubmitButton } from "@/components/telafi-submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -118,17 +119,52 @@ export default async function OgretmenPortalPage() {
                         <form action={actionMarkAttendance}>
                           <input type="hidden" name="lessonId" value={lesson.id} />
                           <input type="hidden" name="status" value="present" />
-                          <Button type="submit" variant="success" className="!py-1.5 text-xs">
+                          <TelafiSubmitButton
+                            variant="success"
+                            className="!py-1.5 text-xs"
+                            pendingLabel="Kaydediliyor..."
+                          >
                             Geldi
-                          </Button>
+                          </TelafiSubmitButton>
+                        </form>
+                        <form action={actionMarkAttendance}>
+                          <input type="hidden" name="lessonId" value={lesson.id} />
+                          <input type="hidden" name="status" value="late" />
+                          <TelafiSubmitButton
+                            variant="secondary"
+                            className="!py-1.5 text-xs"
+                            pendingLabel="Kaydediliyor..."
+                          >
+                            Geç kaldı
+                          </TelafiSubmitButton>
                         </form>
                         <form action={actionMarkAttendance}>
                           <input type="hidden" name="lessonId" value={lesson.id} />
                           <input type="hidden" name="status" value="absent" />
                           <input type="hidden" name="reason" value="Öğretmen kaydı — gelmedi" />
-                          <Button type="submit" variant="danger" className="!py-1.5 text-xs">
+                          <TelafiSubmitButton
+                            variant="danger"
+                            className="!py-1.5 text-xs"
+                            pendingLabel="Kaydediliyor..."
+                          >
                             Gelmedi
-                          </Button>
+                          </TelafiSubmitButton>
+                        </form>
+                        <form action={actionMarkAttendance}>
+                          <input type="hidden" name="lessonId" value={lesson.id} />
+                          <input type="hidden" name="status" value="cancelled_by_school" />
+                          <input
+                            type="hidden"
+                            name="reason"
+                            value="Öğretmen kaydı — okul/öğretmen kaynaklı iptal"
+                          />
+                          <TelafiSubmitButton
+                            variant="secondary"
+                            className="!py-1.5 text-xs"
+                            pendingLabel="Kaydediliyor..."
+                          >
+                            Okul iptal
+                          </TelafiSubmitButton>
                         </form>
                       </div>
                     ) : null}
