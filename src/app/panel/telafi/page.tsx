@@ -5,6 +5,7 @@ import {
 } from "@/lib/actions";
 import { readData } from "@/lib/store";
 import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
+import { TelafiSubmitButton } from "@/components/telafi-submit-button";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { CheckCircle2, Sparkles, X } from "lucide-react";
 
@@ -82,10 +83,10 @@ export default async function TelafiPage() {
                   <div className="flex flex-wrap gap-2">
                     <form action={actionGenerateSuggestions}>
                       <input type="hidden" name="requestId" value={req.id} />
-                      <Button type="submit">
+                      <TelafiSubmitButton pendingLabel="Slotlar aranıyor...">
                         <Sparkles className="h-4 w-4" />
                         {req.suggestedSlots.length ? "Slotları yenile" : "Uygun slot öner"}
-                      </Button>
+                      </TelafiSubmitButton>
                     </form>
                     <form action={actionCancelMakeup}>
                       <input type="hidden" name="requestId" value={req.id} />
@@ -139,10 +140,14 @@ export default async function TelafiPage() {
                             <form action={actionConfirmSlot} className="mt-3">
                               <input type="hidden" name="requestId" value={req.id} />
                               <input type="hidden" name="slot" value={JSON.stringify(slot)} />
-                              <Button type="submit" variant="success" className="w-full">
+                              <TelafiSubmitButton
+                                variant="success"
+                                className="w-full"
+                                pendingLabel="Onaylanıyor..."
+                              >
                                 <CheckCircle2 className="h-4 w-4" />
                                 Bu slota onayla
-                              </Button>
+                              </TelafiSubmitButton>
                             </form>
                           </div>
                         );
