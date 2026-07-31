@@ -1,15 +1,42 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { readData } from "@/lib/store";
 import { Badge, Card, PageHeader } from "@/components/ui";
+import { WeekDatePicker } from "@/components/week-date-picker";
 import { addDays, formatDate, formatTime, startOfWeek } from "@/lib/utils";
 import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProgramPage() {
+const WEEK_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function resolveWeekStart(weekParam?: string): Date {
+  if (weekParam && WEEK_PARAM_PATTERN.test(weekParam)) {
+    const parsed = parseISO(weekParam);
+    if (!Number.isNaN(parsed.getTime())) {
+      return startOfWeek(parsed, { weekStartsOn: 1 });
+    }
+  }
+  return startOfWeek(new Date(), { weekStartsOn: 1 });
+}
+
+export default async function ProgramPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>;
+}) {
+  const { week } = await searchParams;
   const data = await readData();
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStart = resolveWeekStart(week);
+  const todayWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const isCurrentWeek = isSameDay(weekStart, todayWeekStart);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const weekStartParam = format(weekStart, "yyyy-MM-dd");
+  const prevWeekParam = format(addDays(weekStart, -7), "yyyy-MM-dd");
+  const nextWeekParam = format(addDays(weekStart, 7), "yyyy-MM-dd");
+  const todayParam = format(todayWeekStart, "yyyy-MM-dd");
 
   const weekLessons = data.lessons.filter((l) => {
     const d = parseISO(l.startAt);
@@ -20,8 +47,44 @@ export default async function ProgramPage() {
     <div>
       <PageHeader
         title="Ders programı"
-        description={`Bu hafta · ${format(weekStart, "d MMM", { locale: tr })} – ${format(addDays(weekStart, 6), "d MMM yyyy", { locale: tr })}`}
+        description="Öğretmen ve stüdyo bazında haftalık ders görünümü."
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/panel/program?week=${prevWeekParam}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <ChevronLeft className="h-4 w-4" /> Önceki hafta
+        </Link>
+
+        <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200">
+          {format(weekStart, "d MMM", { locale: tr })} –{" "}
+          {format(addDays(weekStart, 6), "d MMM yyyy", { locale: tr })}
+        </span>
+
+        <Link
+          href={`/panel/program?week=${nextWeekParam}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Sonraki hafta <ChevronRight className="h-4 w-4" />
+        </Link>
+
+        {isCurrentWeek ? (
+          <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-400">
+            Bugün
+          </span>
+        ) : (
+          <Link
+            href={`/panel/program?week=${todayParam}`}
+            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100"
+          >
+            Bugün
+          </Link>
+        )}
+
+        <WeekDatePicker value={weekStartParam} />
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {data.teachers.map((t) => (
