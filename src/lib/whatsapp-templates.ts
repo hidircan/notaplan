@@ -200,6 +200,118 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
   return msgs;
 }
 
+/** Ders planlama iletişim taslağı — otomatik gönderim yapmaz, yalnızca taslak üretir. */
+export type LessonCommunicationMessage = {
+  audience: "veli" | "öğretmen";
+  toName: string;
+  toPhone: string;
+  body: string;
+  /** Telefon kayıtlı değilse null — bozuk wa.me linki asla üretilmez. */
+  waLink: string | null;
+  missingPhoneReason?: string;
+};
+
+export type LessonCommunicationDraft = {
+  parent: LessonCommunicationMessage;
+  teacher: LessonCommunicationMessage;
+};
+
+function buildLessonMessage(
+  audience: LessonCommunicationMessage["audience"],
+  toName: string,
+  toPhone: string,
+  body: string
+): LessonCommunicationMessage {
+  const digits = toPhone.replace(/\D/g, "");
+  if (!digits) {
+    return {
+      audience,
+      toName,
+      toPhone,
+      body,
+      waLink: null,
+      missingPhoneReason: "Telefon numarası kayıtlı değil.",
+    };
+  }
+  const wa = phoneToWa(toPhone);
+  return {
+    audience,
+    toName,
+    toPhone,
+    body,
+    waLink: `https://wa.me/${wa}?text=${encodeURIComponent(body)}`,
+  };
+}
+
+/** Yeni ders planlanınca veliye taslak */
+export function templateLessonScheduled(
+  school: string,
+  student: Student,
+  lesson: Lesson,
+  teacher: Teacher,
+  branchName: string
+): string {
+  return (
+    `Merhaba ${student.parentName},\n\n` +
+    `${school}\n` +
+    `${student.name} için yeni bir ders planlandı.\n\n` +
+    `📅 ${fmtWhen(lesson.startAt)}\n` +
+    `🎵 ${lesson.instrument}\n` +
+    `👩‍🏫 ${teacher.name}\n` +
+    `📍 ${branchName} şubesi\n\n` +
+    `Katılım sağlayamayacaksanız lütfen önceden bildiriniz.\n` +
+    `Görüşmek üzere.`
+  );
+}
+
+/** Yeni ders planlanınca öğretmene taslak */
+export function templateTeacherLessonAssigned(
+  school: string,
+  teacher: Teacher,
+  student: Student,
+  lesson: Lesson,
+  branchName: string
+): string {
+  return (
+    `Merhaba ${teacher.name},\n\n` +
+    `${school} — programınıza yeni bir ders eklendi.\n\n` +
+    `Öğrenci: ${student.name}\n` +
+    `📅 ${fmtWhen(lesson.startAt)}\n` +
+    `🎵 ${lesson.instrument}\n` +
+    `📍 ${branchName}\n\n` +
+    `Programınızda görünüyor. İyi dersler.`
+  );
+}
+
+/**
+ * Admin bir ders planladığında OTOMATİK mesaj gönderilmez — yalnızca bu saf
+ * fonksiyon çağrılıp UI'da admin'in açık onayıyla erişilebilen bir taslak
+ * üretilir. Telefon kayıtlı değilse `waLink` null döner; hiçbir zaman bozuk
+ * bir wa.me linki üretilmez.
+ */
+export function buildLessonCommunicationDraft(
+  school: string,
+  student: Student,
+  teacher: Teacher,
+  lesson: Lesson,
+  branchName: string
+): LessonCommunicationDraft {
+  return {
+    parent: buildLessonMessage(
+      "veli",
+      student.parentName,
+      student.parentPhone,
+      templateLessonScheduled(school, student, lesson, teacher, branchName)
+    ),
+    teacher: buildLessonMessage(
+      "öğretmen",
+      teacher.name,
+      teacher.phone,
+      templateTeacherLessonAssigned(school, teacher, student, lesson, branchName)
+    ),
+  };
+}
+
 /** Statik şablon katalogu (kopyala-yapıştır) */
 export const TEMPLATE_CATALOG = [
   {
