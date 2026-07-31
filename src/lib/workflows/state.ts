@@ -23,6 +23,9 @@ function filePath() {
   return path.join(resolveDataDir(path.join(process.cwd(), "data")), "workflows.json");
 }
 
+/** Resolved store path — exposed so tests clean up the same file the module writes. */
+export const WORKFLOWS_FILE = filePath();
+
 async function load(): Promise<StoreShape> {
   const m = mem();
   if (Object.keys(m.states).length) return m;

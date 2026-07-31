@@ -313,4 +313,5 @@ model WorkflowRun {
   error      String?
 
   @@index([workflowId, tenantId, startedAt])
+  @@index([tenantId, startedAt])
 }

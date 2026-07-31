@@ -13,7 +13,6 @@ export default async function WorkflowsPage() {
     ctx = await requireSessionContext();
   } catch {
     redirect("/login?next=/panel/workflows");
-    return;
   }
 
   const [workflows, runs] = await Promise.all([
