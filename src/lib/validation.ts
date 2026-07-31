@@ -59,6 +59,14 @@ export const paymentRecordSchema = z.object({
   dueDate: z.string().min(1),
 });
 
+export const suggestLessonSlotsSchema = z.object({
+  studentId: z.string().min(1),
+  instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
+  teacherId: z.string().min(1).optional(),
+  daysAhead: z.coerce.number().int().positive().max(60).optional(),
+  maxSlots: z.coerce.number().int().positive().max(50).optional(),
+});
+
 export const makeupSlotSchema = z.object({
   startAt: z.string().min(1),
   endAt: z.string().min(1),

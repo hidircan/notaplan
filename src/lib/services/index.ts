@@ -20,6 +20,7 @@ export {
   createTeacherTool,
   createRoomTool,
   createLessonTool,
+  suggestLessonSlotsTool,
   createPaymentRecordTool,
   resetDemoTool,
 } from "./tools";

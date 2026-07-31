@@ -94,6 +94,7 @@ export function Button({
   type = "button",
   disabled,
   formAction,
+  onClick,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "ghost" | "danger" | "success";
@@ -101,6 +102,7 @@ export function Button({
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
   formAction?: (formData: FormData) => void | Promise<void>;
+  onClick?: () => void;
 }) {
   const variants = {
     primary: "bg-violet-600 text-white hover:bg-violet-700 shadow-sm shadow-violet-600/20",
@@ -114,6 +116,7 @@ export function Button({
       type={type}
       disabled={disabled}
       formAction={formAction}
+      onClick={onClick}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition disabled:opacity-50",
         variants[variant],

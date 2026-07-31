@@ -20,6 +20,7 @@ import {
   resetData,
 } from "../store";
 import { suggestMakeupSlots } from "../makeup-engine";
+import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
 import { clearFollowUpCases } from "../tahsilat/cases";
 import {
   templateMakeupConfirmed,
@@ -34,6 +35,7 @@ import {
   paymentRecordSchema,
   roomSchema,
   studentSchema,
+  suggestLessonSlotsSchema,
   teacherSchema,
 } from "../validation";
 import type { BranchId, Instrument, MakeupSlot, Student, Teacher } from "../types";
@@ -497,6 +499,27 @@ export async function createRoomTool(
   }
 }
 
+export async function suggestLessonSlotsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ suggestions: LessonSlotSuggestion[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(suggestLessonSlotsSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const suggestions = suggestLessonSlots(data, {
+    studentId: v.data.studentId,
+    instrument: v.data.instrument as Instrument,
+    teacherId: v.data.teacherId,
+    daysAhead: v.data.daysAhead,
+    maxSlots: v.data.maxSlots,
+  });
+  return ok({ suggestions });
+}
+
 export async function createLessonTool(
   ctx: ServiceContext,
   input: unknown
@@ -587,6 +610,7 @@ export const TOOL_CATALOG = [
   { name: "sendTeacherMessage", description: "Build WhatsApp message for teacher" },
   { name: "createStudent", description: "Register a student" },
   { name: "createTeacher", description: "Register a teacher" },
+  { name: "suggestLessonSlots", description: "Suggest available times for a regular lesson" },
   { name: "resetDemo", description: "Reset tenant demo data" },
 ] as const;
 

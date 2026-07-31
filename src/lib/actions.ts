@@ -16,6 +16,7 @@ import {
   createTeacherTool,
   createRoomTool,
   createLessonTool,
+  suggestLessonSlotsTool,
   createPaymentRecordTool,
   findAvailableSlotsTool,
   markAttendanceTool,
@@ -23,6 +24,9 @@ import {
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
+import { readData } from "./store";
+import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./whatsapp-templates";
+import type { LessonSlotSuggestion } from "./lesson-scheduling";
 import type { ServiceContext } from "./services/context";
 
 function revalidateAll() {
@@ -228,26 +232,80 @@ export async function actionAddRoom(formData: FormData) {
   }
 }
 
-export async function actionAddLesson(formData: FormData) {
+export type LessonActionResult =
+  | { ok: true; lessonId: string; communication: LessonCommunicationDraft | null }
+  | { ok: false; message: string };
+
+/**
+ * Hata durumunda fırlatmaz — Program Stüdyosu client bileşeni sonucu
+ * doğrudan gösterip forma bağlamında Türkçe bir hata göstersin diye
+ * `{ ok: false, message }` döner. Başarıda, ders için otomatik gönderim
+ * yapılmayan veli/öğretmen iletişim taslağını da birlikte döndürür.
+ */
+export async function actionAddLesson(formData: FormData): Promise<LessonActionResult> {
   try {
-    await withAuthContext(async (ctx) => {
+    const result = await withAuthContext(async (ctx) => {
       const startAtRaw = String(formData.get("startAt") || "");
       const startAt = startAtRaw ? new Date(startAtRaw).toISOString() : "";
-      assertOk(
-        await createLessonTool(ctx, {
-          studentId: String(formData.get("studentId") || ""),
-          teacherId: String(formData.get("teacherId") || ""),
-          roomId: String(formData.get("roomId") || ""),
-          instrument: String(formData.get("instrument") || "Piyano"),
-          startAt,
-        })
-      );
+      const created = await createLessonTool(ctx, {
+        studentId: String(formData.get("studentId") || ""),
+        teacherId: String(formData.get("teacherId") || ""),
+        roomId: String(formData.get("roomId") || ""),
+        instrument: String(formData.get("instrument") || "Piyano"),
+        startAt,
+      });
+      if (!created.ok) {
+        return { ok: false as const, message: created.error.message };
+      }
+
+      const data = await readData();
+      const lesson = data.lessons.find((l) => l.id === created.data.lessonId);
+      const student = data.students.find((s) => s.id === lesson?.studentId);
+      const teacher = data.teachers.find((t) => t.id === lesson?.teacherId);
+      const branch = data.settings.branches.find((b) => b.id === lesson?.branchId);
+      const communication =
+        lesson && student && teacher
+          ? buildLessonCommunicationDraft(
+              data.settings.name,
+              student,
+              teacher,
+              lesson,
+              branch?.shortName ?? ""
+            )
+          : null;
+
+      return { ok: true as const, lessonId: created.data.lessonId, communication };
     });
-    revalidateAll();
+    if (result.ok) revalidateAll();
+    return result;
   } catch (error) {
     logger.error("actionAddLesson failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
-    throw error;
+    return { ok: false, message: "Ders planlanırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type SuggestLessonSlotsResult =
+  | { ok: true; suggestions: LessonSlotSuggestion[] }
+  | { ok: false; message: string };
+
+export async function actionSuggestLessonSlots(input: {
+  studentId: string;
+  instrument: string;
+  teacherId?: string;
+  daysAhead?: number;
+  maxSlots?: number;
+}): Promise<SuggestLessonSlotsResult> {
+  try {
+    return await withAuthContext(async (ctx) => {
+      const result = await suggestLessonSlotsTool(ctx, input);
+      if (!result.ok) return { ok: false as const, message: result.error.message };
+      return { ok: true as const, suggestions: result.data.suggestions };
+    });
+  } catch (error) {
+    logger.error("actionSuggestLessonSlots failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Uygun saatler aranırken beklenmeyen bir hata oluştu." };
   }
 }
 

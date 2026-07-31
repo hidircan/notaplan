@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { actionAddLesson } from "@/lib/actions";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
+import { Card, PageHeader } from "@/components/ui";
 import { WeekDatePicker } from "@/components/week-date-picker";
-import { addDays, formatDate, formatTime, startOfWeek } from "@/lib/utils";
-import { INSTRUMENTS } from "@/lib/types";
+import { ProgramStudio } from "@/components/program-studio";
+import { addDays, startOfWeek } from "@/lib/utils";
 import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -44,6 +43,8 @@ export default async function ProgramPage({
     const d = parseISO(l.startAt);
     return d >= days[0] && d <= addDays(days[6], 1);
   });
+
+  const branchNames = Object.fromEntries(data.settings.branches.map((b) => [b.id, b.shortName]));
 
   return (
     <div>
@@ -88,71 +89,6 @@ export default async function ProgramPage({
         <WeekDatePicker value={weekStartParam} />
       </div>
 
-      <details className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium text-slate-700">
-          Yeni ders planla
-        </summary>
-        <form action={actionAddLesson} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <Label>Öğrenci</Label>
-            <Select name="studentId" defaultValue={data.students.find((s) => s.active)?.id}>
-              {data.students
-                .filter((s) => s.active)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Öğretmen</Label>
-            <Select name="teacherId" defaultValue={data.teachers.find((t) => t.active)?.id}>
-              {data.teachers
-                .filter((t) => t.active)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Oda</Label>
-            <Select name="roomId" defaultValue={data.rooms[0]?.id}>
-              {data.rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Enstrüman</Label>
-            <Select name="instrument" defaultValue="Piyano">
-              {INSTRUMENTS.map((i) => (
-                <option key={i} value={i}>
-                  {i}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Tarih ve saat</Label>
-            <Input name="startAt" type="datetime-local" required />
-          </div>
-          <div className="flex items-end">
-            <Button type="submit" className="w-full">
-              Dersi planla
-            </Button>
-          </div>
-        </form>
-        <p className="mt-2 text-xs text-slate-400">
-          Ders süresi okul ayarına göre otomatik hesaplanır; çakışma ve müsaitlik kontrolleri
-          sunucuda yapılır.
-        </p>
-      </details>
-
       <div className="mb-4 flex flex-wrap gap-2">
         {data.teachers.map((t) => (
           <span
@@ -165,53 +101,17 @@ export default async function ProgramPage({
         ))}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-7">
-        {days.map((day) => {
-          const dayLessons = weekLessons
-            .filter((l) => isSameDay(parseISO(l.startAt), day))
-            .sort((a, b) => a.startAt.localeCompare(b.startAt));
-
-          return (
-            <Card key={day.toISOString()} className="min-h-[220px] p-3">
-              <div className="mb-3 border-b border-slate-100 pb-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {format(day, "EEEE", { locale: tr })}
-                </p>
-                <p className="text-sm font-semibold text-slate-900">{formatDate(day.toISOString(), "d MMM")}</p>
-              </div>
-              <div className="space-y-2">
-                {dayLessons.length === 0 ? (
-                  <p className="text-xs text-slate-400">Boş</p>
-                ) : (
-                  dayLessons.map((lesson) => {
-                    const student = data.students.find((s) => s.id === lesson.studentId);
-                    const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
-                    const branch = data.settings.branches.find((b) => b.id === lesson.branchId);
-                    return (
-                      <div
-                        key={lesson.id}
-                        className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs"
-                        style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
-                      >
-                        <p className="font-semibold text-slate-800">
-                          {formatTime(lesson.startAt)} {lesson.instrument}
-                        </p>
-                        <p className="text-slate-600">{student?.name}</p>
-                        <p className="text-slate-400">
-                          {teacher?.name} · {branch?.shortName}
-                        </p>
-                        <div className="mt-1">
-                          <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <ProgramStudio
+        students={data.students}
+        teachers={data.teachers}
+        rooms={data.rooms}
+        branchNames={branchNames}
+        lessonDurationMinutes={data.settings.lessonDurationMinutes}
+        workingHours={data.settings.workingHours}
+        days={days.map((d) => d.toISOString())}
+        weekLessons={weekLessons}
+        todayIso={new Date().toISOString()}
+      />
 
       <Card className="mt-6">
         <h2 className="mb-3 font-semibold text-slate-900">Stüdyolar</h2>
