@@ -179,10 +179,11 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
     msgs.push(templateTeacherMakeupAssigned(school, teacher, student, lesson, branch?.shortName || ""));
   }
 
-  const tomorrow = new Date();
+  const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tKey = tomorrow.toISOString().slice(0, 10);
-  for (const lesson of data.lessons.filter((l) => l.startAt.startsWith(tKey) && l.status === "scheduled")) {
+  for (const lesson of data.lessons.filter(
+    (l) => isSameDay(parseISO(l.startAt), tomorrow) && l.status === "scheduled"
+  )) {
     const student = data.students.find((s) => s.id === lesson.studentId);
     const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
     const branch = data.settings.branches.find((b) => b.id === lesson.branchId);

@@ -144,4 +144,30 @@ describe("whatsapp-templates · buildDemoMessages devamsızlık bildirimi (yerel
     const msgs = buildDemoMessages(data);
     expect(msgs.some((m) => m.title === "Devamsızlık bildirimi")).toBe(false);
   });
+
+  it("yarının erken saatlerindeki (00:00-02:59) planlı dersi UTC gün kaymasına rağmen hatırlatır", () => {
+    // "Şimdi": yerel 5 Ağustos 10:00
+    vi.setSystemTime(new Date("2026-08-05T07:00:00.000Z"));
+    // Ders: yerel 6 Ağustos 01:00 (UTC 5 Ağustos 22:00) — UTC tarihi "yarın"dan farklı,
+    // ama yerel takvim günü aynı. Eski `.toISOString().slice(0,10)` karşılaştırması
+    // bu dersi "yarın değil" sanıp hatırlatmayı üretmezdi.
+    const lessonStart = "2026-08-05T22:00:00.000Z";
+
+    const data = buildFixture();
+    data.lessons.push({
+      id: "l1",
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      startAt: lessonStart,
+      endAt: lessonStart,
+      type: "regular",
+      status: "scheduled",
+    });
+
+    const msgs = buildDemoMessages(data);
+    expect(msgs.some((m) => m.title === "Ders hatırlatması")).toBe(true);
+  });
 });
