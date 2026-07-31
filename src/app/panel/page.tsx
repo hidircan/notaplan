@@ -70,7 +70,7 @@ export default async function DashboardPage() {
   if (totalOutstanding > 0) {
     actionCards.push({
       key: "tahsilat",
-      href: "/panel/odemeler",
+      href: "/panel/ai/tahsilat-agent",
       label: hasOverduePayment ? "Gecikmiş tahsilat" : "Bekleyen tahsilat",
       detail: formatMoney(totalOutstanding),
       tone: hasOverduePayment ? "rose" : "amber",

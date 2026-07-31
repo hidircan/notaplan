@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { readData } from "@/lib/store";
 import { PageHeader, StatCard } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
@@ -31,6 +33,14 @@ export default async function OdemelerPage() {
       <PageHeader
         title="Ödemeler"
         description="Aylık paket tahsilatı, gecikmeler ve kısmi ödemeler."
+        actions={
+          <Link
+            href="/panel/ai/tahsilat-agent"
+            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-700"
+          >
+            Tahsilat takibini aç <ArrowRight className="h-4 w-4" />
+          </Link>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
