@@ -26,9 +26,6 @@ export default async function LoginPage({
           </p>
         </div>
         <LoginForm nextPath={params.next} />
-        <p className="mt-6 text-center text-[11px] text-slate-500">
-          Demo: admin@niluferacar.com.tr / demo-admin
-        </p>
       </div>
     </div>
   );
