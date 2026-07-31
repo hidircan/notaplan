@@ -28,7 +28,11 @@ const priorityLabel: Record<string, string> = {
   pending: "Normal",
 };
 
-export default async function TahsilatAgentPage() {
+export default async function TahsilatAgentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ studentId?: string }>;
+}) {
   let session;
   try {
     session = await requireSessionContext();
@@ -36,11 +40,16 @@ export default async function TahsilatAgentPage() {
     redirect("/login?next=/panel/ai/tahsilat-agent");
   }
 
+  const { studentId: studentFilter } = await searchParams;
   const data = await readData();
   const roi = await getCollectionRoi(session.tenantId);
   const followUpCases = await listFollowUpCases(session.tenantId);
+  const filteredStudent = studentFilter
+    ? data.students.find((s) => s.id === studentFilter)
+    : undefined;
   const cases = data.payments
     .filter((payment) => payment.status !== "paid")
+    .filter((payment) => !studentFilter || payment.studentId === studentFilter)
     .map((payment) => ({
       payment,
       student: data.students.find((student) => student.id === payment.studentId),
@@ -67,6 +76,24 @@ export default async function TahsilatAgentPage() {
           </Link>
         }
       />
+
+      {studentFilter ? (
+        <Card className="mb-6 border-violet-200 bg-violet-50/60">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-violet-900">
+              {filteredStudent
+                ? `${filteredStudent.name} için filtrelendi.`
+                : "Bu öğrenci için kayıt bulunamadı — filtre boş sonuç veriyor."}
+            </p>
+            <Link
+              href="/panel/ai/tahsilat-agent"
+              className="text-sm font-medium text-violet-700 hover:text-violet-900"
+            >
+              Tümünü göster ×
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Aksiyon bekleyen veli" value={cases.length} hint="Agent takip kuyruğu" accent="amber" icon={<AlertTriangle className="h-5 w-5" />} />

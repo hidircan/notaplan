@@ -20,6 +20,7 @@ export default async function OdemelerPage() {
 
   const rows: PaymentRow[] = payments.map((p) => ({
     id: p.id,
+    studentId: p.studentId,
     studentName: data.students.find((s) => s.id === p.studentId)?.name ?? "",
     description: p.description,
     method: p.method,

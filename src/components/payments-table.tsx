@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { actionMarkPaymentPaid } from "@/lib/actions";
 import { Badge, Button, Card } from "@/components/ui";
@@ -8,6 +9,7 @@ import type { PaymentStatus } from "@/lib/types";
 
 export type PaymentRow = {
   id: string;
+  studentId: string;
   studentName: string;
   description: string;
   method?: string;
@@ -112,7 +114,14 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             ) : (
               filtered.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{p.studentName}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">
+                    <Link
+                      href={`/panel/odemeler/${p.studentId}`}
+                      className="hover:text-violet-600 hover:underline"
+                    >
+                      {p.studentName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-slate-600">
                     {p.description}
                     {p.method ? (
