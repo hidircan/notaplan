@@ -12,6 +12,16 @@ function at(dayOffset: number, hour: number, minute = 0): string {
   return d.toISOString();
 }
 
+/** Fixture'ın tek çalışma günü Pazartesi (dayOfWeek 1); testler için sıradaki Pazartesi'nin gün farkını bulur. */
+function nextDayOffsetForWeekday(targetDow: number): number {
+  for (let offset = 1; offset <= 14; offset++) {
+    const d = new Date(NOW);
+    d.setDate(d.getDate() + offset);
+    if (d.getDay() === targetDow) return offset;
+  }
+  throw new Error("no matching weekday found within range");
+}
+
 function buildFixture(overrides?: { extraLesson?: Partial<AppData> }): AppData {
   const lesson = {
     id: "l1",
@@ -209,9 +219,10 @@ describe("makeup-engine · confirmMakeupSlot", () => {
   it("ders oluşturur ve talebi confirmed yapar", () => {
     const data = buildFixture();
     const request = data.makeupRequests[0];
+    const mondayOffset = nextDayOffsetForWeekday(1);
     const slot: MakeupSlot = {
-      startAt: at(8, 10, 0),
-      endAt: at(8, 10, 45),
+      startAt: at(mondayOffset, 10, 0),
+      endAt: at(mondayOffset, 10, 45),
       teacherId: "t1",
       roomId: "r1",
       branchId: "erzene",
@@ -252,9 +263,10 @@ describe("makeup-engine · confirmMakeupSlot", () => {
   it("zaten onaylanmış talebi tekrar onaylatmaz (çift onay koruması)", () => {
     const data = buildFixture();
     const request = data.makeupRequests[0];
+    const mondayOffset = nextDayOffsetForWeekday(1);
     const slot: MakeupSlot = {
-      startAt: at(8, 10, 0),
-      endAt: at(8, 10, 45),
+      startAt: at(mondayOffset, 10, 0),
+      endAt: at(mondayOffset, 10, 45),
       teacherId: "t1",
       roomId: "r1",
       branchId: "erzene",

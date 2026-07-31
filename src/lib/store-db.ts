@@ -567,7 +567,7 @@ export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
-  const { lessonId } = confirmMakeupSlot(data, requestId, slot);
+  const { lessonId, slot: validatedSlot } = confirmMakeupSlot(data, requestId, slot);
 
   const branch = await prisma.branch.findFirst({
     where: { id: request.branchId, tenantId: tid },
@@ -579,13 +579,13 @@ export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<
       id: lessonId,
       tenantId: tid,
       studentId: request.studentId,
-      teacherId: slot.teacherId,
-      roomId: slot.roomId,
-      branchId: slot.branchId,
+      teacherId: validatedSlot.teacherId,
+      roomId: validatedSlot.roomId,
+      branchId: validatedSlot.branchId,
       schoolId: branch.schoolId,
       instrument: request.instrument,
-      startAt: new Date(slot.startAt),
-      endAt: new Date(slot.endAt),
+      startAt: new Date(validatedSlot.startAt),
+      endAt: new Date(validatedSlot.endAt),
       type: "makeup",
       status: "scheduled",
       makeupRequestId: requestId,
