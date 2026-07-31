@@ -17,6 +17,7 @@ import { LlmProviderError, getProviderConfig } from "./config";
 import type { AgentToolName } from "../agent/types";
 import { recordAiExecution } from "./metrics";
 import { withRetry } from "./retry";
+import { createExecutionPlan, getExecutableToolCalls } from "./planner";
 
 export type ChatTurnResult = {
   conversation: Conversation;
@@ -218,10 +219,26 @@ export async function runChatTurn(args: {
     return { conversation, assistantMessage, toolMessages: [], provider: provider.name };
   }
 
+  const executionPlan = createExecutionPlan({
+    conversationId: conversation.id,
+    objective: text,
+    toolCalls: plan.toolCalls || [],
+  });
+  void recordAiExecution({
+    conversationId: conversation.id,
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    provider: provider.name,
+    model: cfg.model,
+    phase: "plan",
+    durationMs: 0,
+    success: true,
+    billableUnits: 0,
+  });
   const { toolMessages, toolResults } = await runTools(
     ctx,
     conversation.id,
-    plan.toolCalls || []
+    getExecutableToolCalls(executionPlan)
   );
 
   let assistantText = plan.assistantText;
