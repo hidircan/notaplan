@@ -6,8 +6,11 @@ import {
 import { readData } from "@/lib/store";
 import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
+import { ManualMakeupPlanForm } from "@/components/manual-makeup-plan-form";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { CheckCircle2, Sparkles, X } from "lucide-react";
+
+const MORE_SUGGESTIONS_COUNT = 18;
 
 export const dynamic = "force-dynamic";
 
@@ -83,9 +86,9 @@ export default async function TelafiPage() {
                   <div className="flex flex-wrap gap-2">
                     <form action={actionGenerateSuggestions}>
                       <input type="hidden" name="requestId" value={req.id} />
-                      <TelafiSubmitButton pendingLabel="Slotlar aranıyor...">
+                      <TelafiSubmitButton pendingLabel="Aranıyor...">
                         <Sparkles className="h-4 w-4" />
-                        {req.suggestedSlots.length ? "Slotları yenile" : "Uygun slot öner"}
+                        {req.suggestedSlots.length ? "Saatleri yenile" : "En uygun saatleri bul"}
                       </TelafiSubmitButton>
                     </form>
                     <form action={actionCancelMakeup}>
@@ -100,8 +103,12 @@ export default async function TelafiPage() {
 
                 {req.suggestedSlots.length > 0 ? (
                   <div className="mt-5 border-t border-slate-100 pt-4">
-                    <p className="mb-3 text-sm font-medium text-slate-800">
+                    <p className="text-sm font-medium text-slate-800">
                       Önerilen slotlar (skora göre sıralı)
+                    </p>
+                    <p className="mb-3 mt-1 text-xs text-slate-500">
+                      Bunlar en yüksek puanlı uygun seçeneklerdir; başka bir saat da
+                      planlayabilirsiniz.
                     </p>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {req.suggestedSlots.map((slot, idx) => {
@@ -153,13 +160,42 @@ export default async function TelafiPage() {
                         );
                       })}
                     </div>
+                    <form action={actionGenerateSuggestions} className="mt-3">
+                      <input type="hidden" name="requestId" value={req.id} />
+                      <input type="hidden" name="maxSlots" value={MORE_SUGGESTIONS_COUNT} />
+                      <TelafiSubmitButton variant="secondary" pendingLabel="Aranıyor...">
+                        Daha fazla uygun saat göster
+                      </TelafiSubmitButton>
+                    </form>
                   </div>
                 ) : (
                   <p className="mt-4 text-sm text-slate-500">
-                    Henüz slot önerilmedi. “Uygun slot öner” ile öğretmen müsaitliği, oda ve
+                    Henüz saat önerilmedi. “En uygun saatleri bul” ile öğretmen müsaitliği, oda ve
                     çakışmaları tarayın.
                   </p>
                 )}
+
+                {(() => {
+                  const teachers = data.teachers
+                    .filter((t) => t.active && t.instruments.includes(req.instrument))
+                    .map((t) => ({ id: t.id, name: t.name, branchId: t.branchId }));
+                  const rooms = data.rooms
+                    .filter((r) => r.instruments.includes(req.instrument))
+                    .map((r) => ({ id: r.id, name: r.name, branchId: r.branchId }));
+                  if (!student || teachers.length === 0 || rooms.length === 0) return null;
+                  return (
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <ManualMakeupPlanForm
+                        requestId={req.id}
+                        preferredTeacherId={req.teacherId}
+                        sourceBranchId={req.branchId}
+                        lessonDurationMinutes={data.settings.lessonDurationMinutes}
+                        teachers={teachers}
+                        rooms={rooms}
+                      />
+                    </div>
+                  );
+                })()}
               </Card>
             );
           })}
