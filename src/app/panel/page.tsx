@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isSameDay, parseISO } from "date-fns";
 import {
   AlertTriangle,
   CalendarDays,
@@ -12,8 +13,20 @@ import { Badge, Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { getDashboardStats, readData } from "@/lib/store";
 import { actionResetDemo } from "@/lib/actions";
 import { formatDateTime, formatMoney, formatTime } from "@/lib/utils";
+import { buildDemoMessages } from "@/lib/whatsapp-templates";
 
 export const dynamic = "force-dynamic";
+
+type ActionTone = "rose" | "amber" | "violet" | "sky";
+
+const TONE_CLASSES: Record<ActionTone, string> = {
+  rose: "block rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-900 transition hover:bg-rose-100",
+  amber:
+    "block rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-amber-900 transition hover:bg-amber-100",
+  violet:
+    "block rounded-2xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-violet-900 transition hover:bg-violet-100",
+  sky: "block rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sky-900 transition hover:bg-sky-100",
+};
 
 export default async function DashboardPage() {
   const data = await readData();
@@ -23,13 +36,76 @@ export default async function DashboardPage() {
     .filter((l) => l.startAt.startsWith(today))
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
-  const openMakeups = data.makeupRequests
-    .filter((m) => m.status === "pending" || m.status === "suggested")
-    .slice(0, 5);
+  const openMakeupRequests = data.makeupRequests.filter(
+    (m) => m.status === "pending" || m.status === "suggested"
+  );
+  const openMakeups = openMakeupRequests.slice(0, 5);
 
   const urgentPayments = data.payments
     .filter((p) => p.status === "overdue" || p.status === "partial")
     .slice(0, 4);
+
+  // Bugünün aksiyonları — yalnızca gerçekten aksiyon gerektiren kalemler
+  const unpaidPayments = data.payments.filter((p) => p.status !== "paid");
+  const totalOutstanding = unpaidPayments.reduce(
+    (sum, p) => sum + Math.max(p.amount - p.paidAmount, 0),
+    0
+  );
+  const hasOverduePayment = unpaidPayments.some((p) => p.status === "overdue");
+
+  const now = new Date();
+  const attendedLessonIds = new Set(data.attendances.map((a) => a.lessonId));
+  const pendingAttendanceLessons = data.lessons.filter(
+    (l) =>
+      l.status === "scheduled" &&
+      isSameDay(parseISO(l.startAt), now) &&
+      parseISO(l.startAt) <= now &&
+      !attendedLessonIds.has(l.id)
+  );
+
+  const pendingMessageCount = buildDemoMessages(data).length;
+
+  const actionCards: { key: string; href: string; label: string; detail: string; tone: ActionTone }[] = [];
+
+  if (totalOutstanding > 0) {
+    actionCards.push({
+      key: "tahsilat",
+      href: "/panel/odemeler",
+      label: hasOverduePayment ? "Gecikmiş tahsilat" : "Bekleyen tahsilat",
+      detail: formatMoney(totalOutstanding),
+      tone: hasOverduePayment ? "rose" : "amber",
+    });
+  }
+
+  if (openMakeupRequests.length > 0) {
+    actionCards.push({
+      key: "telafi",
+      href: "/panel/telafi",
+      label: "Telafi bekliyor",
+      detail: `${openMakeupRequests.length} talep`,
+      tone: "amber",
+    });
+  }
+
+  if (pendingAttendanceLessons.length > 0) {
+    actionCards.push({
+      key: "yoklama",
+      href: "/panel/yoklama",
+      label: "Yoklama bekliyor",
+      detail: `${pendingAttendanceLessons.length} ders`,
+      tone: "violet",
+    });
+  }
+
+  if (pendingMessageCount > 0) {
+    actionCards.push({
+      key: "bildirim",
+      href: "/panel/bildirimler",
+      label: "Bekleyen WhatsApp mesajı",
+      detail: `${pendingMessageCount} mesaj`,
+      tone: "sky",
+    });
+  }
 
   return (
     <div>
@@ -52,6 +128,24 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      <div className="mb-6">
+        <h2 className="mb-3 text-sm font-semibold text-slate-600">Bugünün aksiyonları</h2>
+        {actionCards.length === 0 ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+            Bugün için bekleyen aksiyon bulunmuyor.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {actionCards.map((card) => (
+              <Link key={card.key} href={card.href} className={TONE_CLASSES[card.tone]}>
+                <p className="text-sm font-semibold">{card.label}</p>
+                <p className="mt-1 text-lg font-semibold">{card.detail}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
