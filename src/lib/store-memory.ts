@@ -12,6 +12,7 @@ import type {
   MakeupRequest,
   MakeupSlot,
   Payment,
+  Room,
   Student,
   Teacher,
 } from "./types";
@@ -201,6 +202,12 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
       : p
   );
   return save({ ...data, payments });
+}
+
+export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
+  const data = load();
+  const r: Room = { ...room, id: uid("room") };
+  return save({ ...data, rooms: [...data.rooms, r] });
 }
 
 export function getDashboardStats(data: AppData) {

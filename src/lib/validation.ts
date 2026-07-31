@@ -35,6 +35,15 @@ export const teacherSchema = z.object({
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
 });
 
+export const roomSchema = z.object({
+  name: z.string().min(1),
+  branchId: z.enum(["erzene", "evka3"]),
+  capacity: z.coerce.number().int().min(1),
+  instruments: z
+    .array(z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]))
+    .min(1),
+});
+
 export const makeupSlotSchema = z.object({
   startAt: z.string().min(1),
   endAt: z.string().min(1),

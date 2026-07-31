@@ -18,5 +18,6 @@ export {
   sendTeacherMessageTool,
   createStudentTool,
   createTeacherTool,
+  createRoomTool,
   resetDemoTool,
 } from "./tools";

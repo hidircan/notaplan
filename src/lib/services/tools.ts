@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import {
+  addRoom,
   addStudent,
   addTeacher,
   cancelMakeup,
@@ -27,6 +28,7 @@ import {
 import {
   attendanceSchema,
   makeupSlotSchema,
+  roomSchema,
   studentSchema,
   teacherSchema,
 } from "../validation";
@@ -461,6 +463,33 @@ export async function createTeacherTool(
     return ok({ teacherId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTeacher failed");
+  }
+}
+
+export async function createRoomTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ roomId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(roomSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const before = await readData();
+    const ids = new Set(before.rooms.map((r) => r.id));
+    await addRoom({
+      name: v.data.name,
+      branchId: v.data.branchId as BranchId,
+      capacity: v.data.capacity,
+      instruments: v.data.instruments as Instrument[],
+    });
+    const after = await readData();
+    const created = after.rooms.find((r) => !ids.has(r.id));
+    return ok({ roomId: created?.id ?? "unknown" });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createRoom failed");
   }
 }
 

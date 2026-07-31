@@ -8,6 +8,7 @@ import type {
   BranchId,
   Instrument,
   MakeupSlot,
+  Room,
   Student,
   Teacher,
 } from "./types";
@@ -680,5 +681,26 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
     },
   });
 
+  return readData();
+}
+
+export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
+  logger.info("addRoom", room.name);
+  const tid = requireTenantId();
+  const branch = await prisma.branch.findFirst({
+    where: { id: room.branchId, tenantId: tid },
+  });
+  if (!branch) throw new Error("Şube bulunamadı");
+  await prisma.room.create({
+    data: {
+      id: `room_${Date.now().toString(36)}`,
+      tenantId: tid,
+      schoolId: branch.schoolId,
+      name: room.name,
+      branchId: room.branchId,
+      capacity: room.capacity,
+      instruments: room.instruments,
+    },
+  });
   return readData();
 }

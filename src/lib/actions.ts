@@ -14,6 +14,7 @@ import {
   createPaymentTool,
   createStudentTool,
   createTeacherTool,
+  createRoomTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   resetDemoTool,
@@ -27,11 +28,13 @@ function revalidateAll() {
   revalidatePath("/panel");
   revalidatePath("/panel/ogrenciler");
   revalidatePath("/panel/ogretmenler");
+  revalidatePath("/panel/odalar");
   revalidatePath("/panel/program");
   revalidatePath("/panel/telafi");
   revalidatePath("/panel/odemeler");
   revalidatePath("/panel/yoklama");
   revalidatePath("/panel/bildirimler");
+  revalidatePath("/panel/kurulum");
   revalidatePath("/veli");
   revalidatePath("/ogretmen");
 }
@@ -198,6 +201,26 @@ export async function actionAddTeacher(formData: FormData) {
     revalidateAll();
   } catch (error) {
     logger.error("actionAddTeacher failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+export async function actionAddRoom(formData: FormData) {
+  try {
+    await withAuthContext(async (ctx) => {
+      assertOk(
+        await createRoomTool(ctx, {
+          name: String(formData.get("name") || ""),
+          branchId: String(formData.get("branchId") || "erzene"),
+          capacity: Number(formData.get("capacity") || 2),
+          instruments: formData.getAll("instruments").map(String),
+        })
+      );
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionAddRoom failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
   }

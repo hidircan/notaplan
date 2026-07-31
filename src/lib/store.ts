@@ -4,6 +4,7 @@ import type {
   AppData,
   AttendanceStatus,
   MakeupSlot,
+  Room,
   Student,
   Teacher,
 } from "./types";
@@ -22,6 +23,7 @@ type StoreApi = {
   addStudent: (student: Omit<Student, "id" | "createdAt" | "active">) => Promise<AppData>;
   addTeacher: (teacher: Omit<Teacher, "id" | "active" | "color">) => Promise<AppData>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
+  addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -122,6 +124,10 @@ export async function addTeacher(
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   return withTenantScope(() => store.markPaymentPaid(paymentId));
+}
+
+export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
+  return withTenantScope(() => store.addRoom(room));
 }
 
 export function getDashboardStats(data: AppData) {

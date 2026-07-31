@@ -11,6 +11,7 @@ import type {
   MakeupRequest,
   MakeupSlot,
   Payment,
+  Room,
   Student,
   Teacher,
 } from "./types";
@@ -209,6 +210,14 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
       : p
   );
   const next = { ...data, payments };
+  await writeData(next);
+  return next;
+}
+
+export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
+  const data = await readData();
+  const r: Room = { ...room, id: uid("room") };
+  const next = { ...data, rooms: [...data.rooms, r] };
   await writeData(next);
   return next;
 }
