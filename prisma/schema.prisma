@@ -288,3 +288,29 @@ model PaymentFollowUpCase {
   @@index([tenantId, status])
   @@index([paymentId])
 }
+
+/// Recurring autonomous workflow state — per-workflow singleton
+model WorkflowState {
+  id          String    @id
+  enabled     Boolean
+  lastRunAt   DateTime?
+  lastSuccess Boolean?
+  lastError   String?
+  runCount    Int       @default(0)
+  updatedAt   DateTime  @updatedAt
+}
+
+/// One execution of an autonomous workflow (history)
+model WorkflowRun {
+  id         String    @id
+  workflowId String
+  tenantId   String
+  startedAt  DateTime
+  finishedAt DateTime
+  durationMs Int
+  success    Boolean
+  steps      Json
+  error      String?
+
+  @@index([workflowId, tenantId, startedAt])
+}
