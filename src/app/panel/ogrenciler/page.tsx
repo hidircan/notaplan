@@ -1,13 +1,28 @@
 import { actionAddStudent } from "@/lib/actions";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
-import { formatMoney } from "@/lib/utils";
+import { Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
+import { StudentsTable, type StudentRow } from "@/components/students-table";
 
 export const dynamic = "force-dynamic";
 
 export default async function OgrencilerPage() {
   const data = await readData();
   const students = [...data.students].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+
+  const rows: StudentRow[] = students.map((s) => ({
+    id: s.id,
+    name: s.name,
+    parentName: s.parentName,
+    parentPhone: s.parentPhone,
+    branchName: data.settings.branches.find((b) => b.id === s.branchId)?.shortName,
+    notes: s.notes,
+    instruments: s.instruments,
+    teacherName: data.teachers.find((t) => t.id === s.teacherId)?.name,
+    packageName: s.packageName,
+    weeklyLessonCount: s.weeklyLessonCount,
+    monthlyFee: s.monthlyFee,
+    active: s.active,
+  }));
 
   return (
     <div>
@@ -17,47 +32,9 @@ export default async function OgrencilerPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 overflow-hidden p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Öğrenci</th>
-                <th className="px-4 py-3">Enstrüman</th>
-                <th className="px-4 py-3">Öğretmen</th>
-                <th className="px-4 py-3">Paket</th>
-                <th className="px-4 py-3">Ücret</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => {
-                const teacher = data.teachers.find((t) => t.id === s.teacherId);
-                return (
-                  <tr key={s.id} className="border-b border-slate-50 align-top">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{s.name}</p>
-                      <p className="text-xs text-slate-500">
-                        Veli: {s.parentName} · {s.parentPhone} ·{" "}
-                        {data.settings.branches.find((b) => b.id === s.branchId)?.shortName}
-                      </p>
-                      {s.notes ? <p className="mt-1 text-xs text-violet-600">{s.notes}</p> : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      {s.instruments.map((i) => (
-                        <Badge key={i}>{i}</Badge>
-                      ))}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{teacher?.name}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      <p>{s.packageName}</p>
-                      <p className="text-xs text-slate-400">{s.weeklyLessonCount} ders/hafta</p>
-                    </td>
-                    <td className="px-4 py-3 font-medium">{formatMoney(s.monthlyFee)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+        <div className="lg:col-span-2">
+          <StudentsTable rows={rows} />
+        </div>
 
         <Card>
           <h2 className="mb-4 font-semibold text-slate-900">Yeni öğrenci</h2>
