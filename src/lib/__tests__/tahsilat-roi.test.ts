@@ -6,8 +6,10 @@ import {
   upsertFollowUpCase,
   getCollectionRoi,
   markPaymentCasesPaid,
+  clearFollowUpCases,
   FOLLOW_UP_CASES_FILE,
 } from "../tahsilat/cases";
+import { createSeedData } from "../seed";
 
 beforeEach(async () => {
   await fs.rm(FOLLOW_UP_CASES_FILE, { force: true });
@@ -79,5 +81,143 @@ describe("tahsilat vaka takibi", () => {
     });
     expect(closed.length).toBe(0);
     expect((await getCollectionRoi("demo-tenant")).resolvedThisMonth).toBe(1);
+  });
+
+  it("aynı ödeme için id'siz ikinci çağrı yeni vaka açmaz (çift takip koruması)", async () => {
+    const first = await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "approved",
+      messageDraft: "ilk taslak",
+      attributedAmount: 0,
+    });
+    const second = await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "approved",
+      messageDraft: "duzenlenmis taslak",
+      attributedAmount: 0,
+    });
+
+    expect(second.id).toBe(first.id);
+    const casesForPayment = (await listFollowUpCases("demo-tenant")).filter(
+      (c) => c.paymentId === "p1"
+    );
+    expect(casesForPayment).toHaveLength(1);
+    expect(casesForPayment[0].messageDraft).toBe("duzenlenmis taslak");
+  });
+
+  it("clearFollowUpCases demo sıfırlama sonrası tenant vakalarını temizler", async () => {
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "draft",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+    await upsertFollowUpCase({
+      tenantId: "other-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "draft",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+
+    await clearFollowUpCases("demo-tenant");
+
+    expect(await listFollowUpCases("demo-tenant")).toHaveLength(0);
+    expect(await listFollowUpCases("other-tenant")).toHaveLength(1);
+  });
+});
+
+describe("tahsilat vaka takibi · Lara & Ali demo senaryoları", () => {
+  it("Lara: gecikmiş ödeme -> takip başlat -> onayla -> gönderildi -> ödendi -> ROI'ye yansır", async () => {
+    const seed = createSeedData();
+    const laraPayment = seed.payments.find((p) => p.status === "overdue");
+    expect(laraPayment).toBeDefined();
+    const laraStudent = seed.students.find((s) => s.id === laraPayment!.studentId);
+    expect(laraStudent?.name).toBe("Lara Yıldız");
+
+    const tenantId = "demo-tenant";
+    const remaining = Math.max(laraPayment!.amount - laraPayment!.paidAmount, 0);
+
+    // Takip başlat — id'siz ilk çağrı yeni vaka açar.
+    const started = await upsertFollowUpCase({
+      tenantId,
+      paymentId: laraPayment!.id,
+      studentId: laraStudent!.id,
+      status: "approved",
+      messageDraft: `Merhaba, ${laraStudent!.name} için gecikmiş ödeme hatırlatması.`,
+      attributedAmount: 0,
+    });
+
+    // Sistemde gönderildi olarak kaydet.
+    await upsertFollowUpCase({
+      id: started.id,
+      tenantId,
+      paymentId: laraPayment!.id,
+      studentId: laraStudent!.id,
+      status: "sent",
+      messageDraft: `Merhaba, ${laraStudent!.name} için gecikmiş ödeme hatırlatması.`,
+      attributedAmount: 0,
+    });
+
+    // Veli ödeme yaptı — admin "Ödendi işaretle" der (payments/pay route'unun yaptığı gibi).
+    const closed = await markPaymentCasesPaid({
+      tenantId,
+      paymentId: laraPayment!.id,
+      amount: remaining,
+    });
+    expect(closed).toHaveLength(1);
+    expect(closed[0].status).toBe("paid");
+
+    const roi = await getCollectionRoi(tenantId);
+    expect(roi.resolvedThisMonth).toBeGreaterThanOrEqual(1);
+    expect(roi.attributedThisMonth).toBeGreaterThanOrEqual(remaining);
+    expect(roi.activeCases).toBe(0);
+  });
+
+  it("Ali: kısmi ödeme -> kalan tutar doğru, ödeme tamamen kapanmadan vaka açık kalır", async () => {
+    const seed = createSeedData();
+    const aliPayment = seed.payments.find((p) => p.status === "partial");
+    expect(aliPayment).toBeDefined();
+    const aliStudent = seed.students.find((s) => s.id === aliPayment!.studentId);
+    expect(aliStudent?.name).toBe("Ali Koç");
+
+    const remaining = Math.max(aliPayment!.amount - aliPayment!.paidAmount, 0);
+    expect(remaining).toBe(aliPayment!.amount - aliPayment!.paidAmount);
+    expect(remaining).toBeGreaterThan(0);
+
+    const tenantId = "demo-tenant";
+    const started = await upsertFollowUpCase({
+      tenantId,
+      paymentId: aliPayment!.id,
+      studentId: aliStudent!.id,
+      status: "approved",
+      messageDraft: `Merhaba, ${aliStudent!.name} için kalan ${remaining} TL bakiye hatırlatması.`,
+      attributedAmount: 0,
+    });
+    await upsertFollowUpCase({
+      id: started.id,
+      tenantId,
+      paymentId: aliPayment!.id,
+      studentId: aliStudent!.id,
+      status: "sent",
+      messageDraft: `Merhaba, ${aliStudent!.name} için kalan ${remaining} TL bakiye hatırlatması.`,
+      attributedAmount: 0,
+    });
+
+    // Ödeme henüz tamamen kapanmadı (kısmi ödeme durumu sürüyor) — "Ödendi işaretle" çağrılmadı.
+    const cases = await listFollowUpCases(tenantId);
+    const aliCase = cases.find((c) => c.paymentId === aliPayment!.id);
+    expect(aliCase?.status).toBe("sent");
+    expect(aliCase?.status).not.toBe("paid");
+
+    const roi = await getCollectionRoi(tenantId);
+    expect(roi.activeCases).toBeGreaterThanOrEqual(1);
   });
 });
