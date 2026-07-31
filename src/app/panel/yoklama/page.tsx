@@ -65,6 +65,13 @@ export default async function YoklamaPage() {
                     </form>
                     <form action={actionMarkAttendance}>
                       <input type="hidden" name="lessonId" value={lesson.id} />
+                      <input type="hidden" name="status" value="late" />
+                      <Button type="submit" variant="secondary">
+                        Geç kaldı
+                      </Button>
+                    </form>
+                    <form action={actionMarkAttendance}>
+                      <input type="hidden" name="lessonId" value={lesson.id} />
                       <input type="hidden" name="status" value="absent" />
                       <input type="hidden" name="reason" value="Veli bildirdi — mazeret" />
                       <Button type="submit" variant="danger">
