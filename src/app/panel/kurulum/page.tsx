@@ -1,0 +1,153 @@
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Circle, RefreshCcw } from "lucide-react";
+import { actionResetDemo } from "@/lib/actions";
+import { readData } from "@/lib/store";
+import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { computeSetupProgress, type SetupStepId } from "@/lib/setup-progress";
+
+export const dynamic = "force-dynamic";
+
+const STEP_LINKS: Record<SetupStepId, { href: string; doneLabel: string; missingLabel: string }> = {
+  school: {
+    href: "/panel/program",
+    doneLabel: "Programı görüntüle",
+    missingLabel: "Programı görüntüle",
+  },
+  teachers: {
+    href: "/panel/ogretmenler",
+    doneLabel: "Öğretmenleri yönet",
+    missingLabel: "Öğretmen ekle",
+  },
+  rooms: {
+    href: "/panel/odalar",
+    doneLabel: "Odaları yönet",
+    missingLabel: "Oda ekle",
+  },
+  students: {
+    href: "/panel/ogrenciler",
+    doneLabel: "Öğrencileri yönet",
+    missingLabel: "Öğrenci ekle",
+  },
+  firstLesson: {
+    href: "/panel/program",
+    doneLabel: "Programı görüntüle",
+    missingLabel: "Ders planla",
+  },
+};
+
+export default async function KurulumPage() {
+  const data = await readData();
+  const progress = computeSetupProgress(data);
+
+  return (
+    <div>
+      <PageHeader
+        title="Kurulum Merkezi"
+        description="Okulunuzu günlük operasyona hazırlamak için temel adımları tamamlayın."
+      />
+
+      <Card
+        className={
+          progress.isReady
+            ? "mb-6 border-emerald-200 bg-emerald-50/60"
+            : "mb-6 border-amber-200 bg-amber-50/60"
+        }
+      >
+        <p
+          className={
+            progress.isReady
+              ? "text-sm font-semibold text-emerald-800"
+              : "text-sm font-semibold text-amber-800"
+          }
+        >
+          {progress.isReady
+            ? "Temel kurulum tamamlandı"
+            : `${progress.completedCount}/${progress.totalCount} temel adım tamamlandı`}
+        </p>
+        <p className="mt-1 text-sm text-slate-600">
+          {progress.isReady
+            ? "Okulunuz günlük operasyona hazır. İhtiyaç halinde aşağıdaki ekranlardan yeni kayıt ekleyebilirsiniz."
+            : "Aşağıdaki eksik adımları tamamlayarak okulunuzu operasyona hazır hale getirin."}
+        </p>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {progress.steps.map((step) => {
+          const link = STEP_LINKS[step.id];
+          return (
+            <Card key={step.id} className={step.done ? "border-emerald-100" : "border-amber-100"}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  {step.done ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                  ) : (
+                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                  )}
+                  <div>
+                    <p className="font-semibold text-slate-900">{step.label}</p>
+                    <p className="mt-1 text-sm text-slate-500">{step.description}</p>
+                  </div>
+                </div>
+                <Badge status={step.done ? "paid" : "pending"}>
+                  {step.done ? "Tamamlandı" : "Eksik"}
+                </Badge>
+              </div>
+              <Link
+                href={link.href}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+              >
+                {step.done ? link.doneLabel : link.missingLabel} <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Card>
+          );
+        })}
+
+        <Card className={progress.hasPayment ? "border-emerald-100" : "border-slate-200"}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              {progress.hasPayment ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+              ) : (
+                <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
+              )}
+              <div>
+                <p className="font-semibold text-slate-900">İlk ödeme (isteğe bağlı)</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Tahsilat takibini başlatmak için ilk ödeme kaydını ekleyin. Kurulumun
+                  tamamlanması için zorunlu değildir.
+                </p>
+              </div>
+            </div>
+            <Badge status={progress.hasPayment ? "paid" : "pending"}>
+              {progress.hasPayment ? "Eklendi" : "İsteğe bağlı"}
+            </Badge>
+          </div>
+          <Link
+            href="/panel/odemeler"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+          >
+            İlk tahsilatı ekle <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Card>
+      </div>
+
+      <Card className="mt-6 border-slate-200 bg-slate-50">
+        <div className="flex items-start gap-3">
+          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900">Demo ortamı</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Demo verisini sıfırlamak mevcut demo değişikliklerini geri alır. Bu işlem yalnızca
+              yönetici yetkisiyle yapılabilir.
+            </p>
+            <form action={actionResetDemo} className="mt-3">
+              <Button type="submit" variant="secondary">
+                Demo verisini geri yükle
+              </Button>
+            </form>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}

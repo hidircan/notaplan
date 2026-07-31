@@ -14,6 +14,7 @@ import { getDashboardStats, readData } from "@/lib/store";
 import { actionResetDemo } from "@/lib/actions";
 import { formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { buildDemoMessages } from "@/lib/whatsapp-templates";
+import { computeSetupProgress } from "@/lib/setup-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ const TONE_CLASSES: Record<ActionTone, string> = {
 export default async function DashboardPage() {
   const data = await readData();
   const stats = getDashboardStats(data);
+  const setupProgress = computeSetupProgress(data);
   const today = new Date().toISOString().slice(0, 10);
   const todayLessons = data.lessons
     .filter((l) => l.startAt.startsWith(today))
@@ -128,6 +130,15 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      {!setupProgress.isReady && (
+        <Link
+          href="/panel/kurulum"
+          className="mb-6 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+        >
+          Okul kurulumunu tamamla ({setupProgress.completedCount}/{setupProgress.totalCount}) →
+        </Link>
+      )}
 
       <div className="mb-6">
         <h2 className="mb-3 text-sm font-semibold text-slate-600">Bugünün aksiyonları</h2>
