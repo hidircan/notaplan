@@ -60,7 +60,25 @@ async function withTenantScope<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function readData(): Promise<AppData> {
-  return withTenantScope(() => store.readData());
+  const data = await withTenantScope(() => store.readData());
+  return applyMakeupExpiry(data);
+}
+
+/**
+ * Süresi geçmiş (expiresAt < şimdi) ama hâlâ pending/suggested olan telafi
+ * taleplerini "expired" olarak gösterir. Salt okunur türetme — kalıcı kaydı
+ * değiştirmez, dashboard ve Telafi Merkezi'nin süresi dolmuş talepleri açık
+ * talep gibi saymasını engeller.
+ */
+function applyMakeupExpiry(data: AppData): AppData {
+  const now = Date.now();
+  const makeupRequests = data.makeupRequests.map((m) =>
+    (m.status === "pending" || m.status === "suggested") &&
+    new Date(m.expiresAt).getTime() < now
+      ? { ...m, status: "expired" as const }
+      : m
+  );
+  return { ...data, makeupRequests };
 }
 
 export async function resetData(): Promise<AppData> {
