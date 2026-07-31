@@ -98,12 +98,19 @@ async function upsertFollowUpCaseDb(
     resolvedAt: partial.resolvedAt ? new Date(partial.resolvedAt) : null,
     attributedAmount: partial.attributedAmount,
   };
-  const id = partial.id ?? `case_${crypto.randomUUID().slice(0, 8)}`;
+  // Bir ödeme için en fazla bir açık (paid/lost olmayan) vaka olur — id verilmemişse
+  // önce mevcut açık vakayı bul ve onu güncelle; çift vaka oluşturma.
   const existing = partial.id
     ? await prisma.paymentFollowUpCase.findFirst({
-        where: { id, tenantId: partial.tenantId },
+        where: { id: partial.id, tenantId: partial.tenantId },
       })
-    : null;
+    : await prisma.paymentFollowUpCase.findFirst({
+        where: {
+          tenantId: partial.tenantId,
+          paymentId: partial.paymentId,
+          status: { notIn: ["paid", "lost"] },
+        },
+      });
   if (existing) {
     const row = await prisma.paymentFollowUpCase.update({
       where: { id: existing.id },
@@ -111,10 +118,16 @@ async function upsertFollowUpCaseDb(
     });
     return mapDbCase(row);
   }
+  const id = partial.id ?? `case_${crypto.randomUUID().slice(0, 8)}`;
   const row = await prisma.paymentFollowUpCase.create({
     data: { ...data, id, tenantId: partial.tenantId, createdAt: now },
   });
   return mapDbCase(row);
+}
+
+async function clearFollowUpCasesDb(tenantId: string): Promise<void> {
+  const { prisma } = await import("../db");
+  await prisma.paymentFollowUpCase.deleteMany({ where: { tenantId } });
 }
 
 async function markPaymentCasesPaidDb(args: {
@@ -160,7 +173,17 @@ export async function upsertFollowUpCase(
   if (isDbMode) return upsertFollowUpCaseDb(partial);
   const all = await loadAll();
   const now = new Date().toISOString();
-  const existing = partial.id ? all.find((c) => c.id === partial.id) : undefined;
+  // Bir ödeme için en fazla bir açık (paid/lost olmayan) vaka olur — id verilmemişse
+  // önce mevcut açık vakayı bul ve onu güncelle; çift vaka oluşturma.
+  const existing = partial.id
+    ? all.find((c) => c.id === partial.id)
+    : all.find(
+        (c) =>
+          c.tenantId === partial.tenantId &&
+          c.paymentId === partial.paymentId &&
+          c.status !== "paid" &&
+          c.status !== "lost"
+      );
   const record: FollowUpCase = existing
     ? { ...existing, ...partial, id: existing.id, createdAt: existing.createdAt, updatedAt: now }
     : {
@@ -204,6 +227,13 @@ export async function markPaymentCasesPaid(args: {
   });
   if (updated.length) await saveAll(next);
   return updated;
+}
+
+export async function clearFollowUpCases(tenantId: string): Promise<void> {
+  if (isDbMode) return clearFollowUpCasesDb(tenantId);
+  const all = await loadAll();
+  const remaining = all.filter((c) => c.tenantId !== tenantId);
+  if (remaining.length !== all.length) await saveAll(remaining);
 }
 
 /** Satış demosunun kalbi: agent'ın bu ay tahsilata kattığı tutar. */

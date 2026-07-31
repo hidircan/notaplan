@@ -17,6 +17,7 @@ import {
   resetData,
 } from "../store";
 import { suggestMakeupSlots } from "../makeup-engine";
+import { clearFollowUpCases } from "../tahsilat/cases";
 import {
   templateMakeupConfirmed,
   templateMakeupCreated,
@@ -463,6 +464,9 @@ export async function resetDemoTool(
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
   try {
     await resetData();
+    // Tahsilat takip vakaları AppData'nın dışında ayrı bir store'da tutulur;
+    // demo sıfırlamasının tekrarlanabilir olması için onları da temizle.
+    await clearFollowUpCases(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");
