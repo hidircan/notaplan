@@ -151,9 +151,13 @@ async function recordWorkflowRunDb(run: WorkflowRunResult): Promise<void> {
   ]);
 }
 
-async function listWorkflowRunsDb(limit = 50): Promise<WorkflowRunResult[]> {
+async function listWorkflowRunsDb(
+  tenantId: string,
+  limit = 50
+): Promise<WorkflowRunResult[]> {
   const { prisma } = await import("../db");
   const rows = await prisma.workflowRun.findMany({
+    where: { tenantId },
     orderBy: { startedAt: "desc" },
     take: limit,
   });
@@ -212,10 +216,13 @@ export async function recordWorkflowRun(run: WorkflowRunResult): Promise<void> {
   await save(data);
 }
 
-export async function listWorkflowRuns(limit = 50): Promise<WorkflowRunResult[]> {
-  if (isDbMode) return listWorkflowRunsDb(limit);
+export async function listWorkflowRuns(
+  tenantId: string,
+  limit = 50
+): Promise<WorkflowRunResult[]> {
+  if (isDbMode) return listWorkflowRunsDb(tenantId, limit);
   const data = await load();
-  return data.runs.slice(0, limit);
+  return data.runs.filter((r) => r.tenantId === tenantId).slice(0, limit);
 }
 
 export async function isDue(id: WorkflowId, now = Date.now()): Promise<boolean> {

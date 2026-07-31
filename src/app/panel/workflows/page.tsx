@@ -8,15 +8,17 @@ import { WorkflowToggle } from "@/components/workflow-toggle";
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage() {
+  let ctx: Awaited<ReturnType<typeof requireSessionContext>>;
   try {
-    await requireSessionContext();
+    ctx = await requireSessionContext();
   } catch {
     redirect("/login?next=/panel/workflows");
+    return;
   }
 
   const [workflows, runs] = await Promise.all([
     listWorkflowsForAdmin(),
-    listWorkflowRuns(20),
+    listWorkflowRuns(ctx.tenantId, 20),
   ]);
 
   return (

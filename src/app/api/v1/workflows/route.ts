@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/v1/workflows — registry + state + recent runs */
 export const GET = withApiHandler(
-  async () => {
+  async ({ ctx }) => {
     const workflows = await listWorkflowsForAdmin();
-    const runs = await listWorkflowRuns(30);
+    const runs = await listWorkflowRuns(ctx.tenantId, 30);
     return fromServiceResult({
       ok: true,
       data: {
