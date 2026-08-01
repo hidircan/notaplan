@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Receipt } from "lucide-react";
 import { actionMarkPaymentPaid } from "@/lib/actions";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
@@ -149,7 +150,12 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                         </Button>
                       </form>
                     ) : (
-                      <span className="text-xs text-emerald-600">✓</span>
+                      <Link
+                        href={`/makbuz/${p.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                      >
+                        <Receipt className="h-3.5 w-3.5" /> Makbuzu görüntüle
+                      </Link>
                     )}
                   </td>
                 </tr>

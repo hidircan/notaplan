@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Receipt } from "lucide-react";
 import { readData } from "@/lib/store";
 import { actionAddPayment } from "@/lib/actions";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, StatCard } from "@/components/ui";
@@ -125,6 +125,7 @@ export default async function StudentPaymentProfilePage({
                 <th className="px-4 py-3">Kalan</th>
                 <th className="px-4 py-3">Yöntem</th>
                 <th className="px-4 py-3">Durum</th>
+                <th className="px-4 py-3">Makbuz</th>
               </tr>
             </thead>
             <tbody>
@@ -140,6 +141,18 @@ export default async function StudentPaymentProfilePage({
                   <td className="px-4 py-3 text-slate-500">{p.method ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge status={p.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.status === "paid" ? (
+                      <Link
+                        href={`/makbuz/${p.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                      >
+                        <Receipt className="h-3.5 w-3.5" /> Görüntüle
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
