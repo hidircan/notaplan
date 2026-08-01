@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { addMinutes, differenceInMinutes, format, isSameDay, parseISO, startOfDay } from "date-fns";
@@ -117,6 +118,56 @@ function assignLanes(dayLessons: Lesson[]): { laneOf: Map<string, number>; laneC
   return { laneOf, laneCount: Math.max(laneEndTimes.length, 1) };
 }
 
+/**
+ * Kısa süreli derslerde kart yüksekliği tüm satırlara yetmeyebilir; bu yüzden
+ * içerik satır satır önceliklendirilir. Öğrenci adı ve saat her koşulda
+ * görünür kalır, öğretmen/enstrüman·şube yalnızca yeterli yükseklik varsa
+ * eklenir. Saf fonksiyon — birim testlerinde kullanılır.
+ */
+export function lessonCardTier(heightPx: number): "min" | "compact" | "full" {
+  if (heightPx < 30) return "min";
+  if (heightPx < 46) return "compact";
+  return "full";
+}
+
+function LessonCardBody({
+  student,
+  teacher,
+  lesson,
+  branchName,
+  tier,
+}: {
+  student?: Student;
+  teacher?: Teacher;
+  lesson: Lesson;
+  branchName?: string;
+  tier: "min" | "compact" | "full";
+}) {
+  const timeRange = `${format(parseISO(lesson.startAt), "HH:mm")}–${format(parseISO(lesson.endAt), "HH:mm")}`;
+  return (
+    <>
+      <p className="truncate font-semibold leading-tight text-slate-800" title={student?.name}>
+        {student?.name}
+      </p>
+      <p className="truncate leading-tight text-slate-500">{timeRange}</p>
+      {tier !== "min" ? (
+        <p
+          className="truncate leading-tight text-slate-500"
+          title={`${teacher?.name ?? ""}${branchName ? ` · ${branchName}` : ""}`}
+        >
+          {teacher?.name}
+          {branchName ? ` · ${branchName}` : ""}
+        </p>
+      ) : null}
+      {tier === "full" ? (
+        <p className="truncate text-[9px] leading-tight text-slate-400" title={lesson.instrument}>
+          {lesson.instrument}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 /** Program ekranı hızlı filtreleri — saf fonksiyonlar, birim testlerinde kullanılır. */
 export function filterLessonsForCalendar(
   lessons: Lesson[],
@@ -168,31 +219,71 @@ export function resolveStudentFilterForBranch(
   return currentStudentId;
 }
 
-/** Bağımsız katman: form içeriği takvimin akışını hiç etkilemesin diye sabit konumlu (fixed) katman. Yeni paket gerektirmez. */
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * document.body altına portallanan, takvimin sticky/relative katmanlarından
+ * bağımsız bir modal katmanı — hangi stacking context içinde çağrıldığından
+ * etkilenmeden her zaman en üstte kalır. Yeni paket gerektirmez (react-dom
+ * zaten bağımlılık). Odak tuzağı: açılışta kapama düğmesine odaklanır, Tab
+ * döngüsünü modal içinde tutar, kapanınca tetikleyen öğeye odağı geri verir.
+ */
 function FormModal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    triggerElementRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => {
+      triggerElementRef.current?.focus?.();
+    };
+  }, []);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const container = dialogRef.current;
+      if (!container) return;
+      const focusable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="my-8 w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"
+        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-4">
           <h3 className="font-semibold text-slate-900">{title}</h3>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -201,9 +292,10 @@ function FormModal({ title, onClose, children }: { title: string; onClose: () =>
             <X className="h-5 w-5" />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto p-5 pt-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -227,7 +319,7 @@ export function ProgramStudio({
   const windowStartMin = slots[0] ?? 0;
 
   const [activePanel, setActivePanel] = useState<ActivePanel>("none");
-  const [calendarView, setCalendarView] = useState<CalendarView>("day");
+  const [calendarView, setCalendarView] = useState<CalendarView>("week");
 
   const [studentId, setStudentId] = useState("");
   const [teacherId, setTeacherId] = useState("");
@@ -1158,36 +1250,34 @@ export function ProgramStudio({
 
       {calendarView === "week" ? (
       <div className="overflow-x-auto">
-        <div className="flex min-w-[820px]">
-          <div className="sticky left-0 z-20 w-14 shrink-0 border-b border-slate-100 bg-white" />
+        <div className="flex">
+          <div className="w-14 shrink-0" />
           {days.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
             return (
               <div
                 key={dayIso}
-                className={`min-w-[110px] flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
+                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
                   today ? "bg-violet-50 text-violet-700" : "text-slate-600"
                 }`}
               >
                 {format(day, "EEEE", { locale: tr })}
-                <span className="ml-1 font-normal text-slate-400">{format(day, "d MMM")}</span>
+                <span className="ml-1 font-normal text-slate-400">{format(day, "d MMM", { locale: tr })}</span>
               </div>
             );
           })}
         </div>
 
-        <div className="flex min-w-[820px]">
-          <div className="sticky left-0 z-20 w-14 shrink-0 bg-white">
+        <div className="flex">
+          <div className="w-14 shrink-0">
             {slots.map((min) => (
               <div
                 key={min}
-                className={`border-r pr-2 text-right text-[11px] text-slate-400 ${
-                  min % 60 === 0 ? "border-slate-200" : "border-slate-100"
-                }`}
+                className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400"
                 style={{ height: SLOT_HEIGHT_PX }}
               >
-                {formatMinutes(min)}
+                {min % 60 === 0 ? formatMinutes(min) : ""}
               </div>
             ))}
           </div>
@@ -1202,13 +1292,12 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`relative min-w-[110px] flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
+                className={`relative flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
                 style={{ height: totalHeight }}
               >
                 {slots.map((min, i) => {
                   const key = `${dayIso}|${min}`;
                   const isDragOver = dragOverKey === key;
-                  const isHourMark = min % 60 === 0;
                   return (
                     <button
                       key={min}
@@ -1223,15 +1312,11 @@ export function ProgramStudio({
                         e.preventDefault();
                         handleDrop(dayIso, min);
                       }}
-                      className={`absolute left-0 right-0 border-b text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
-                        isDragOver
-                          ? "border-violet-400 bg-violet-100/60"
-                          : isHourMark
-                            ? "border-slate-200"
-                            : "border-dashed border-slate-100"
+                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
+                        isDragOver ? "border-violet-400 bg-violet-100/60" : "border-slate-50"
                       }`}
                       style={{ top: i * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
-                      aria-label={`${format(day, "d MMM")} ${formatMinutes(min)} — ders planla`}
+                      aria-label={`${format(day, "d MMM", { locale: tr })} ${formatMinutes(min)} — ders planla`}
                     >
                       +
                     </button>
@@ -1276,15 +1361,18 @@ export function ProgramStudio({
                     >
                       <p className="truncate font-semibold text-slate-800">{student?.name}</p>
                       <p className="truncate text-slate-500">
-                        {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
+                        {format(parseISO(lesson.startAt), "HH:mm")}–{format(parseISO(lesson.endAt), "HH:mm")}
                       </p>
                       <p className="truncate text-slate-400">
                         {teacher?.name} · {branchNames[lesson.branchId] ?? ""}
                       </p>
+                      <p className="truncate text-slate-400">{lesson.instrument}</p>
                       <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
                       {editable ? (
                         <div
+                          draggable={false}
                           onMouseDown={(e) => startResize(e, lesson)}
+                          onClick={(e) => e.stopPropagation()}
                           className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-200/0 hover:bg-violet-300/70"
                           aria-label="Süreyi değiştir"
                         />
@@ -1329,13 +1417,13 @@ export function ProgramStudio({
                           className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-violet-200"
                           style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
                         >
-                          <p className="font-semibold text-slate-800">{student?.name}</p>
-                          <p className="text-slate-500">
-                            {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
-                          </p>
-                          <p className="text-slate-400">
-                            {teacher?.name} · {branchNames[lesson.branchId] ?? ""}
-                          </p>
+                          <LessonCardBody
+                            student={student}
+                            teacher={teacher}
+                            lesson={lesson}
+                            branchName={branchNames[lesson.branchId]}
+                            tier="full"
+                          />
                           <div className="mt-1">
                             <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
                           </div>

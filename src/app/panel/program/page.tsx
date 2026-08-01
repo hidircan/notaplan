@@ -89,18 +89,6 @@ export default async function ProgramPage({
         <WeekDatePicker value={weekStartParam} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {data.teachers.map((t) => (
-          <span
-            key={t.id}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200"
-          >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />
-            {t.name}
-          </span>
-        ))}
-      </div>
-
       <ProgramStudio
         students={data.students}
         teachers={data.teachers}
