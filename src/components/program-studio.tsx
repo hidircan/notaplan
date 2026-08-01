@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { addMinutes, differenceInMinutes, format, isSameDay, parseISO, startOfDay } from "date-fns";
@@ -117,6 +117,78 @@ function assignLanes(dayLessons: Lesson[]): { laneOf: Map<string, number>; laneC
   return { laneOf, laneCount: Math.max(laneEndTimes.length, 1) };
 }
 
+/** Program ekranı hızlı filtreleri — saf fonksiyonlar, birim testlerinde kullanılır. */
+export function filterLessonsForCalendar(
+  lessons: Lesson[],
+  filterBranchId: string,
+  filterTeacherId: string
+): Lesson[] {
+  return lessons.filter((l) => {
+    if (filterBranchId && l.branchId !== filterBranchId) return false;
+    if (filterTeacherId && l.teacherId !== filterTeacherId) return false;
+    return true;
+  });
+}
+
+export function activeTeachersForBranch(teachers: Teacher[], filterBranchId: string): Teacher[] {
+  return teachers
+    .filter((t) => t.active && (!filterBranchId || t.branchId === filterBranchId))
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+}
+
+/** Şube filtresi değişince geçersiz kalan öğretmen filtresini "Tüm öğretmenler"e döndürür. */
+export function resolveTeacherFilterForBranch(
+  teachers: Teacher[],
+  nextBranchId: string,
+  currentTeacherId: string
+): string {
+  if (!currentTeacherId) return currentTeacherId;
+  const teacher = teachers.find((t) => t.id === currentTeacherId);
+  if (!teacher || (nextBranchId && teacher.branchId !== nextBranchId)) return "";
+  return currentTeacherId;
+}
+
+/** Bağımsız katman: form içeriği takvimin akışını hiç etkilemesin diye sabit konumlu (fixed) katman. Yeni paket gerektirmez. */
+function FormModal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="my-8 w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Kapat"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+type ActivePanel = "none" | "create" | "series";
+
 export function ProgramStudio({
   students,
   teachers,
@@ -133,7 +205,8 @@ export function ProgramStudio({
   const slots = slotStarts(workingHours);
   const windowStartMin = slots[0] ?? 0;
 
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<ActivePanel>("none");
+
   const [studentId, setStudentId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -152,6 +225,7 @@ export function ProgramStudio({
   const [suggestLimit, setSuggestLimit] = useState(8);
 
   const [gridError, setGridError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [draggingLessonId, setDraggingLessonId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ lessonId: string; duration: number } | null>(null);
@@ -168,6 +242,23 @@ export function ProgramStudio({
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailSubmitting, setDetailSubmitting] = useState(false);
 
+  // Program ekranına özel hızlı filtreler — istemci tarafında görünürlüğü
+  // etkiler; sunucu/yetki/global şube bağlamı bu sprintin kapsamı dışında.
+  const [filterBranchId, setFilterBranchId] = useState("");
+  const [filterTeacherId, setFilterTeacherId] = useState("");
+
+  const branchIds = Object.keys(branchNames).sort((a, b) =>
+    (branchNames[a] ?? "").localeCompare(branchNames[b] ?? "", "tr")
+  );
+  const filterableTeachers = activeTeachersForBranch(teachers, filterBranchId);
+
+  function selectFilterBranch(id: string) {
+    setFilterBranchId(id);
+    setFilterTeacherId((current) => resolveTeacherFilterForBranch(teachers, id, current));
+  }
+
+  const visibleWeekLessons = filterLessonsForCalendar(weekLessons, filterBranchId, filterTeacherId);
+
   const selectedStudent = students.find((s) => s.id === studentId);
   const selectedTeacher = teachers.find((t) => t.id === teacherId);
 
@@ -175,11 +266,14 @@ export function ProgramStudio({
     ? selectedStudent.instruments
     : INSTRUMENTS;
 
-  const teacherOptions = teacherOptionsFor(teachers, instrument, selectedStudent);
-  const roomOptions = roomOptionsFor(rooms, instrument, selectedTeacher);
+  const teacherOptions = teacherOptionsFor(teachers, instrument, selectedStudent).filter(
+    (t) => !filterBranchId || t.branchId === filterBranchId
+  );
+  const roomOptions = roomOptionsFor(rooms, instrument, selectedTeacher).filter(
+    (r) => !filterBranchId || r.branchId === filterBranchId
+  );
 
   // Tekrarlayan ders serisi paneli — tek ders panelinden bağımsız state.
-  const [seriesPanelOpen, setSeriesPanelOpen] = useState(false);
   const [seriesStudentId, setSeriesStudentId] = useState("");
   const [seriesTeacherId, setSeriesTeacherId] = useState("");
   const [seriesRoomId, setSeriesRoomId] = useState("");
@@ -206,8 +300,12 @@ export function ProgramStudio({
   const seriesInstrumentOptions = seriesSelectedStudent?.instruments.length
     ? seriesSelectedStudent.instruments
     : INSTRUMENTS;
-  const seriesTeacherOptions = teacherOptionsFor(teachers, seriesInstrument, seriesSelectedStudent);
-  const seriesRoomOptions = roomOptionsFor(rooms, seriesInstrument, seriesSelectedTeacher);
+  const seriesTeacherOptions = teacherOptionsFor(teachers, seriesInstrument, seriesSelectedStudent).filter(
+    (t) => !filterBranchId || t.branchId === filterBranchId
+  );
+  const seriesRoomOptions = roomOptionsFor(rooms, seriesInstrument, seriesSelectedTeacher).filter(
+    (r) => !filterBranchId || r.branchId === filterBranchId
+  );
   const seriesBranchId = rooms.find((r) => r.id === seriesRoomId)?.branchId ?? seriesSelectedTeacher?.branchId ?? "";
 
   function resetPanelState() {
@@ -218,8 +316,17 @@ export function ProgramStudio({
 
   function openPlanner(prefillStartAt?: string) {
     resetPanelState();
-    setPanelOpen(true);
+    setDetailLesson(null);
+    setActivePanel("create");
     if (prefillStartAt) setStartAt(prefillStartAt);
+    if (filterTeacherId) {
+      const teacher = teachers.find((t) => t.id === filterTeacherId);
+      if (teacher) {
+        setTeacherId(filterTeacherId);
+        setInstrument(teacher.instruments[0] ?? "Piyano");
+        setRoomId("");
+      }
+    }
   }
 
   function openPlannerAtSlot(dayIso: string, slotMin: number) {
@@ -251,7 +358,8 @@ export function ProgramStudio({
     setSeriesError(null);
     setSeriesPreview(null);
     setSeriesSuccess(null);
-    setSeriesPanelOpen(true);
+    setDetailLesson(null);
+    setActivePanel("series");
   }
 
   function selectSeriesStudent(id: string) {
@@ -337,7 +445,7 @@ export function ProgramStudio({
       skippedCount: result.skippedOccurrences.length,
     });
     setSeriesPreview(null);
-    setSeriesPanelOpen(false);
+    setActivePanel("none");
     router.refresh();
   }
 
@@ -390,12 +498,13 @@ export function ProgramStudio({
       return;
     }
     if (result.communication) setLastCreated(result.communication);
-    setPanelOpen(false);
+    setActivePanel("none");
     setSuggestions(null);
     router.refresh();
   }
 
   function openDetail(lesson: Lesson) {
+    setActivePanel("none");
     setDetailLesson(lesson);
     setDetailMoveOpen(false);
     setDetailError(null);
@@ -429,6 +538,7 @@ export function ProgramStudio({
       return;
     }
     closeDetail();
+    setActionSuccess("Ders taşındı.");
     router.refresh();
   }
 
@@ -491,9 +601,10 @@ export function ProgramStudio({
     setGridError(null);
     const result = await actionUpdateLessonSchedule({ lessonId, startAt: newStartAtIso });
     if (!result.ok) {
-      setGridError(result.message);
+      setGridError(`Değişiklik uygulanmadı: ${result.message}`);
       return;
     }
+    setActionSuccess("Ders taşındı.");
     router.refresh();
   }
 
@@ -538,15 +649,311 @@ export function ProgramStudio({
         durationMinutes: ref.currentDuration,
       });
       if (!result.ok) {
-        setGridError(result.message);
+        setGridError(`Değişiklik uygulanmadı: ${result.message}`);
         return;
       }
+      setActionSuccess("Ders süresi güncellendi.");
       router.refresh();
     }
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }
+
+  const createLessonForm = (
+    <>
+      <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <Label>Öğrenci</Label>
+          <Select value={studentId} onChange={(e) => selectStudent(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {students
+              .filter((s) => s.active)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Enstrüman</Label>
+          <Select value={instrument} onChange={(e) => selectInstrument(e.target.value)}>
+            {instrumentOptions.map((i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Öğretmen</Label>
+          <Select value={teacherId} onChange={(e) => selectTeacher(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {teacherOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+                {selectedStudent?.teacherId === t.id ? " · mevcut öğretmen" : ""}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Oda</Label>
+          <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {roomOptions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Başlangıç tarihi/saati</Label>
+          <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required />
+          <p className="mt-1 text-[11px] text-slate-400">
+            Süre: {lessonDurationMinutes} dk (okul ayarından otomatik, bitiş saati elle girilmez)
+          </p>
+        </div>
+        <div className="flex items-end gap-2">
+          <Button type="button" variant="secondary" onClick={handleFindSlots} disabled={suggestLoading}>
+            {suggestLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Uygun saatleri bul
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Dersi planla
+          </Button>
+        </div>
+
+        {formError ? <p className="sm:col-span-2 lg:col-span-3 text-sm text-rose-600">{formError}</p> : null}
+      </form>
+
+      {suggestError ? <p className="mt-3 text-sm text-rose-600">{suggestError}</p> : null}
+
+      {suggestions ? (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="mb-3 text-sm font-medium text-slate-700">
+            Uygun saatler {suggestions.length === 0 ? "bulunamadı" : `(${suggestions.length})`}
+          </p>
+          {suggestions.length === 0 ? (
+            <p className="text-sm text-slate-500">Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {suggestions.map((s) => {
+                const teacher = teachers.find((t) => t.id === s.teacherId);
+                const room = rooms.find((r) => r.id === s.roomId);
+                return (
+                  <button
+                    key={`${s.startAt}-${s.teacherId}-${s.roomId}`}
+                    type="button"
+                    onClick={() => applySuggestion(s)}
+                    className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-violet-300 hover:bg-violet-50"
+                  >
+                    <p className="font-semibold text-slate-900">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
+                    <p className="text-slate-600">{format(parseISO(s.startAt), "HH:mm")}</p>
+                    <p className="mt-1 text-slate-500">
+                      {teacher?.name} · {room?.name}
+                    </p>
+                    <p className="mt-1 text-[11px] text-violet-600">{s.reasons.join(" · ")}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setSuggestLimit((n) => n + 8);
+              void handleFindSlots();
+            }}
+            className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700"
+          >
+            Daha fazla göster
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+
+  const seriesForm = (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <Label>Öğrenci</Label>
+          <Select value={seriesStudentId} onChange={(e) => selectSeriesStudent(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {students
+              .filter((s) => s.active)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Enstrüman</Label>
+          <Select value={seriesInstrument} onChange={(e) => selectSeriesInstrument(e.target.value)}>
+            {seriesInstrumentOptions.map((i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Öğretmen</Label>
+          <Select value={seriesTeacherId} onChange={(e) => selectSeriesTeacher(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {seriesTeacherOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+                {seriesSelectedStudent?.teacherId === t.id ? " · mevcut öğretmen" : ""}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Oda</Label>
+          <Select
+            value={seriesRoomId}
+            onChange={(e) => {
+              setSeriesRoomId(e.target.value);
+              setSeriesPreview(null);
+            }}
+            required
+          >
+            <option value="">Seçin…</option>
+            {seriesRoomOptions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+          {seriesBranchId ? (
+            <p className="mt-1 text-[11px] text-slate-400">Şube: {branchNames[seriesBranchId] ?? seriesBranchId}</p>
+          ) : null}
+        </div>
+        <div>
+          <Label>Gün</Label>
+          <Select
+            value={seriesWeekday}
+            onChange={(e) => {
+              setSeriesWeekday(Number(e.target.value));
+              setSeriesPreview(null);
+            }}
+          >
+            {WEEKDAYS.map((d) => (
+              <option key={d} value={d}>
+                Her {dayName(d)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Başlangıç saati</Label>
+          <Input
+            type="time"
+            value={seriesStartTime}
+            onChange={(e) => {
+              setSeriesStartTime(e.target.value);
+              setSeriesPreview(null);
+            }}
+            required
+          />
+        </div>
+        <div>
+          <Label>Süre (dk)</Label>
+          <Input
+            type="number"
+            min={15}
+            step={5}
+            value={seriesDuration}
+            onChange={(e) => {
+              setSeriesDuration(Number(e.target.value) || lessonDurationMinutes);
+              setSeriesPreview(null);
+            }}
+            required
+          />
+        </div>
+        <div>
+          <Label>Başlangıç tarihi</Label>
+          <Input
+            type="date"
+            value={seriesStartsOn}
+            onChange={(e) => {
+              setSeriesStartsOn(e.target.value);
+              setSeriesPreview(null);
+            }}
+            required
+          />
+        </div>
+        <div>
+          <Label>Bitiş tarihi</Label>
+          <Input
+            type="date"
+            value={seriesEndsOn}
+            onChange={(e) => {
+              setSeriesEndsOn(e.target.value);
+              setSeriesPreview(null);
+            }}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" variant="secondary" onClick={handleSeriesPreview} disabled={seriesPreviewLoading}>
+          {seriesPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Önizle
+        </Button>
+        {seriesPreview ? (
+          <Button
+            type="button"
+            onClick={handleSeriesCreate}
+            disabled={(seriesPreview.conflictCount > 0 && !seriesSkipConflicts) || seriesSubmitting}
+          >
+            {seriesSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Seriyi oluştur
+          </Button>
+        ) : null}
+      </div>
+
+      {seriesError ? <p className="mt-3 text-sm text-rose-600">{seriesError}</p> : null}
+
+      {seriesPreview ? (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700">{seriesPreview.previewText}</p>
+          {seriesPreview.conflictCount > 0 ? (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-rose-700">{seriesPreview.conflictCount} tarihte çakışma var:</p>
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg bg-rose-50 p-2 text-xs text-rose-800">
+                {seriesPreview.checks
+                  .filter((c) => !c.ok)
+                  .map((c) => (
+                    <p key={c.startAt}>
+                      {format(parseISO(c.startAt), "d MMM yyyy, HH:mm", { locale: tr })} — {c.message}
+                    </p>
+                  ))}
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={seriesSkipConflicts}
+                  onChange={(e) => setSeriesSkipConflicts(e.target.checked)}
+                />
+                Yalnızca çakışmayan tarihleri oluştur, çakışanları atla
+              </label>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-emerald-600">Çakışma yok — oluşturmaya hazır.</p>
+          )}
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <div>
@@ -573,16 +980,6 @@ export function ProgramStudio({
         </Card>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-slate-900">Haftalık program</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={openSeriesPanel}>
-            Tekrarlayan ders oluştur
-          </Button>
-          <Button onClick={() => openPlanner()}>Yeni ders planla</Button>
-        </div>
-      </div>
-
       {seriesSuccess ? (
         <Card className="mb-4 border-emerald-200 bg-emerald-50/50">
           <div className="flex items-start justify-between gap-3">
@@ -602,336 +999,76 @@ export function ProgramStudio({
         </Card>
       ) : null}
 
-      {seriesPanelOpen ? (
-        <Card className="mb-6 border-violet-200">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">Tekrarlayan ders oluştur</h3>
-            <button
-              type="button"
-              onClick={() => setSeriesPanelOpen(false)}
-              className="text-slate-400 hover:text-slate-700"
-              aria-label="Kapat"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      {actionSuccess ? (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          <span>{actionSuccess}</span>
+          <button type="button" onClick={() => setActionSuccess(null)} aria-label="Kapat">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      {gridError ? (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+          <span>{gridError}</span>
+          <button type="button" onClick={() => setGridError(null)} aria-label="Kapat">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-slate-900">Haftalık program</h2>
+          <p className="mt-0.5 hidden text-xs text-slate-400 lg:block">
+            Dersi taşımak için sürükleyin · Süreyi değiştirmek için kartın altından uzatın
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={filterBranchId} onChange={(e) => selectFilterBranch(e.target.value)} className="w-auto">
+            <option value="">Tüm şubeler</option>
+            {branchIds.map((id) => (
+              <option key={id} value={id}>
+                {branchNames[id]}
+              </option>
+            ))}
+          </Select>
+          <Select value={filterTeacherId} onChange={(e) => setFilterTeacherId(e.target.value)} className="w-auto">
+            <option value="">Tüm öğretmenler</option>
+            {filterableTeachers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+          <Button variant="secondary" onClick={openSeriesPanel}>
+            Tekrarlayan ders oluştur
+          </Button>
+          <Button onClick={() => openPlanner()}>Ders planla</Button>
+        </div>
+      </div>
+
+      {visibleWeekLessons.length === 0 ? (
+        <Card className="mb-4 border-dashed border-slate-200 bg-slate-50/60 text-center">
+          <p className="text-sm text-slate-500">
+            {filterBranchId || filterTeacherId ? "Bu filtrelerle eşleşen ders yok." : "Bu hafta için planlanmış ders yok."}
+          </p>
+          <div className="mt-3 flex justify-center">
+            <Button onClick={() => openPlanner()}>Ders planla</Button>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <Label>Öğrenci</Label>
-              <Select value={seriesStudentId} onChange={(e) => selectSeriesStudent(e.target.value)} required>
-                <option value="">Seçin…</option>
-                {students
-                  .filter((s) => s.active)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Enstrüman</Label>
-              <Select value={seriesInstrument} onChange={(e) => selectSeriesInstrument(e.target.value)}>
-                {seriesInstrumentOptions.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Öğretmen</Label>
-              <Select value={seriesTeacherId} onChange={(e) => selectSeriesTeacher(e.target.value)} required>
-                <option value="">Seçin…</option>
-                {seriesTeacherOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {seriesSelectedStudent?.teacherId === t.id ? " · mevcut öğretmen" : ""}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Oda</Label>
-              <Select
-                value={seriesRoomId}
-                onChange={(e) => {
-                  setSeriesRoomId(e.target.value);
-                  setSeriesPreview(null);
-                }}
-                required
-              >
-                <option value="">Seçin…</option>
-                {seriesRoomOptions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </Select>
-              {seriesBranchId ? (
-                <p className="mt-1 text-[11px] text-slate-400">Şube: {branchNames[seriesBranchId] ?? seriesBranchId}</p>
-              ) : null}
-            </div>
-            <div>
-              <Label>Gün</Label>
-              <Select
-                value={seriesWeekday}
-                onChange={(e) => {
-                  setSeriesWeekday(Number(e.target.value));
-                  setSeriesPreview(null);
-                }}
-              >
-                {WEEKDAYS.map((d) => (
-                  <option key={d} value={d}>
-                    Her {dayName(d)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Başlangıç saati</Label>
-              <Input
-                type="time"
-                value={seriesStartTime}
-                onChange={(e) => {
-                  setSeriesStartTime(e.target.value);
-                  setSeriesPreview(null);
-                }}
-                required
-              />
-            </div>
-            <div>
-              <Label>Süre (dk)</Label>
-              <Input
-                type="number"
-                min={15}
-                step={5}
-                value={seriesDuration}
-                onChange={(e) => {
-                  setSeriesDuration(Number(e.target.value) || lessonDurationMinutes);
-                  setSeriesPreview(null);
-                }}
-                required
-              />
-            </div>
-            <div>
-              <Label>Başlangıç tarihi</Label>
-              <Input
-                type="date"
-                value={seriesStartsOn}
-                onChange={(e) => {
-                  setSeriesStartsOn(e.target.value);
-                  setSeriesPreview(null);
-                }}
-                required
-              />
-            </div>
-            <div>
-              <Label>Bitiş tarihi</Label>
-              <Input
-                type="date"
-                value={seriesEndsOn}
-                onChange={(e) => {
-                  setSeriesEndsOn(e.target.value);
-                  setSeriesPreview(null);
-                }}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" onClick={handleSeriesPreview} disabled={seriesPreviewLoading}>
-              {seriesPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Önizle
-            </Button>
-            {seriesPreview ? (
-              <Button
-                type="button"
-                onClick={handleSeriesCreate}
-                disabled={(seriesPreview.conflictCount > 0 && !seriesSkipConflicts) || seriesSubmitting}
-              >
-                {seriesSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Seriyi oluştur
-              </Button>
-            ) : null}
-          </div>
-
-          {seriesError ? <p className="mt-3 text-sm text-rose-600">{seriesError}</p> : null}
-
-          {seriesPreview ? (
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="text-sm font-medium text-slate-700">{seriesPreview.previewText}</p>
-              {seriesPreview.conflictCount > 0 ? (
-                <div className="mt-3">
-                  <p className="text-sm font-medium text-rose-700">
-                    {seriesPreview.conflictCount} tarihte çakışma var:
-                  </p>
-                  <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg bg-rose-50 p-2 text-xs text-rose-800">
-                    {seriesPreview.checks
-                      .filter((c) => !c.ok)
-                      .map((c) => (
-                        <p key={c.startAt}>
-                          {format(parseISO(c.startAt), "d MMM yyyy, HH:mm", { locale: tr })} — {c.message}
-                        </p>
-                      ))}
-                  </div>
-                  <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={seriesSkipConflicts}
-                      onChange={(e) => setSeriesSkipConflicts(e.target.checked)}
-                    />
-                    Yalnızca çakışmayan tarihleri oluştur, çakışanları atla
-                  </label>
-                </div>
-              ) : (
-                <p className="mt-2 text-xs text-emerald-600">Çakışma yok — oluşturmaya hazır.</p>
-              )}
-            </div>
-          ) : null}
         </Card>
       ) : null}
 
-      {panelOpen ? (
-        <Card className="mb-6 border-violet-200">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">Ders planla</h3>
-            <button
-              type="button"
-              onClick={() => setPanelOpen(false)}
-              className="text-slate-400 hover:text-slate-700"
-              aria-label="Kapat"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+      {activePanel === "create" ? (
+        <FormModal title="Ders planla" onClose={() => setActivePanel("none")}>
+          {createLessonForm}
+        </FormModal>
+      ) : null}
 
-          <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <Label>Öğrenci</Label>
-              <Select value={studentId} onChange={(e) => selectStudent(e.target.value)} required>
-                <option value="">Seçin…</option>
-                {students
-                  .filter((s) => s.active)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Enstrüman</Label>
-              <Select value={instrument} onChange={(e) => selectInstrument(e.target.value)}>
-                {instrumentOptions.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Öğretmen</Label>
-              <Select value={teacherId} onChange={(e) => selectTeacher(e.target.value)} required>
-                <option value="">Seçin…</option>
-                {teacherOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {selectedStudent?.teacherId === t.id ? " · mevcut öğretmen" : ""}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Oda</Label>
-              <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
-                <option value="">Seçin…</option>
-                {roomOptions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Başlangıç tarihi/saati</Label>
-              <Input
-                type="datetime-local"
-                value={startAt}
-                onChange={(e) => setStartAt(e.target.value)}
-                required
-              />
-              <p className="mt-1 text-[11px] text-slate-400">
-                Süre: {lessonDurationMinutes} dk (okul ayarından otomatik, bitiş saati elle girilmez)
-              </p>
-            </div>
-            <div className="flex items-end gap-2">
-              <Button type="button" variant="secondary" onClick={handleFindSlots} disabled={suggestLoading}>
-                {suggestLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Uygun saatleri bul
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Dersi planla
-              </Button>
-            </div>
-
-            {formError ? (
-              <p className="sm:col-span-2 lg:col-span-3 text-sm text-rose-600">{formError}</p>
-            ) : null}
-          </form>
-
-          {suggestError ? <p className="mt-3 text-sm text-rose-600">{suggestError}</p> : null}
-
-          {suggestions ? (
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="mb-3 text-sm font-medium text-slate-700">
-                Uygun saatler {suggestions.length === 0 ? "bulunamadı" : `(${suggestions.length})`}
-              </p>
-              {suggestions.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.
-                </p>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {suggestions.map((s) => {
-                    const teacher = teachers.find((t) => t.id === s.teacherId);
-                    const room = rooms.find((r) => r.id === s.roomId);
-                    return (
-                      <button
-                        key={`${s.startAt}-${s.teacherId}-${s.roomId}`}
-                        type="button"
-                        onClick={() => applySuggestion(s)}
-                        className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-violet-300 hover:bg-violet-50"
-                      >
-                        <p className="font-semibold text-slate-900">
-                          {format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}
-                        </p>
-                        <p className="text-slate-600">{format(parseISO(s.startAt), "HH:mm")}</p>
-                        <p className="mt-1 text-slate-500">
-                          {teacher?.name} · {room?.name}
-                        </p>
-                        <p className="mt-1 text-[11px] text-violet-600">{s.reasons.join(" · ")}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSuggestLimit((n) => n + 8);
-                  void handleFindSlots();
-                }}
-                className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700"
-              >
-                Daha fazla göster
-              </button>
-            </div>
-          ) : null}
-        </Card>
+      {activePanel === "series" ? (
+        <FormModal title="Tekrarlayan ders oluştur" onClose={() => setActivePanel("none")}>
+          {seriesForm}
+        </FormModal>
       ) : null}
 
       {detailLesson ? (
@@ -954,15 +1091,6 @@ export function ProgramStudio({
           onCancelSeriesFromLesson={submitCancelSeriesFromLesson}
           onCancelEntireSeries={submitCancelEntireSeries}
         />
-      ) : null}
-
-      {gridError ? (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-          <span>{gridError}</span>
-          <button type="button" onClick={() => setGridError(null)} aria-label="Kapat">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
       ) : null}
 
       <div className="hidden overflow-x-auto lg:block">
@@ -997,7 +1125,7 @@ export function ProgramStudio({
           {days.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
-            const dayLessons = weekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
+            const dayLessons = visibleWeekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
             const { laneOf, laneCount } = assignLanes(dayLessons);
             const totalHeight = slots.length * SLOT_HEIGHT_PX;
 
@@ -1038,7 +1166,6 @@ export function ProgramStudio({
                 {dayLessons.map((lesson) => {
                   const student = students.find((s) => s.id === lesson.studentId);
                   const teacher = teachers.find((t) => t.id === lesson.teacherId);
-                  const room = rooms.find((r) => r.id === lesson.roomId);
                   const startMin =
                     parseISO(lesson.startAt).getHours() * 60 + parseISO(lesson.startAt).getMinutes();
                   const duration =
@@ -1072,12 +1199,12 @@ export function ProgramStudio({
                         borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}`,
                       }}
                     >
-                      <p className="truncate font-semibold text-slate-800">
+                      <p className="truncate font-semibold text-slate-800">{student?.name}</p>
+                      <p className="truncate text-slate-500">
                         {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
                       </p>
-                      <p className="truncate text-slate-600">{student?.name}</p>
                       <p className="truncate text-slate-400">
-                        {teacher?.name} · {room?.name}
+                        {teacher?.name} · {branchNames[lesson.branchId] ?? ""}
                       </p>
                       <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
                       {editable ? (
@@ -1096,56 +1223,55 @@ export function ProgramStudio({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:hidden">
-        {days.map((dayIso) => {
-          const day = parseISO(dayIso);
-          const today = isSameDay(day, now);
-          const dayLessons = weekLessons
-            .filter((l) => isSameDay(parseISO(l.startAt), day))
-            .sort((a, b) => a.startAt.localeCompare(b.startAt));
-          return (
-            <Card key={dayIso} className={today ? "border-violet-200 bg-violet-50/30" : undefined}>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">
-                  {format(day, "EEEE d MMM", { locale: tr })}
-                </p>
-                {today ? <Badge status="scheduled">Bugün</Badge> : null}
-              </div>
-              {dayLessons.length === 0 ? (
-                <p className="text-xs text-slate-400">Boş</p>
-              ) : (
-                <div className="space-y-2">
-                  {dayLessons.map((lesson) => {
-                    const student = students.find((s) => s.id === lesson.studentId);
-                    const teacher = teachers.find((t) => t.id === lesson.teacherId);
-                    const room = rooms.find((r) => r.id === lesson.roomId);
-                    return (
-                      <button
-                        key={lesson.id}
-                        type="button"
-                        onClick={() => openDetail(lesson)}
-                        className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-violet-200"
-                        style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
-                      >
-                        <p className="font-semibold text-slate-800">
-                          {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
-                        </p>
-                        <p className="text-slate-600">{student?.name}</p>
-                        <p className="text-slate-400">
-                          {teacher?.name} · {room?.name}
-                          {branchNames[lesson.branchId] ? ` · ${branchNames[lesson.branchId]}` : ""}
-                        </p>
-                        <div className="mt-1">
-                          <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
-                        </div>
-                      </button>
-                    );
-                  })}
+      <div className="lg:hidden">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Gün görünümü</p>
+        <div className="grid gap-3">
+          {days.map((dayIso) => {
+            const day = parseISO(dayIso);
+            const today = isSameDay(day, now);
+            const dayLessons = visibleWeekLessons
+              .filter((l) => isSameDay(parseISO(l.startAt), day))
+              .sort((a, b) => a.startAt.localeCompare(b.startAt));
+            return (
+              <Card key={dayIso} className={today ? "border-violet-200 bg-violet-50/30" : undefined}>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">{format(day, "EEEE d MMM", { locale: tr })}</p>
+                  {today ? <Badge status="scheduled">Bugün</Badge> : null}
                 </div>
-              )}
-            </Card>
-          );
-        })}
+                {dayLessons.length === 0 ? (
+                  <p className="text-xs text-slate-400">Boş</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayLessons.map((lesson) => {
+                      const student = students.find((s) => s.id === lesson.studentId);
+                      const teacher = teachers.find((t) => t.id === lesson.teacherId);
+                      return (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => openDetail(lesson)}
+                          className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-violet-200"
+                          style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
+                        >
+                          <p className="font-semibold text-slate-800">{student?.name}</p>
+                          <p className="text-slate-500">
+                            {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
+                          </p>
+                          <p className="text-slate-400">
+                            {teacher?.name} · {branchNames[lesson.branchId] ?? ""}
+                          </p>
+                          <div className="mt-1">
+                            <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1216,7 +1342,9 @@ function DetailPanel({
       </div>
 
       {isSeriesMember ? (
-        <p className="mb-3 text-xs font-medium text-violet-600">Bu ders tekrarlayan bir serinin parçası.</p>
+        <p className="mb-3 text-xs font-medium text-violet-600">
+          Bu ders tekrarlayan bir serinin parçası. Buradaki değişiklik yalnızca bu dersi etkiler.
+        </p>
       ) : null}
 
       {reason ? <p className="mb-3 text-xs text-amber-600">{reason}</p> : null}
@@ -1293,11 +1421,7 @@ function CommunicationDraftCard({ label, msg }: { label: string; msg: LessonComm
         <p className="mt-2 text-xs text-rose-600">{msg.missingPhoneReason ?? "Telefon numarası eksik."}</p>
       )}
       <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
-        <input
-          type="checkbox"
-          checked={markedSent}
-          onChange={(e) => setMarkedSent(e.target.checked)}
-        />
+        <input type="checkbox" checked={markedSent} onChange={(e) => setMarkedSent(e.target.checked)} />
         Sistemde gönderildi olarak işaretle
       </label>
       {markedSent ? (
