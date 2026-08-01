@@ -10,6 +10,11 @@ import type {
   Student,
   Teacher,
 } from "./types";
+import type { BranchImportRow } from "./import/branches";
+import type { TeacherImportRow } from "./import/teachers";
+import type { RoomImportRow } from "./import/rooms";
+import type { StudentImportRow } from "./import/students";
+import type { ImportCommitResult } from "./import/commit-result";
 
 type StoreApi = {
   readData: () => Promise<AppData>;
@@ -47,6 +52,10 @@ type StoreApi = {
   cancelLesson: (lessonId: string) => Promise<AppData>;
   addBranch: (branch: Omit<Branch, "id">) => Promise<AppData>;
   updateBranch: (branchId: string, patch: Partial<Omit<Branch, "id">>) => Promise<AppData>;
+  importBranches: (rows: BranchImportRow[]) => Promise<ImportCommitResult>;
+  importTeachers: (rows: TeacherImportRow[]) => Promise<ImportCommitResult>;
+  importRooms: (rows: RoomImportRow[]) => Promise<ImportCommitResult>;
+  importStudents: (rows: StudentImportRow[]) => Promise<ImportCommitResult>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -193,6 +202,22 @@ export async function updateBranch(
   patch: Partial<Omit<Branch, "id">>
 ): Promise<AppData> {
   return withTenantScope(() => store.updateBranch(branchId, patch));
+}
+
+export async function importBranches(rows: BranchImportRow[]): Promise<ImportCommitResult> {
+  return withTenantScope(() => store.importBranches(rows));
+}
+
+export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCommitResult> {
+  return withTenantScope(() => store.importTeachers(rows));
+}
+
+export async function importRooms(rows: RoomImportRow[]): Promise<ImportCommitResult> {
+  return withTenantScope(() => store.importRooms(rows));
+}
+
+export async function importStudents(rows: StudentImportRow[]): Promise<ImportCommitResult> {
+  return withTenantScope(() => store.importStudents(rows));
 }
 
 export function getDashboardStats(data: AppData) {

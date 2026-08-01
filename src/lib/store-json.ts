@@ -20,6 +20,11 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
+import type { BranchImportRow } from "./import/branches";
+import type { TeacherImportRow } from "./import/teachers";
+import type { RoomImportRow } from "./import/rooms";
+import type { StudentImportRow } from "./import/students";
+import type { ImportCommitResult } from "./import/commit-result";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
@@ -308,6 +313,149 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   if (!result.ok) throw new Error(result.message);
   await writeData(result.data);
   return result.data;
+}
+
+const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
+
+/**
+ * Şube importu, "kısa ad" eşleşen kaydı GÜNCELLER; yoksa yeni oluşturur —
+ * aynı dosyanın yeniden yüklenmesi duplicate şube üretmez.
+ */
+export async function importBranches(rows: BranchImportRow[]): Promise<ImportCommitResult> {
+  const data = await readData();
+  const branches = [...data.settings.branches];
+  let created = 0;
+  let updated = 0;
+  for (const row of rows) {
+    const idx = branches.findIndex((b) => b.shortName.trim().toLowerCase() === row.shortName.trim().toLowerCase());
+    if (idx >= 0) {
+      branches[idx] = { ...branches[idx], ...row };
+      updated++;
+    } else {
+      branches.push({ ...row, id: uid("branch") });
+      created++;
+    }
+  }
+  const next = { ...data, settings: { ...data.settings, branches } };
+  await writeData(next);
+  return { data: next, created, updated };
+}
+
+/** Öğretmen importu e-postaya göre upsert yapar. */
+export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCommitResult> {
+  const data = await readData();
+  const teachers = [...data.teachers];
+  let created = 0;
+  let updated = 0;
+  for (const row of rows) {
+    const idx = teachers.findIndex((t) => t.email.trim().toLowerCase() === row.email.trim().toLowerCase());
+    if (idx >= 0) {
+      teachers[idx] = {
+        ...teachers[idx],
+        name: row.name,
+        phone: row.phone,
+        branchId: row.branchId,
+        instruments: [row.instrument],
+      };
+      updated++;
+    } else {
+      teachers.push({
+        id: uid("tch"),
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        branchId: row.branchId,
+        instruments: [row.instrument],
+        availability: [
+          { dayOfWeek: 1, start: "10:00", end: "18:00" },
+          { dayOfWeek: 2, start: "10:00", end: "18:00" },
+          { dayOfWeek: 3, start: "10:00", end: "18:00" },
+          { dayOfWeek: 4, start: "10:00", end: "18:00" },
+          { dayOfWeek: 5, start: "10:00", end: "16:00" },
+        ],
+        maxDailyLessons: 8,
+        active: true,
+        color: TEACHER_COLORS[teachers.length % TEACHER_COLORS.length],
+      });
+      created++;
+    }
+  }
+  const next = { ...data, teachers };
+  await writeData(next);
+  return { data: next, created, updated };
+}
+
+/** Oda importu (şube, ad) çiftine göre upsert yapar. */
+export async function importRooms(rows: RoomImportRow[]): Promise<ImportCommitResult> {
+  const data = await readData();
+  const rooms = [...data.rooms];
+  let created = 0;
+  let updated = 0;
+  for (const row of rows) {
+    const idx = rooms.findIndex(
+      (r) => r.branchId === row.branchId && r.name.trim().toLowerCase() === row.name.trim().toLowerCase()
+    );
+    if (idx >= 0) {
+      rooms[idx] = { ...rooms[idx], capacity: row.capacity, instruments: row.instruments };
+      updated++;
+    } else {
+      rooms.push({ id: uid("room"), name: row.name, branchId: row.branchId, capacity: row.capacity, instruments: row.instruments });
+      created++;
+    }
+  }
+  const next = { ...data, rooms };
+  await writeData(next);
+  return { data: next, created, updated };
+}
+
+/** Öğrenci importu telefon numarasına göre upsert yapar (e-posta opsiyonel olduğu için). */
+export async function importStudents(rows: StudentImportRow[]): Promise<ImportCommitResult> {
+  const data = await readData();
+  const students = [...data.students];
+  let created = 0;
+  let updated = 0;
+  for (const row of rows) {
+    const idx = students.findIndex((s) => s.phone.trim() === row.phone.trim());
+    if (idx >= 0) {
+      students[idx] = {
+        ...students[idx],
+        name: row.name,
+        email: row.email || students[idx].email,
+        parentName: row.parentName,
+        parentPhone: row.parentPhone,
+        branchId: row.branchId,
+        instruments: [row.instrument],
+        teacherId: row.teacherId,
+        packageName: row.packageName,
+        weeklyLessonCount: row.weeklyLessonCount,
+        monthlyFee: row.monthlyFee,
+        notes: row.notes || students[idx].notes,
+      };
+      updated++;
+    } else {
+      students.push({
+        id: uid("stu"),
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        parentName: row.parentName,
+        parentPhone: row.parentPhone,
+        branchId: row.branchId,
+        instruments: [row.instrument],
+        teacherId: row.teacherId,
+        packageName: row.packageName,
+        weeklyLessonCount: row.weeklyLessonCount,
+        monthlyFee: row.monthlyFee,
+        active: true,
+        notes: row.notes,
+        createdAt: new Date().toISOString(),
+      });
+      created++;
+    }
+  }
+  const next = { ...data, students };
+  await writeData(next);
+  return { data: next, created, updated };
 }
 
 export async function addPayment(input: {

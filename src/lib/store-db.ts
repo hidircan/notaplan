@@ -14,10 +14,16 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
+import type { BranchImportRow } from "./import/branches";
+import type { TeacherImportRow } from "./import/teachers";
+import type { RoomImportRow } from "./import/rooms";
+import type { StudentImportRow } from "./import/students";
+import type { ImportCommitResult } from "./import/commit-result";
 import { addDays } from "date-fns";
 import { requireTenantId, tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
 import { getBootstrapUsersForSeed } from "./auth/users";
+import { uid } from "./utils";
 
 function tenantId(): string {
   return tryTenantId() ?? DEFAULT_TENANT_ID;
@@ -723,6 +729,210 @@ export async function updateBranch(
   });
   if (result.count === 0) throw new Error("Şube bulunamadı");
   return readData();
+}
+
+/**
+ * Dört import fonksiyonu da tüm satırları TEK bir `$transaction` içinde
+ * işler — kısmi bir hata durumunda hiçbir satır kalıcı olmaz. Şema
+ * değişikliği gerektirmeyen manuel upsert: benzersiz kısıt olmadığı için
+ * Prisma'nın `upsert()`'ü kullanılamıyor, bunun yerine `findFirst` + `update`
+ * ya da `create` uygulanır. Eşitlik karşılaştırmaları MySQL'in varsayılan
+ * (case-insensitive) collation'ına güvenir — Postgres'e özgü `mode:
+ * "insensitive"` seçeneği bu MySQL şemasında mevcut değildir.
+ */
+export async function importBranches(rows: BranchImportRow[]): Promise<ImportCommitResult> {
+  logger.info("importBranches", rows.length);
+  const tid = requireTenantId();
+  const school = await prisma.school.findFirst({ where: { tenantId: tid } });
+  if (!school) throw new Error("Okul bulunamadı");
+
+  let created = 0;
+  let updated = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const existing = await tx.branch.findFirst({
+        where: { tenantId: tid, shortName: row.shortName },
+      });
+      if (existing) {
+        await tx.branch.update({
+          where: { id: existing.id },
+          data: { name: row.name, shortName: row.shortName, address: row.address, phone: row.phone, city: row.city },
+        });
+        updated++;
+      } else {
+        await tx.branch.create({
+          data: {
+            id: uid("branch"),
+            tenantId: tid,
+            schoolId: school.id,
+            name: row.name,
+            shortName: row.shortName,
+            address: row.address,
+            phone: row.phone,
+            city: row.city,
+          },
+        });
+        created++;
+      }
+    }
+  });
+
+  return { data: await readData(), created, updated };
+}
+
+export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCommitResult> {
+  logger.info("importTeachers", rows.length);
+  const tid = requireTenantId();
+
+  let created = 0;
+  let updated = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const branch = await tx.branch.findFirst({ where: { id: row.branchId, tenantId: tid } });
+      if (!branch) throw new Error(`Şube bulunamadı: ${row.branchId}`);
+
+      const existing = await tx.teacher.findFirst({
+        where: { tenantId: tid, email: row.email },
+      });
+      if (existing) {
+        await tx.teacher.update({
+          where: { id: existing.id },
+          data: { name: row.name, phone: row.phone, branchId: row.branchId, instruments: [row.instrument] },
+        });
+        updated++;
+      } else {
+        await tx.teacher.create({
+          data: {
+            id: uid("tch"),
+            tenantId: tid,
+            schoolId: branch.schoolId,
+            name: row.name,
+            email: row.email,
+            phone: row.phone,
+            branchId: row.branchId,
+            instruments: [row.instrument],
+            availability: [
+              { dayOfWeek: 1, start: "10:00", end: "18:00" },
+              { dayOfWeek: 2, start: "10:00", end: "18:00" },
+              { dayOfWeek: 3, start: "10:00", end: "18:00" },
+              { dayOfWeek: 4, start: "10:00", end: "18:00" },
+              { dayOfWeek: 5, start: "10:00", end: "16:00" },
+            ],
+            maxDailyLessons: 8,
+            active: true,
+            color: "#7c3aed",
+          },
+        });
+        created++;
+      }
+    }
+  });
+
+  return { data: await readData(), created, updated };
+}
+
+export async function importRooms(rows: RoomImportRow[]): Promise<ImportCommitResult> {
+  logger.info("importRooms", rows.length);
+  const tid = requireTenantId();
+
+  let created = 0;
+  let updated = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const branch = await tx.branch.findFirst({ where: { id: row.branchId, tenantId: tid } });
+      if (!branch) throw new Error(`Şube bulunamadı: ${row.branchId}`);
+
+      const existing = await tx.room.findFirst({
+        where: { tenantId: tid, branchId: row.branchId, name: row.name },
+      });
+      if (existing) {
+        await tx.room.update({
+          where: { id: existing.id },
+          data: { capacity: row.capacity, instruments: row.instruments },
+        });
+        updated++;
+      } else {
+        await tx.room.create({
+          data: {
+            id: uid("room"),
+            tenantId: tid,
+            schoolId: branch.schoolId,
+            name: row.name,
+            branchId: row.branchId,
+            capacity: row.capacity,
+            instruments: row.instruments,
+          },
+        });
+        created++;
+      }
+    }
+  });
+
+  return { data: await readData(), created, updated };
+}
+
+export async function importStudents(rows: StudentImportRow[]): Promise<ImportCommitResult> {
+  logger.info("importStudents", rows.length);
+  const tid = requireTenantId();
+
+  let created = 0;
+  let updated = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const branch = await tx.branch.findFirst({ where: { id: row.branchId, tenantId: tid } });
+      if (!branch) throw new Error(`Şube bulunamadı: ${row.branchId}`);
+      const teacher = await tx.teacher.findFirst({ where: { id: row.teacherId, tenantId: tid } });
+      if (!teacher) throw new Error(`Öğretmen bulunamadı: ${row.teacherId}`);
+
+      const existing = await tx.student.findFirst({
+        where: { tenantId: tid, phone: row.phone.trim() },
+      });
+      if (existing) {
+        await tx.student.update({
+          where: { id: existing.id },
+          data: {
+            name: row.name,
+            email: row.email || existing.email,
+            parentName: row.parentName,
+            parentPhone: row.parentPhone,
+            branchId: row.branchId,
+            instruments: [row.instrument],
+            teacherId: row.teacherId,
+            packageName: row.packageName,
+            weeklyLessonCount: row.weeklyLessonCount,
+            monthlyFee: row.monthlyFee,
+            notes: row.notes || existing.notes,
+          },
+        });
+        updated++;
+      } else {
+        await tx.student.create({
+          data: {
+            id: uid("stu"),
+            tenantId: tid,
+            schoolId: branch.schoolId,
+            name: row.name,
+            email: row.email,
+            phone: row.phone,
+            parentName: row.parentName,
+            parentPhone: row.parentPhone,
+            branchId: row.branchId,
+            instruments: [row.instrument],
+            teacherId: row.teacherId,
+            packageName: row.packageName,
+            weeklyLessonCount: row.weeklyLessonCount,
+            monthlyFee: row.monthlyFee,
+            active: true,
+            notes: row.notes,
+            createdAt: new Date(),
+          },
+        });
+        created++;
+      }
+    }
+  });
+
+  return { data: await readData(), created, updated };
 }
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
