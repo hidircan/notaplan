@@ -71,7 +71,7 @@ export default async function OgrencilerPage() {
             </div>
             <div>
               <Label>Şube</Label>
-              <Select name="branchId" defaultValue="erzene">
+              <Select name="branchId" defaultValue={data.settings.branches[0]?.id}>
                 {data.settings.branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}

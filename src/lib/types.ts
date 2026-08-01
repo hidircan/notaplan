@@ -16,7 +16,12 @@ export const INSTRUMENTS: Instrument[] = [
   "Şan",
 ];
 
-export type BranchId = "erzene" | "evka3";
+/**
+ * Artık kapalı bir küme değil — okul admini `/panel/subeler`den istediği
+ * kadar şube ekleyebilir. Demo şubeleri ("erzene", "evka3") sabit id'lerle
+ * seed'de yaşamaya devam eder, ama tip düzeyinde özel bir anlamları yoktur.
+ */
+export type BranchId = string;
 
 export interface Branch {
   id: BranchId;

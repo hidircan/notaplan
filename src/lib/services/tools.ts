@@ -204,7 +204,7 @@ export async function findAvailableTeachersTool(
   const v = parseOrFail(
     z.object({
       instrument: z.string().optional(),
-      branchId: z.enum(["erzene", "evka3"]).optional(),
+      branchId: z.string().min(1).optional(),
     }),
     input ?? {}
   );
@@ -355,7 +355,8 @@ export async function sendParentMessageTool(
         (m.studentId === student.id && (m.status === "pending" || m.status === "suggested"))
     );
     if (!req) return fail("NOT_FOUND", "Makeup request not found for parent message");
-    message = templateMakeupCreated(data.settings.name, student, req);
+    const branch = data.settings.branches.find((b) => b.id === req.branchId);
+    message = templateMakeupCreated(data.settings.name, student, req, branch?.shortName ?? "");
   } else {
     const req = data.makeupRequests.find(
       (m) => m.id === v.data.makeupRequestId && m.status === "confirmed"

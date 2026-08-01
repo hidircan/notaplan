@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const branchSchema = z.object({
+  name: z.string().min(1),
+  shortName: z.string().min(1),
+  city: z.string().min(1),
+  phone: z.string().min(1),
+  address: z.string().min(1),
+});
+
+export const updateBranchSchema = branchSchema.partial().extend({
+  branchId: z.string().min(1),
+});
+
 export const attendanceSchema = z.object({
   lessonId: z.string().min(1),
   status: z.enum(["present", "absent", "late", "cancelled_by_school"]),
@@ -18,7 +30,7 @@ export const studentSchema = z.object({
   phone: z.string().min(1),
   parentName: z.string().min(1),
   parentPhone: z.string().min(1),
-  branchId: z.enum(["erzene", "evka3"]),
+  branchId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
   teacherId: z.string().min(1),
   packageName: z.string().min(1),
@@ -31,13 +43,13 @@ export const teacherSchema = z.object({
   name: z.string().min(1),
   email: optionalEmail,
   phone: z.string().min(1),
-  branchId: z.enum(["erzene", "evka3"]),
+  branchId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
 });
 
 export const roomSchema = z.object({
   name: z.string().min(1),
-  branchId: z.enum(["erzene", "evka3"]),
+  branchId: z.string().min(1),
   capacity: z.coerce.number().int().min(1),
   instruments: z
     .array(z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]))
@@ -86,7 +98,7 @@ export const makeupSlotSchema = z.object({
   endAt: z.string().min(1),
   teacherId: z.string().min(1),
   roomId: z.string().min(1),
-  branchId: z.enum(["erzene", "evka3"]),
+  branchId: z.string().min(1),
   score: z.number(),
   reasons: z.array(z.string()),
 });

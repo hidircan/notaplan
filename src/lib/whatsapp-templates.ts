@@ -42,9 +42,10 @@ function build(toName: string, toPhone: string, title: string, audience: WaMessa
 export function templateMakeupCreated(
   school: string,
   student: Student,
-  req: MakeupRequest
+  req: MakeupRequest,
+  branchName: string
 ): WaMessage {
-  const branch = student.branchId === "erzene" ? "Erzene" : "Evka 3";
+  const branch = branchName || "";
   const body =
     `Merhaba ${student.parentName},\n\n` +
     `${school} — ${branch} şubesi.\n` +
@@ -166,7 +167,8 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
   for (const req of data.makeupRequests.filter((m) => m.status === "pending" || m.status === "suggested")) {
     const student = data.students.find((s) => s.id === req.studentId);
     if (!student) continue;
-    msgs.push(templateMakeupCreated(school, student, req));
+    const branch = data.settings.branches.find((b) => b.id === req.branchId);
+    msgs.push(templateMakeupCreated(school, student, req, branch?.shortName ?? ""));
   }
 
   for (const req of data.makeupRequests.filter((m) => m.status === "confirmed" && m.confirmedLessonId)) {

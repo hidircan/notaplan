@@ -48,9 +48,11 @@ describe("agent executor", () => {
   });
 
   it("geçersiz input için VALIDATION_ERROR döner", async () => {
+    // branchId artık serbest bir string (dinamik şubeler) — şema düzeyinde
+    // geçersizliği göstermek için boş string kullanılır (.min(1) ihlali).
     const res = await executeAgentTool(ctx(), {
       tool: "findAvailableTeachers",
-      input: { branchId: "geçersiz-şube" },
+      input: { branchId: "" },
     });
     expect(res.ok).toBe(false);
     if (!res.ok) {

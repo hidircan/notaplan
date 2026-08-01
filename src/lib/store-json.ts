@@ -168,10 +168,17 @@ export async function cancelMakeup(requestId: string): Promise<AppData> {
   return next;
 }
 
+function assertBranchExists(data: AppData, branchId: string) {
+  if (!data.settings.branches.some((b) => b.id === branchId)) {
+    throw new Error("Şube bulunamadı");
+  }
+}
+
 export async function addStudent(
   student: Omit<Student, "id" | "createdAt" | "active">
 ): Promise<AppData> {
   const data = await readData();
+  assertBranchExists(data, student.branchId);
   const s: Student = {
     ...student,
     id: uid("stu"),
@@ -187,6 +194,7 @@ export async function addTeacher(
   teacher: Omit<Teacher, "id" | "active" | "color">
 ): Promise<AppData> {
   const data = await readData();
+  assertBranchExists(data, teacher.branchId);
   const colors = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
   const t: Teacher = {
     ...teacher,
@@ -219,6 +227,7 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   const data = await readData();
+  assertBranchExists(data, room.branchId);
   const r: Room = { ...room, id: uid("room") };
   const next = { ...data, rooms: [...data.rooms, r] };
   await writeData(next);

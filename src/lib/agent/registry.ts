@@ -107,7 +107,7 @@ export const TOOL_REGISTRY: Record<AgentToolName, ToolDefinition<any, any>> = {
     description: "List active teachers filtered by instrument and/or branch",
     inputSchema: z.object({
       instrument: z.string().optional(),
-      branchId: z.enum(["erzene", "evka3"]).optional(),
+      branchId: z.string().min(1).optional(),
     }),
     outputSchema: z.object({
       teachers: z.array(

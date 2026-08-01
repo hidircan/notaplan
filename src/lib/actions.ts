@@ -175,7 +175,7 @@ export async function actionAddStudent(formData: FormData) {
           phone: String(formData.get("phone") || ""),
           parentName: String(formData.get("parentName") || ""),
           parentPhone: String(formData.get("parentPhone") || ""),
-          branchId: String(formData.get("branchId") || "erzene"),
+          branchId: String(formData.get("branchId") || ""),
           instrument: String(formData.get("instrument") || "Piyano"),
           teacherId: String(formData.get("teacherId") || ""),
           packageName: String(formData.get("packageName") || "Bireysel Aylık — 4 ders"),
@@ -201,7 +201,7 @@ export async function actionAddTeacher(formData: FormData) {
           name: String(formData.get("name") || ""),
           email: String(formData.get("email") || ""),
           phone: String(formData.get("phone") || ""),
-          branchId: String(formData.get("branchId") || "erzene"),
+          branchId: String(formData.get("branchId") || ""),
           instrument: String(formData.get("instrument") || "Piyano"),
         })
       );
@@ -220,7 +220,7 @@ export async function actionAddRoom(formData: FormData) {
       assertOk(
         await createRoomTool(ctx, {
           name: String(formData.get("name") || ""),
-          branchId: String(formData.get("branchId") || "erzene"),
+          branchId: String(formData.get("branchId") || ""),
           capacity: Number(formData.get("capacity") || 2),
           instruments: formData.getAll("instruments").map(String),
         })
