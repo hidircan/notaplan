@@ -7,14 +7,20 @@ import { addMinutes, differenceInMinutes, format, isSameDay, parseISO, startOfDa
 import { tr } from "date-fns/locale";
 import {
   actionAddLesson,
+  actionCancelEntireSeries,
   actionCancelLesson,
+  actionCancelSeriesFromLesson,
+  actionCreateLessonSeries,
+  actionPreviewLessonSeries,
   actionSuggestLessonSlots,
   actionUpdateLessonSchedule,
 } from "@/lib/actions";
 import type { LessonCommunicationMessage } from "@/lib/whatsapp-templates";
 import type { LessonSlotSuggestion } from "@/lib/lesson-scheduling";
+import type { SeriesOccurrenceCheck } from "@/lib/lesson-series";
 import { Badge, Button, Card, Input, Label, Select } from "@/components/ui";
 import { INSTRUMENTS, type Instrument, type Lesson, type Room, type Student, type Teacher } from "@/lib/types";
+import { dayName } from "@/lib/utils";
 
 type ProgramStudioProps = {
   students: Student[];
@@ -70,6 +76,26 @@ function ineligibilityReason(lesson: Lesson, now: Date): string | null {
   if (!(parseISO(lesson.startAt) > now)) return "Geçmiş bir ders taşınamaz veya süresi değiştirilemez, ancak iptal edilebilir.";
   return null;
 }
+
+/** Öğrenci varsa: mevcut öğretmeni ve aynı şubeyi öne alarak sıralar. */
+function teacherOptionsFor(teachers: Teacher[], instrument: Instrument, student?: Student): Teacher[] {
+  return [...teachers.filter((t) => t.active && t.instruments.includes(instrument))].sort((a, b) => {
+    if (student) {
+      if (a.id === student.teacherId && b.id !== student.teacherId) return -1;
+      if (b.id === student.teacherId && a.id !== student.teacherId) return 1;
+      if (a.branchId === student.branchId && b.branchId !== student.branchId) return -1;
+      if (b.branchId === student.branchId && a.branchId !== student.branchId) return 1;
+    }
+    return a.name.localeCompare(b.name, "tr");
+  });
+}
+
+/** Seçili öğretmenin şubesiyle ve enstrümanla uyumlu odalarla daraltır. */
+function roomOptionsFor(rooms: Room[], instrument: Instrument, teacher?: Teacher): Room[] {
+  return rooms.filter((r) => r.instruments.includes(instrument) && (!teacher || r.branchId === teacher.branchId));
+}
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 /** Aynı gün çakışan (farklı öğretmen/oda) dersler için basit "lane" ataması — greedy interval scheduling. */
 function assignLanes(dayLessons: Lesson[]): { laneOf: Map<string, number>; laneCount: number } {
@@ -149,21 +175,40 @@ export function ProgramStudio({
     ? selectedStudent.instruments
     : INSTRUMENTS;
 
-  const teacherOptions = [...teachers.filter((t) => t.active && t.instruments.includes(instrument))].sort(
-    (a, b) => {
-      if (selectedStudent) {
-        if (a.id === selectedStudent.teacherId) return -1;
-        if (b.id === selectedStudent.teacherId) return 1;
-        if (a.branchId === selectedStudent.branchId && b.branchId !== selectedStudent.branchId) return -1;
-        if (b.branchId === selectedStudent.branchId && a.branchId !== selectedStudent.branchId) return 1;
-      }
-      return a.name.localeCompare(b.name, "tr");
-    }
-  );
+  const teacherOptions = teacherOptionsFor(teachers, instrument, selectedStudent);
+  const roomOptions = roomOptionsFor(rooms, instrument, selectedTeacher);
 
-  const roomOptions = rooms.filter(
-    (r) => r.instruments.includes(instrument) && (!selectedTeacher || r.branchId === selectedTeacher.branchId)
-  );
+  // Tekrarlayan ders serisi paneli — tek ders panelinden bağımsız state.
+  const [seriesPanelOpen, setSeriesPanelOpen] = useState(false);
+  const [seriesStudentId, setSeriesStudentId] = useState("");
+  const [seriesTeacherId, setSeriesTeacherId] = useState("");
+  const [seriesRoomId, setSeriesRoomId] = useState("");
+  const [seriesInstrument, setSeriesInstrument] = useState<Instrument>("Piyano");
+  const [seriesWeekday, setSeriesWeekday] = useState(1);
+  const [seriesStartTime, setSeriesStartTime] = useState("10:00");
+  const [seriesDuration, setSeriesDuration] = useState(lessonDurationMinutes);
+  const [seriesStartsOn, setSeriesStartsOn] = useState("");
+  const [seriesEndsOn, setSeriesEndsOn] = useState("");
+  const [seriesSkipConflicts, setSeriesSkipConflicts] = useState(false);
+  const [seriesPreview, setSeriesPreview] = useState<{
+    previewText: string;
+    occurrenceCount: number;
+    conflictCount: number;
+    checks: SeriesOccurrenceCheck[];
+  } | null>(null);
+  const [seriesPreviewLoading, setSeriesPreviewLoading] = useState(false);
+  const [seriesError, setSeriesError] = useState<string | null>(null);
+  const [seriesSubmitting, setSeriesSubmitting] = useState(false);
+  const [seriesSuccess, setSeriesSuccess] = useState<{ createdCount: number; skippedCount: number } | null>(null);
+
+  const seriesSelectedStudent = students.find((s) => s.id === seriesStudentId);
+  const seriesSelectedTeacher = teachers.find((t) => t.id === seriesTeacherId);
+  const seriesInstrumentOptions = seriesSelectedStudent?.instruments.length
+    ? seriesSelectedStudent.instruments
+    : INSTRUMENTS;
+  const seriesTeacherOptions = teacherOptionsFor(teachers, seriesInstrument, seriesSelectedStudent);
+  const seriesRoomOptions = roomOptionsFor(rooms, seriesInstrument, seriesSelectedTeacher);
+  const seriesBranchId = rooms.find((r) => r.id === seriesRoomId)?.branchId ?? seriesSelectedTeacher?.branchId ?? "";
 
   function resetPanelState() {
     setFormError(null);
@@ -200,6 +245,100 @@ export function ProgramStudio({
   function selectTeacher(id: string) {
     setTeacherId(id);
     setRoomId("");
+  }
+
+  function openSeriesPanel() {
+    setSeriesError(null);
+    setSeriesPreview(null);
+    setSeriesSuccess(null);
+    setSeriesPanelOpen(true);
+  }
+
+  function selectSeriesStudent(id: string) {
+    setSeriesStudentId(id);
+    setSeriesPreview(null);
+    const student = students.find((s) => s.id === id);
+    if (student) {
+      setSeriesInstrument(student.instruments[0] ?? "Piyano");
+      setSeriesTeacherId(student.teacherId);
+    }
+  }
+
+  function selectSeriesInstrument(value: string) {
+    setSeriesInstrument(value as Instrument);
+    setSeriesRoomId("");
+    setSeriesPreview(null);
+  }
+
+  function selectSeriesTeacher(id: string) {
+    setSeriesTeacherId(id);
+    setSeriesRoomId("");
+    setSeriesPreview(null);
+  }
+
+  async function handleSeriesPreview() {
+    setSeriesError(null);
+    setSeriesSuccess(null);
+    if (!seriesStudentId || !seriesTeacherId || !seriesRoomId || !seriesStartsOn || !seriesEndsOn) {
+      setSeriesError("Öğrenci, öğretmen, oda ve tarih aralığı zorunludur.");
+      return;
+    }
+    setSeriesPreviewLoading(true);
+    const result = await actionPreviewLessonSeries({
+      studentId: seriesStudentId,
+      teacherId: seriesTeacherId,
+      roomId: seriesRoomId,
+      branchId: seriesBranchId,
+      instrument: seriesInstrument,
+      weekday: seriesWeekday,
+      startTime: seriesStartTime,
+      durationMinutes: seriesDuration,
+      startsOn: seriesStartsOn,
+      endsOn: seriesEndsOn,
+    });
+    setSeriesPreviewLoading(false);
+    if (!result.ok) {
+      setSeriesError(result.message);
+      return;
+    }
+    setSeriesPreview(result);
+  }
+
+  async function handleSeriesCreate() {
+    if (!seriesPreview) return;
+    if (seriesPreview.conflictCount > 0 && !seriesSkipConflicts) {
+      setSeriesError(
+        "Çakışma var — devam etmek için \"yalnızca çakışmayan tarihleri oluştur\" seçeneğini işaretleyin."
+      );
+      return;
+    }
+    setSeriesSubmitting(true);
+    setSeriesError(null);
+    const result = await actionCreateLessonSeries({
+      studentId: seriesStudentId,
+      teacherId: seriesTeacherId,
+      roomId: seriesRoomId,
+      branchId: seriesBranchId,
+      instrument: seriesInstrument,
+      weekday: seriesWeekday,
+      startTime: seriesStartTime,
+      durationMinutes: seriesDuration,
+      startsOn: seriesStartsOn,
+      endsOn: seriesEndsOn,
+      skipConflicts: seriesSkipConflicts,
+    });
+    setSeriesSubmitting(false);
+    if (!result.ok) {
+      setSeriesError(result.message);
+      return;
+    }
+    setSeriesSuccess({
+      createdCount: result.createdLessonIds.length,
+      skippedCount: result.skippedOccurrences.length,
+    });
+    setSeriesPreview(null);
+    setSeriesPanelOpen(false);
+    router.refresh();
   }
 
   async function handleFindSlots() {
@@ -308,6 +447,46 @@ export function ProgramStudio({
     router.refresh();
   }
 
+  async function submitCancelSeriesFromLesson() {
+    if (!detailLesson) return;
+    if (
+      !window.confirm(
+        "Bu ders ve bu tarihten sonraki tüm seri dersleri iptal edilecek. Geçmiş dersler etkilenmez. Emin misiniz?"
+      )
+    )
+      return;
+    setDetailSubmitting(true);
+    setDetailError(null);
+    const result = await actionCancelSeriesFromLesson({ lessonId: detailLesson.id });
+    setDetailSubmitting(false);
+    if (!result.ok) {
+      setDetailError(result.message);
+      return;
+    }
+    closeDetail();
+    router.refresh();
+  }
+
+  async function submitCancelEntireSeries() {
+    if (!detailLesson?.seriesId) return;
+    if (
+      !window.confirm(
+        "Bu serinin tamamı iptal edilecek (geçmiş dersler korunur, gelecekteki tüm dersler iptal olur). Emin misiniz?"
+      )
+    )
+      return;
+    setDetailSubmitting(true);
+    setDetailError(null);
+    const result = await actionCancelEntireSeries({ seriesId: detailLesson.seriesId });
+    setDetailSubmitting(false);
+    if (!result.ok) {
+      setDetailError(result.message);
+      return;
+    }
+    closeDetail();
+    router.refresh();
+  }
+
   async function performMove(lessonId: string, newStartAtIso: string) {
     setGridError(null);
     const result = await actionUpdateLessonSchedule({ lessonId, startAt: newStartAtIso });
@@ -396,8 +575,224 @@ export function ProgramStudio({
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-slate-900">Haftalık program</h2>
-        <Button onClick={() => openPlanner()}>Yeni ders planla</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={openSeriesPanel}>
+            Tekrarlayan ders oluştur
+          </Button>
+          <Button onClick={() => openPlanner()}>Yeni ders planla</Button>
+        </div>
       </div>
+
+      {seriesSuccess ? (
+        <Card className="mb-4 border-emerald-200 bg-emerald-50/50">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-emerald-800">
+              {seriesSuccess.createdCount} ders oluşturuldu
+              {seriesSuccess.skippedCount > 0 ? `, ${seriesSuccess.skippedCount} tarih çakışma nedeniyle atlandı` : ""}.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSeriesSuccess(null)}
+              className="text-emerald-700 hover:text-emerald-900"
+              aria-label="Kapat"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
+      {seriesPanelOpen ? (
+        <Card className="mb-6 border-violet-200">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900">Tekrarlayan ders oluştur</h3>
+            <button
+              type="button"
+              onClick={() => setSeriesPanelOpen(false)}
+              className="text-slate-400 hover:text-slate-700"
+              aria-label="Kapat"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <Label>Öğrenci</Label>
+              <Select value={seriesStudentId} onChange={(e) => selectSeriesStudent(e.target.value)} required>
+                <option value="">Seçin…</option>
+                {students
+                  .filter((s) => s.active)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Enstrüman</Label>
+              <Select value={seriesInstrument} onChange={(e) => selectSeriesInstrument(e.target.value)}>
+                {seriesInstrumentOptions.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Öğretmen</Label>
+              <Select value={seriesTeacherId} onChange={(e) => selectSeriesTeacher(e.target.value)} required>
+                <option value="">Seçin…</option>
+                {seriesTeacherOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {seriesSelectedStudent?.teacherId === t.id ? " · mevcut öğretmen" : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Oda</Label>
+              <Select
+                value={seriesRoomId}
+                onChange={(e) => {
+                  setSeriesRoomId(e.target.value);
+                  setSeriesPreview(null);
+                }}
+                required
+              >
+                <option value="">Seçin…</option>
+                {seriesRoomOptions.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+              {seriesBranchId ? (
+                <p className="mt-1 text-[11px] text-slate-400">Şube: {branchNames[seriesBranchId] ?? seriesBranchId}</p>
+              ) : null}
+            </div>
+            <div>
+              <Label>Gün</Label>
+              <Select
+                value={seriesWeekday}
+                onChange={(e) => {
+                  setSeriesWeekday(Number(e.target.value));
+                  setSeriesPreview(null);
+                }}
+              >
+                {WEEKDAYS.map((d) => (
+                  <option key={d} value={d}>
+                    Her {dayName(d)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Başlangıç saati</Label>
+              <Input
+                type="time"
+                value={seriesStartTime}
+                onChange={(e) => {
+                  setSeriesStartTime(e.target.value);
+                  setSeriesPreview(null);
+                }}
+                required
+              />
+            </div>
+            <div>
+              <Label>Süre (dk)</Label>
+              <Input
+                type="number"
+                min={15}
+                step={5}
+                value={seriesDuration}
+                onChange={(e) => {
+                  setSeriesDuration(Number(e.target.value) || lessonDurationMinutes);
+                  setSeriesPreview(null);
+                }}
+                required
+              />
+            </div>
+            <div>
+              <Label>Başlangıç tarihi</Label>
+              <Input
+                type="date"
+                value={seriesStartsOn}
+                onChange={(e) => {
+                  setSeriesStartsOn(e.target.value);
+                  setSeriesPreview(null);
+                }}
+                required
+              />
+            </div>
+            <div>
+              <Label>Bitiş tarihi</Label>
+              <Input
+                type="date"
+                value={seriesEndsOn}
+                onChange={(e) => {
+                  setSeriesEndsOn(e.target.value);
+                  setSeriesPreview(null);
+                }}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" onClick={handleSeriesPreview} disabled={seriesPreviewLoading}>
+              {seriesPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Önizle
+            </Button>
+            {seriesPreview ? (
+              <Button
+                type="button"
+                onClick={handleSeriesCreate}
+                disabled={(seriesPreview.conflictCount > 0 && !seriesSkipConflicts) || seriesSubmitting}
+              >
+                {seriesSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Seriyi oluştur
+              </Button>
+            ) : null}
+          </div>
+
+          {seriesError ? <p className="mt-3 text-sm text-rose-600">{seriesError}</p> : null}
+
+          {seriesPreview ? (
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <p className="text-sm font-medium text-slate-700">{seriesPreview.previewText}</p>
+              {seriesPreview.conflictCount > 0 ? (
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-rose-700">
+                    {seriesPreview.conflictCount} tarihte çakışma var:
+                  </p>
+                  <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg bg-rose-50 p-2 text-xs text-rose-800">
+                    {seriesPreview.checks
+                      .filter((c) => !c.ok)
+                      .map((c) => (
+                        <p key={c.startAt}>
+                          {format(parseISO(c.startAt), "d MMM yyyy, HH:mm", { locale: tr })} — {c.message}
+                        </p>
+                      ))}
+                  </div>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={seriesSkipConflicts}
+                      onChange={(e) => setSeriesSkipConflicts(e.target.checked)}
+                    />
+                    Yalnızca çakışmayan tarihleri oluştur, çakışanları atla
+                  </label>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-emerald-600">Çakışma yok — oluşturmaya hazır.</p>
+              )}
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
 
       {panelOpen ? (
         <Card className="mb-6 border-violet-200">
@@ -556,6 +951,8 @@ export function ProgramStudio({
           onChangeMoveStartAt={setDetailMoveStartAt}
           onSubmitMove={submitDetailMove}
           onCancelLesson={submitDetailCancel}
+          onCancelSeriesFromLesson={submitCancelSeriesFromLesson}
+          onCancelEntireSeries={submitCancelEntireSeries}
         />
       ) : null}
 
@@ -770,6 +1167,8 @@ function DetailPanel({
   onChangeMoveStartAt,
   onSubmitMove,
   onCancelLesson,
+  onCancelSeriesFromLesson,
+  onCancelEntireSeries,
 }: {
   lesson: Lesson;
   student?: Student;
@@ -786,10 +1185,13 @@ function DetailPanel({
   onChangeMoveStartAt: (value: string) => void;
   onSubmitMove: (e: FormEvent) => void;
   onCancelLesson: () => void;
+  onCancelSeriesFromLesson: () => void;
+  onCancelEntireSeries: () => void;
 }) {
   const canMove = canMoveOrResize(lesson, now);
   const canCancelLesson = canCancel(lesson);
   const reason = ineligibilityReason(lesson, now);
+  const isSeriesMember = Boolean(lesson.seriesId);
 
   return (
     <Card className="mb-6 border-slate-300">
@@ -813,6 +1215,10 @@ function DetailPanel({
         </div>
       </div>
 
+      {isSeriesMember ? (
+        <p className="mb-3 text-xs font-medium text-violet-600">Bu ders tekrarlayan bir serinin parçası.</p>
+      ) : null}
+
       {reason ? <p className="mb-3 text-xs text-amber-600">{reason}</p> : null}
 
       <div className="flex flex-wrap gap-2">
@@ -821,10 +1227,23 @@ function DetailPanel({
             Bu dersi taşı
           </Button>
         ) : null}
-        {canCancelLesson ? (
+        {canCancelLesson && !isSeriesMember ? (
           <Button variant="danger" onClick={onCancelLesson} disabled={submitting}>
             Bu dersi iptal et
           </Button>
+        ) : null}
+        {canCancelLesson && isSeriesMember ? (
+          <>
+            <Button variant="danger" onClick={onCancelLesson} disabled={submitting}>
+              Sadece bu dersi iptal et
+            </Button>
+            <Button variant="danger" onClick={onCancelSeriesFromLesson} disabled={submitting}>
+              Bu ders ve sonrasını iptal et
+            </Button>
+            <Button variant="danger" onClick={onCancelEntireSeries} disabled={submitting}>
+              Tüm seriyi iptal et
+            </Button>
+          </>
         ) : null}
       </div>
 
