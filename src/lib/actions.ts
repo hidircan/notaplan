@@ -29,6 +29,10 @@ import {
   suggestLessonSlotsTool,
   updateLessonScheduleTool,
   cancelLessonTool,
+  previewLessonSeriesTool,
+  createLessonSeriesTool,
+  cancelSeriesFromLessonTool,
+  cancelEntireSeriesTool,
   createPaymentRecordTool,
   findAvailableSlotsTool,
   markAttendanceTool,
@@ -39,6 +43,7 @@ import { getSessionContext, requireSessionContext } from "./auth/session";
 import { readData } from "./store";
 import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./whatsapp-templates";
 import type { LessonSlotSuggestion } from "./lesson-scheduling";
+import type { SeriesOccurrenceCheck } from "./lesson-series";
 import type { ImportPreview } from "./import/types";
 import type { ImportCommitResult } from "./import/commit-result";
 import type { BranchImportRow } from "./import/branches";
@@ -520,6 +525,95 @@ export async function actionCancelLesson(input: { lessonId: string }): Promise<C
     logger.error("actionCancelLesson failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Ders iptal edilirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type LessonSeriesParamsInput = {
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  branchId: string;
+  instrument: string;
+  weekday: number;
+  startTime: string;
+  durationMinutes: number;
+  startsOn: string;
+  endsOn: string;
+};
+
+export type PreviewLessonSeriesActionResult =
+  | { ok: true; previewText: string; occurrenceCount: number; conflictCount: number; checks: SeriesOccurrenceCheck[] }
+  | { ok: false; message: string };
+
+export async function actionPreviewLessonSeries(
+  input: LessonSeriesParamsInput
+): Promise<PreviewLessonSeriesActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => previewLessonSeriesTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, ...result.data };
+  } catch (error) {
+    logger.error("actionPreviewLessonSeries failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type CreateLessonSeriesActionResult =
+  | {
+      ok: true;
+      seriesId: string;
+      createdLessonIds: string[];
+      skippedOccurrences: { startAt: string; code: string; message: string }[];
+    }
+  | { ok: false; message: string; conflicts?: SeriesOccurrenceCheck[] };
+
+export async function actionCreateLessonSeries(
+  input: LessonSeriesParamsInput & { skipConflicts?: boolean }
+): Promise<CreateLessonSeriesActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => createLessonSeriesTool(ctx, input));
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.error.message,
+        conflicts: result.error.details as SeriesOccurrenceCheck[] | undefined,
+      };
+    }
+    revalidateAll();
+    return { ok: true, ...result.data };
+  } catch (error) {
+    logger.error("actionCreateLessonSeries failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Seri oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type SeriesCancelActionResult = { ok: true; cancelledLessonIds: string[] } | { ok: false; message: string };
+
+export async function actionCancelSeriesFromLesson(input: { lessonId: string }): Promise<SeriesCancelActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => cancelSeriesFromLessonTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, cancelledLessonIds: result.data.cancelledLessonIds };
+  } catch (error) {
+    logger.error("actionCancelSeriesFromLesson failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Seri iptal edilirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCancelEntireSeries(input: { seriesId: string }): Promise<SeriesCancelActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => cancelEntireSeriesTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, cancelledLessonIds: result.data.cancelledLessonIds };
+  } catch (error) {
+    logger.error("actionCancelEntireSeries failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Seri iptal edilirken beklenmeyen bir hata oluştu." };
   }
 }
 

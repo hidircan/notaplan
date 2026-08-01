@@ -33,6 +33,10 @@ export {
   suggestLessonSlotsTool,
   updateLessonScheduleTool,
   cancelLessonTool,
+  previewLessonSeriesTool,
+  createLessonSeriesTool,
+  cancelSeriesFromLessonTool,
+  cancelEntireSeriesTool,
   createPaymentRecordTool,
   resetDemoTool,
 } from "./tools";

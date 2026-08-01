@@ -8,11 +8,14 @@ import { z } from "zod";
 import {
   addBranch,
   addLesson,
+  addLessonSeries,
   addPayment,
   addRoom,
   addStudent,
   addTeacher,
+  cancelEntireLessonSeries,
   cancelLesson,
+  cancelLessonSeriesFromLesson,
   cancelMakeup,
   confirmSlot,
   generateSuggestions,
@@ -29,6 +32,12 @@ import {
 } from "../store";
 import { suggestMakeupSlots } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
+import {
+  buildSeriesPreviewText,
+  checkSeriesOccurrences,
+  computeSeriesOccurrences,
+  type SeriesOccurrenceCheck,
+} from "../lesson-series";
 import { clearFollowUpCases } from "../tahsilat/cases";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
@@ -46,8 +55,12 @@ import {
 import {
   attendanceSchema,
   branchSchema,
+  cancelEntireSeriesSchema,
   cancelLessonSchema,
+  cancelSeriesFromLessonSchema,
+  createLessonSeriesSchema,
   lessonSchema,
+  lessonSeriesParamsSchema,
   makeupSlotSchema,
   paymentRecordSchema,
   roomSchema,
@@ -784,6 +797,123 @@ export async function cancelLessonTool(
   }
 }
 
+/**
+ * Dönemlik seri için hiçbir kayıt YAZMADAN önizleme üretir: Türkçe onay
+ * cümlesi + her oluşumun tek doğrulama kaynağından (validateLessonSlot)
+ * geçmiş çakışma/uygunluk sonucu.
+ */
+export async function previewLessonSeriesTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<
+  ServiceResult<{
+    previewText: string;
+    occurrenceCount: number;
+    conflictCount: number;
+    checks: SeriesOccurrenceCheck[];
+  }>
+> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(lessonSeriesParamsSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı.");
+  if (!data.teachers.some((t) => t.id === v.data.teacherId)) return fail("NOT_FOUND", "Öğretmen bulunamadı.");
+  if (!data.rooms.some((r) => r.id === v.data.roomId)) return fail("NOT_FOUND", "Oda bulunamadı.");
+  if (!data.settings.branches.some((b) => b.id === v.data.branchId)) return fail("NOT_FOUND", "Şube bulunamadı.");
+
+  const occurrences = computeSeriesOccurrences(v.data);
+  const checks = checkSeriesOccurrences(data, v.data, occurrences);
+  const previewText = buildSeriesPreviewText({
+    studentName: student.name,
+    weekday: v.data.weekday,
+    startTime: v.data.startTime,
+    durationMinutes: v.data.durationMinutes,
+    startsOn: v.data.startsOn,
+    endsOn: v.data.endsOn,
+    occurrenceCount: occurrences.length,
+  });
+
+  return ok({
+    previewText,
+    occurrenceCount: occurrences.length,
+    conflictCount: checks.filter((c) => !c.ok).length,
+    checks,
+  });
+}
+
+export async function createLessonSeriesTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<
+  ServiceResult<{
+    seriesId: string;
+    createdLessonIds: string[];
+    skippedOccurrences: { startAt: string; code: string; message: string }[];
+  }>
+> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createLessonSeriesSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const { skipConflicts, ...params } = v.data;
+    const result = await addLessonSeries(params, { skipConflicts });
+    if (!result.ok) return fail("CONFLICT", result.message, result.conflicts);
+    return ok({
+      seriesId: result.seriesId,
+      createdLessonIds: result.createdLessonIds,
+      skippedOccurrences: result.skippedOccurrences,
+    });
+  } catch (e) {
+    return fail("NOT_FOUND", e instanceof Error ? e.message : "createLessonSeries failed");
+  }
+}
+
+export async function cancelSeriesFromLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ cancelledLessonIds: string[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(cancelSeriesFromLessonSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await cancelLessonSeriesFromLesson(v.data.lessonId);
+    if (!result.ok) return fail("NOT_FOUND", result.message);
+    return ok({ cancelledLessonIds: result.cancelledLessonIds });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "cancelSeriesFromLesson failed");
+  }
+}
+
+export async function cancelEntireSeriesTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ cancelledLessonIds: string[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(cancelEntireSeriesSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await cancelEntireLessonSeries(v.data.seriesId);
+    if (!result.ok) return fail("NOT_FOUND", result.message);
+    return ok({ cancelledLessonIds: result.cancelledLessonIds });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "cancelEntireSeries failed");
+  }
+}
+
 export async function createPaymentRecordTool(
   ctx: ServiceContext,
   input: unknown
@@ -849,6 +979,10 @@ export const TOOL_CATALOG = [
   { name: "suggestLessonSlots", description: "Suggest available times for a regular lesson" },
   { name: "updateLessonSchedule", description: "Move or resize a regular lesson" },
   { name: "cancelLesson", description: "Cancel a regular lesson" },
+  { name: "previewLessonSeries", description: "Preview a recurring weekly lesson series without writing" },
+  { name: "createLessonSeries", description: "Create a recurring weekly lesson series" },
+  { name: "cancelSeriesFromLesson", description: "Cancel a series from a given lesson onward" },
+  { name: "cancelEntireSeries", description: "Cancel an entire lesson series" },
   { name: "createBranch", description: "Add a new branch" },
   { name: "updateBranch", description: "Edit an existing branch" },
   { name: "previewBranchImport", description: "Validate a branches CSV without writing" },
