@@ -21,6 +21,14 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
+import {
+  createLessonSeriesData,
+  cancelSeriesFromLesson,
+  cancelEntireSeries,
+  type SeriesParams,
+  type CreateSeriesResult,
+  type SeriesCancelResult,
+} from "./lesson-series";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -293,6 +301,38 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   const result = applyLessonCancel(data, lessonId);
   if (!result.ok) throw new Error(result.message);
   return save(result.data);
+}
+
+function assertLessonSeriesRefsExist(data: AppData, params: SeriesParams) {
+  if (!data.students.some((s) => s.id === params.studentId)) throw new Error("Öğrenci bulunamadı");
+  if (!data.teachers.some((t) => t.id === params.teacherId)) throw new Error("Öğretmen bulunamadı");
+  if (!data.rooms.some((r) => r.id === params.roomId)) throw new Error("Oda bulunamadı");
+  if (!data.settings.branches.some((b) => b.id === params.branchId)) throw new Error("Şube bulunamadı");
+}
+
+export async function addLessonSeries(
+  params: SeriesParams,
+  options?: { skipConflicts?: boolean }
+): Promise<CreateSeriesResult> {
+  const data = load();
+  assertLessonSeriesRefsExist(data, params);
+  const result = createLessonSeriesData(data, params, options);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function cancelLessonSeriesFromLesson(lessonId: string): Promise<SeriesCancelResult> {
+  const data = load();
+  const result = cancelSeriesFromLesson(data, lessonId);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function cancelEntireLessonSeries(seriesId: string): Promise<SeriesCancelResult> {
+  const data = load();
+  const result = cancelEntireSeries(data, seriesId);
+  if (result.ok) save(result.data);
+  return result;
 }
 
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];

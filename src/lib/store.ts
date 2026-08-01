@@ -15,6 +15,7 @@ import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
 import type { StudentImportRow } from "./import/students";
 import type { ImportCommitResult } from "./import/commit-result";
+import type { CreateSeriesResult, SeriesCancelResult, SeriesParams } from "./lesson-series";
 
 type StoreApi = {
   readData: () => Promise<AppData>;
@@ -56,6 +57,12 @@ type StoreApi = {
   importTeachers: (rows: TeacherImportRow[]) => Promise<ImportCommitResult>;
   importRooms: (rows: RoomImportRow[]) => Promise<ImportCommitResult>;
   importStudents: (rows: StudentImportRow[]) => Promise<ImportCommitResult>;
+  addLessonSeries: (
+    params: SeriesParams,
+    options?: { skipConflicts?: boolean }
+  ) => Promise<CreateSeriesResult>;
+  cancelLessonSeriesFromLesson: (lessonId: string) => Promise<SeriesCancelResult>;
+  cancelEntireLessonSeries: (seriesId: string) => Promise<SeriesCancelResult>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -218,6 +225,21 @@ export async function importRooms(rows: RoomImportRow[]): Promise<ImportCommitRe
 
 export async function importStudents(rows: StudentImportRow[]): Promise<ImportCommitResult> {
   return withTenantScope(() => store.importStudents(rows));
+}
+
+export async function addLessonSeries(
+  params: SeriesParams,
+  options?: { skipConflicts?: boolean }
+): Promise<CreateSeriesResult> {
+  return withTenantScope(() => store.addLessonSeries(params, options));
+}
+
+export async function cancelLessonSeriesFromLesson(lessonId: string): Promise<SeriesCancelResult> {
+  return withTenantScope(() => store.cancelLessonSeriesFromLesson(lessonId));
+}
+
+export async function cancelEntireLessonSeries(seriesId: string): Promise<SeriesCancelResult> {
+  return withTenantScope(() => store.cancelEntireLessonSeries(seriesId));
 }
 
 export function getDashboardStats(data: AppData) {

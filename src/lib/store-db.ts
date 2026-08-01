@@ -15,6 +15,14 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
+import {
+  createLessonSeriesData,
+  cancelSeriesFromLesson,
+  cancelEntireSeries,
+  type SeriesParams,
+  type CreateSeriesResult,
+  type SeriesCancelResult,
+} from "./lesson-series";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -1071,6 +1079,133 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   });
   if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
   return readData();
+}
+
+/**
+ * Seri + tüm ürettiği Lesson kayıtları TEK `$transaction` içinde yazılır —
+ * kısmi bir hata durumunda hiçbir kayıt kalıcı olmaz. Çakışma/uygunluk
+ * hesabı `createLessonSeriesData` (saf fonksiyon) ile yapılır; burada
+ * yalnızca sonucun Prisma'ya yazılması vardır.
+ */
+export async function addLessonSeries(
+  params: SeriesParams,
+  options?: { skipConflicts?: boolean }
+): Promise<CreateSeriesResult> {
+  logger.info("addLessonSeries", params.studentId, params.teacherId);
+  const tid = requireTenantId();
+  const data = await readData();
+
+  if (!data.students.some((s) => s.id === params.studentId)) throw new Error("Öğrenci bulunamadı");
+  if (!data.teachers.some((t) => t.id === params.teacherId)) throw new Error("Öğretmen bulunamadı");
+  if (!data.rooms.some((r) => r.id === params.roomId)) throw new Error("Oda bulunamadı");
+  const branch = await prisma.branch.findFirst({ where: { id: params.branchId, tenantId: tid } });
+  if (!branch) throw new Error("Şube bulunamadı");
+
+  const result = createLessonSeriesData(data, params, options);
+  if (!result.ok) return result;
+
+  const newLessons = result.data.lessons.filter((l) => l.seriesId === result.seriesId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.lessonSeries.create({
+      data: {
+        id: result.seriesId,
+        tenantId: tid,
+        schoolId: branch.schoolId,
+        studentId: params.studentId,
+        teacherId: params.teacherId,
+        roomId: params.roomId,
+        branchId: params.branchId,
+        instrument: params.instrument,
+        weekday: params.weekday,
+        startTime: params.startTime,
+        durationMinutes: params.durationMinutes,
+        startsOn: new Date(params.startsOn),
+        endsOn: new Date(params.endsOn),
+        status: "active",
+      },
+    });
+    for (const lesson of newLessons) {
+      await tx.lesson.create({
+        data: {
+          id: lesson.id,
+          tenantId: tid,
+          schoolId: branch.schoolId,
+          studentId: lesson.studentId,
+          teacherId: lesson.teacherId,
+          roomId: lesson.roomId,
+          branchId: lesson.branchId,
+          instrument: lesson.instrument,
+          startAt: new Date(lesson.startAt),
+          endAt: new Date(lesson.endAt),
+          type: lesson.type,
+          status: lesson.status,
+          seriesId: result.seriesId,
+        },
+      });
+    }
+  });
+
+  return {
+    ok: true,
+    data: await readData(),
+    seriesId: result.seriesId,
+    createdLessonIds: result.createdLessonIds,
+    skippedOccurrences: result.skippedOccurrences,
+  };
+}
+
+/** "Bu ders ve sonrası": geçmiş dersler dokunulmadan, gelecekteki seri dersleri iptal edilir. */
+export async function cancelLessonSeriesFromLesson(lessonId: string): Promise<SeriesCancelResult> {
+  logger.info("cancelLessonSeriesFromLesson", lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = cancelSeriesFromLesson(data, lessonId);
+  if (!result.ok) return result;
+
+  const updatedSeries = result.data.lessonSeries.find(
+    (s) => s.id === data.lessons.find((l) => l.id === lessonId)?.seriesId
+  );
+  if (!updatedSeries) throw new Error("Seri bulunamadı");
+
+  await prisma.$transaction(async (tx) => {
+    if (result.cancelledLessonIds.length > 0) {
+      await tx.lesson.updateMany({
+        where: { id: { in: result.cancelledLessonIds }, tenantId: tid },
+        data: { status: "cancelled" },
+      });
+    }
+    await tx.lessonSeries.updateMany({
+      where: { id: updatedSeries.id, tenantId: tid },
+      data: { status: updatedSeries.status, endsOn: new Date(updatedSeries.endsOn) },
+    });
+  });
+
+  return { ok: true, data: await readData(), cancelledLessonIds: result.cancelledLessonIds };
+}
+
+/** "Tüm seri": geçmiş dersler korunur, gelecekteki tüm seri dersleri iptal edilir, seri cancelled olur. */
+export async function cancelEntireLessonSeries(seriesId: string): Promise<SeriesCancelResult> {
+  logger.info("cancelEntireLessonSeries", seriesId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = cancelEntireSeries(data, seriesId);
+  if (!result.ok) return result;
+
+  await prisma.$transaction(async (tx) => {
+    if (result.cancelledLessonIds.length > 0) {
+      await tx.lesson.updateMany({
+        where: { id: { in: result.cancelledLessonIds }, tenantId: tid },
+        data: { status: "cancelled" },
+      });
+    }
+    await tx.lessonSeries.updateMany({
+      where: { id: seriesId, tenantId: tid },
+      data: { status: "cancelled" },
+    });
+  });
+
+  return { ok: true, data: await readData(), cancelledLessonIds: result.cancelledLessonIds };
 }
 
 export async function addPayment(input: {

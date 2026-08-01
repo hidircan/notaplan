@@ -20,6 +20,14 @@ import type {
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
+import {
+  createLessonSeriesData,
+  cancelSeriesFromLesson,
+  cancelEntireSeries,
+  type SeriesParams,
+  type CreateSeriesResult,
+  type SeriesCancelResult,
+} from "./lesson-series";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -313,6 +321,44 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   if (!result.ok) throw new Error(result.message);
   await writeData(result.data);
   return result.data;
+}
+
+function assertLessonSeriesRefsExist(data: AppData, params: SeriesParams) {
+  if (!data.students.some((s) => s.id === params.studentId)) throw new Error("Öğrenci bulunamadı");
+  if (!data.teachers.some((t) => t.id === params.teacherId)) throw new Error("Öğretmen bulunamadı");
+  if (!data.rooms.some((r) => r.id === params.roomId)) throw new Error("Oda bulunamadı");
+  assertBranchExists(data, params.branchId);
+}
+
+/**
+ * Doğrulama anındaki güncel veriyle çalışır (readData → hesapla → writeData
+ * tek işlem içinde) — yarım seri asla yazılmaz. Sonuç, tekil `addLesson`'ın
+ * aksine fırlatmaz: `ok:false` durumunda `conflicts` listesiyle birlikte
+ * döner ki UI her oluşumun hangi kuralla reddedildiğini gösterebilsin.
+ */
+export async function addLessonSeries(
+  params: SeriesParams,
+  options?: { skipConflicts?: boolean }
+): Promise<CreateSeriesResult> {
+  const data = await readData();
+  assertLessonSeriesRefsExist(data, params);
+  const result = createLessonSeriesData(data, params, options);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function cancelLessonSeriesFromLesson(lessonId: string): Promise<SeriesCancelResult> {
+  const data = await readData();
+  const result = cancelSeriesFromLesson(data, lessonId);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function cancelEntireLessonSeries(seriesId: string): Promise<SeriesCancelResult> {
+  const data = await readData();
+  const result = cancelEntireSeries(data, seriesId);
+  if (result.ok) await writeData(result.data);
+  return result;
 }
 
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
