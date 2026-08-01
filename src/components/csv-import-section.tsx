@@ -7,12 +7,14 @@ import { Button, Card } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 type ImportRowError = { row: number; field: string; message: string };
+type ImportReadRow = { row: number; summary: string };
 type ImportPreview<T> = {
   totalRows: number;
   validCount: number;
   errorCount: number;
   errors: ImportRowError[];
   valid: T[];
+  readRows: ImportReadRow[];
 };
 type ImportCommitResult = { created: number; updated: number };
 
@@ -188,7 +190,7 @@ export function CsvImportSection<T,>({
           <Button
             type="button"
             onClick={handleCommit}
-            disabled={preview.errorCount > 0 || preview.validCount === 0 || committing}
+            disabled={preview.errorCount > 0 || preview.validCount === 0 || preview.totalRows === 1 || committing}
           >
             {committing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {preview.validCount} kaydı içe aktar
@@ -209,9 +211,30 @@ export function CsvImportSection<T,>({
 
       {preview ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
+          {preview.totalRows === 1 ? (
+            <p className="mb-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
+              Dosyadan yalnızca 1 kayıt okunabildi. CSV ayıracı ve satır formatını kontrol edin.
+            </p>
+          ) : null}
           <p className="text-sm font-medium text-slate-700">
             Toplam {preview.totalRows} satır · Geçerli {preview.validCount} · Hatalı {preview.errorCount}
           </p>
+
+          {preview.readRows.length > 0 ? (
+            <div className="mt-2">
+              <p className="text-xs font-medium text-slate-500">
+                Okunan kayıtlar {preview.totalRows > preview.readRows.length ? `(ilk ${preview.readRows.length})` : ""}
+              </p>
+              <div className="mt-1 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-700">
+                {preview.readRows.map((r) => (
+                  <p key={r.row}>
+                    Satır {r.row} — {r.summary}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {preview.errorCount > 0 ? (
             <div className="mt-2 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-rose-50 p-2 text-xs text-rose-800">
               {preview.errors.map((e, i) => (

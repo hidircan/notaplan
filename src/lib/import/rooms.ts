@@ -1,7 +1,8 @@
 import type { AppData, Instrument } from "../types";
 import { INSTRUMENTS } from "../types";
 import type { CsvRecord } from "./csv";
-import type { ImportPreview, ImportRowError } from "./types";
+import type { ImportPreview, ImportRowError, ImportReadRow } from "./types";
+import { IMPORT_READ_ROWS_PREVIEW_LIMIT } from "./types";
 import { resolveBranchId } from "./branch-lookup";
 
 export type RoomImportRow = {
@@ -24,6 +25,7 @@ function isInstrument(value: string): value is Instrument {
 export function validateRoomRows(data: AppData, records: CsvRecord[]): ImportPreview<RoomImportRow> {
   const errors: ImportRowError[] = [];
   const valid: RoomImportRow[] = [];
+  const readRows: ImportReadRow[] = [];
   const seenNamePerBranch = new Set<string>();
 
   records.forEach((rec, idx) => {
@@ -32,6 +34,13 @@ export function validateRoomRows(data: AppData, records: CsvRecord[]): ImportPre
     const branchValue = rec["sube"] ?? "";
     const capacityRaw = rec["kapasite"] ?? "";
     const instrumentsRaw = rec["enstrumanlar"] ?? "";
+
+    if (readRows.length < IMPORT_READ_ROWS_PREVIEW_LIMIT) {
+      readRows.push({
+        row,
+        summary: `${name || "(ad boş)"} — ${branchValue || "(şube boş)"} — ${instrumentsRaw || "(enstrüman boş)"}`,
+      });
+    }
 
     if (!name) errors.push({ row, field: "ad", message: "Ad boş olamaz." });
 
@@ -98,5 +107,12 @@ export function validateRoomRows(data: AppData, records: CsvRecord[]): ImportPre
     }
   });
 
-  return { totalRows: records.length, validCount: valid.length, errorCount: errors.length, errors, valid };
+  return {
+    totalRows: records.length,
+    validCount: valid.length,
+    errorCount: errors.length,
+    errors,
+    valid,
+    readRows,
+  };
 }

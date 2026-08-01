@@ -1,7 +1,8 @@
 import type { AppData, Instrument } from "../types";
 import { INSTRUMENTS } from "../types";
 import type { CsvRecord } from "./csv";
-import type { ImportPreview, ImportRowError } from "./types";
+import type { ImportPreview, ImportRowError, ImportReadRow } from "./types";
+import { IMPORT_READ_ROWS_PREVIEW_LIMIT } from "./types";
 import { resolveBranchId } from "./branch-lookup";
 
 export type TeacherImportRow = {
@@ -33,6 +34,7 @@ function isInstrument(value: string): value is Instrument {
 export function validateTeacherRows(data: AppData, records: CsvRecord[]): ImportPreview<TeacherImportRow> {
   const errors: ImportRowError[] = [];
   const valid: TeacherImportRow[] = [];
+  const readRows: ImportReadRow[] = [];
   const seenEmails = new Set<string>();
 
   records.forEach((rec, idx) => {
@@ -42,6 +44,13 @@ export function validateTeacherRows(data: AppData, records: CsvRecord[]): Import
     const phone = rec["telefon"] ?? "";
     const branchValue = rec["sube"] ?? "";
     const instrumentValue = rec["enstruman"] ?? "";
+
+    if (readRows.length < IMPORT_READ_ROWS_PREVIEW_LIMIT) {
+      readRows.push({
+        row,
+        summary: `${name || "(ad boş)"} — ${branchValue || "(şube boş)"} — ${instrumentValue || "(enstrüman boş)"}`,
+      });
+    }
 
     if (!name) errors.push({ row, field: "ad", message: "Ad boş olamaz." });
     if (!email) {
@@ -84,5 +93,12 @@ export function validateTeacherRows(data: AppData, records: CsvRecord[]): Import
     }
   });
 
-  return { totalRows: records.length, validCount: valid.length, errorCount: errors.length, errors, valid };
+  return {
+    totalRows: records.length,
+    validCount: valid.length,
+    errorCount: errors.length,
+    errors,
+    valid,
+    readRows,
+  };
 }

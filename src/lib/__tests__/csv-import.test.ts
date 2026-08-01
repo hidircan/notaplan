@@ -43,6 +43,73 @@ describe("parseCsv", () => {
       ["1", "2"],
     ]);
   });
+
+  it("CRLF (\\r\\n) satır sonlarını doğru ayırır, boş satır üretmez", () => {
+    const rows = parseCsv("a,b\r\n1,2\r\n3,4\r\n");
+    expect(rows).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+      ["3", "4"],
+    ]);
+  });
+
+  it("tek başına \\r (klasik Mac satır sonu) satırları birleştirmez — kök neden regresyonu", () => {
+    // Bu, gerçek üretim hatasının kök nedeniydi: yalnızca \r kullanan bir
+    // dosya tüm satırları TEK bir satıra birleştirip totalRows'u yanlış
+    // (1 yerine 4 olması gerekirken) hesaplatıyordu.
+    const rows = parseCsv("a,b\r1,2\r3,4\r");
+    expect(rows).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+      ["3", "4"],
+    ]);
+  });
+
+  it("karışık satır sonlarını (CRLF + LF) doğru ayırır", () => {
+    const rows = parseCsv("a,b\r\n1,2\n3,4\r\n");
+    expect(rows).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+      ["3", "4"],
+    ]);
+  });
+
+  it("noktalı virgül ayraçlı (Excel/Numbers Türkçe yerel ayar) CSV'yi otomatik algılar", () => {
+    const rows = parseCsv("ad;sube;enstruman\nDeniz;Erzene;Piyano\n");
+    expect(rows).toEqual([
+      ["ad", "sube", "enstruman"],
+      ["Deniz", "Erzene", "Piyano"],
+    ]);
+  });
+
+  it("noktalı virgül + CRLF + BOM birlikte doğru ayrıştırılır", () => {
+    const bom = String.fromCharCode(0xfeff);
+    const rows = parseCsv(`${bom}ad;sube\r\nDeniz;Erzene\r\n`);
+    expect(rows).toEqual([
+      ["ad", "sube"],
+      ["Deniz", "Erzene"],
+    ]);
+  });
+
+  it("telefon alanındaki boşlukları olduğu gibi korur (ayraç sanılmaz)", () => {
+    const rows = parseCsv("ad,telefon\nDeniz,0533 618 5006\n");
+    expect(rows[1]).toEqual(["Deniz", "0533 618 5006"]);
+  });
+
+  it("gerçek hata senaryosu: 4 satırlı öğretmen CSV'si tüm satır sonu biçimlerinde totalRows=4 üretir", () => {
+    const header = "ad,eposta,telefon,sube,enstruman";
+    const dataLines = [
+      "Selin Kara,selin@okul.com,05551111111,Erzene,Piyano",
+      "Hıdırcan Yağız,hidircanyagiz@gmail.com,05336185006,Bostanlı,Bağlama",
+      "Ezgi Güçlü,ezguclu@gmail.com,05521800268,Bostanlı,Piyano",
+      "Can Nevii,cannevii@gmail.com,05336185007,Bostanlı,Bağlama",
+    ];
+    for (const eol of ["\n", "\r\n", "\r"]) {
+      const csv = [header, ...dataLines].join(eol) + eol;
+      const { records } = rowsToRecords(parseCsv(csv));
+      expect(records, `satır sonu ${JSON.stringify(eol)} için başarısız`).toHaveLength(4);
+    }
+  });
 });
 
 describe("validateBranchRows", () => {
@@ -104,6 +171,40 @@ describe("validateTeacherRows", () => {
     const result = validateTeacherRows(data, records);
     expect(result.errorCount).toBe(1);
     expect(result.errors[0].field).toBe("eposta");
+  });
+
+  it("şube adı NFD (ayrıştırılmış Unicode) yazılmış olsa bile NFC şube kaydıyla eşleşir", () => {
+    // "Bostanlı" -> "ı" harfi NFD biçiminde "i" + combining dot above olarak
+    // kodlanmış olabilir (bazı editör/işletim sistemi kombinasyonlarında).
+    const branchDataNfc = {
+      ...data,
+      settings: {
+        ...data.settings,
+        branches: [
+          ...data.settings.branches,
+          { id: "bostanli", name: "Bostanlı Şubesi", shortName: "Bostanlı".normalize("NFC"), address: "", phone: "", city: "" },
+        ],
+      },
+    };
+    const nfdShortName = "Bostanlı".normalize("NFD");
+    const csv = `ad,eposta,telefon,sube,enstruman\nAli,ali@x.com,0555,${nfdShortName},Piyano\n`;
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(branchDataNfc, records);
+    expect(result.errorCount).toBe(0);
+    expect(result.valid[0]?.branchId).toBe("bostanli");
+  });
+
+  it("okunan kayıtlar (readRows) her satır için Ad — Şube — Enstrüman özeti üretir, en fazla 10", () => {
+    const csv =
+      "ad,eposta,telefon,sube,enstruman\n" +
+      "Selin Kara,selin@okul.com,0555,Erzene,Piyano\n" +
+      "Ali Veli,ali@x.com,0556,Erzene,Gitar\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(data, records);
+    expect(result.readRows).toEqual([
+      { row: 2, summary: "Selin Kara — Erzene — Piyano" },
+      { row: 3, summary: "Ali Veli — Erzene — Gitar" },
+    ]);
   });
 });
 

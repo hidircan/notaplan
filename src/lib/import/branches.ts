@@ -1,5 +1,6 @@
 import type { CsvRecord } from "./csv";
-import type { ImportPreview, ImportRowError } from "./types";
+import type { ImportPreview, ImportRowError, ImportReadRow } from "./types";
+import { IMPORT_READ_ROWS_PREVIEW_LIMIT } from "./types";
 
 export type BranchImportRow = {
   name: string;
@@ -18,6 +19,7 @@ Bostanlı Şubesi,Bostanlı,İzmir,0555 000 0000,"Bostanlı Mah. Cemal Gürsel C
 export function validateBranchRows(records: CsvRecord[]): ImportPreview<BranchImportRow> {
   const errors: ImportRowError[] = [];
   const valid: BranchImportRow[] = [];
+  const readRows: ImportReadRow[] = [];
   const seenShortNames = new Set<string>();
 
   records.forEach((rec, idx) => {
@@ -27,6 +29,13 @@ export function validateBranchRows(records: CsvRecord[]): ImportPreview<BranchIm
     const city = rec["sehir"] ?? "";
     const phone = rec["telefon"] ?? "";
     const address = rec["adres"] ?? "";
+
+    if (readRows.length < IMPORT_READ_ROWS_PREVIEW_LIMIT) {
+      readRows.push({
+        row,
+        summary: `${name || "(ad boş)"} — ${shortName || "(kısa ad boş)"} — ${city || "(şehir boş)"}`,
+      });
+    }
 
     if (!name) errors.push({ row, field: "ad", message: "Ad boş olamaz." });
     if (!shortName) errors.push({ row, field: "kisa_ad", message: "Kısa ad boş olamaz." });
@@ -51,5 +60,12 @@ export function validateBranchRows(records: CsvRecord[]): ImportPreview<BranchIm
     }
   });
 
-  return { totalRows: records.length, validCount: valid.length, errorCount: errors.length, errors, valid };
+  return {
+    totalRows: records.length,
+    validCount: valid.length,
+    errorCount: errors.length,
+    errors,
+    valid,
+    readRows,
+  };
 }
