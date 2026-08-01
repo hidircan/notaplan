@@ -19,6 +19,8 @@ import {
   ScrollText,
   Workflow,
   Brain,
+  Settings,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
@@ -43,6 +45,11 @@ const portals = [
   { href: "/veli", label: "Veli portalı", icon: UserRound },
   { href: "/ogretmen", label: "Öğretmen portalı", icon: Users },
   { href: "/", label: "Landing", icon: Home },
+];
+
+const setup = [
+  { href: "/panel/kurulum", label: "Kurulum Merkezi", icon: Settings },
+  { href: "/panel/veri-aktar", label: "Veri Aktar", icon: Upload },
 ];
 
 export function Sidebar({
@@ -119,6 +126,31 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      <div className="border-t border-white/10 px-3 py-4">
+        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Kurulum
+        </p>
+        {setup.map((item) => {
+          const active = pathname === item.href;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                active
+                  ? "bg-violet-500/20 text-white shadow-inner"
+                  : "text-slate-400 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <Icon className={cn("h-4 w-4", active ? "text-violet-300" : "")} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
 
       <div className="border-t border-white/10 p-4">
         <LogoutButton className="w-full justify-start text-slate-300 hover:text-white" />
