@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ChangeEvent } from "react";
-import { Download, Loader2, Upload } from "lucide-react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { ArrowRight, Download, FileText, Loader2, Upload, UploadCloud, X } from "lucide-react";
 import { Button, Card } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 type ImportRowError = { row: number; field: string; message: string };
 type ImportPreview<T> = {
@@ -24,6 +25,8 @@ export function CsvImportSection<T,>({
   columns,
   sampleCsv,
   sampleFileName,
+  successHref,
+  successLinkLabel,
   onPreview,
   onCommit,
 }: {
@@ -32,26 +35,62 @@ export function CsvImportSection<T,>({
   columns: readonly string[];
   sampleCsv: string;
   sampleFileName: string;
+  successHref: string;
+  successLinkLabel: string;
   onPreview: (csvText: string) => Promise<PreviewActionResult<T>>;
   onCommit: (csvText: string) => Promise<CommitActionResult>;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [csvText, setCsvText] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<ImportPreview<T> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [commitSuccess, setCommitSuccess] = useState<ImportCommitResult | null>(null);
 
-  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function processFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError("Yalnızca .csv dosyaları kabul edilir.");
+      return;
+    }
     const text = await file.text();
     setCsvText(text);
     setFileName(file.name);
     setPreview(null);
     setError(null);
     setCommitSuccess(null);
+  }
+
+  async function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await processFile(file);
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(true);
+  }
+
+  function handleDragLeave() {
+    setDragActive(false);
+  }
+
+  async function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await processFile(file);
+  }
+
+  function handleResetFile() {
+    setCsvText(null);
+    setFileName(null);
+    setPreview(null);
+    setError(null);
   }
 
   async function handlePreview() {
@@ -102,14 +141,45 @@ export function CsvImportSection<T,>({
         </a>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => void handleDrop(e)}
+        className={cn(
+          "relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition",
+          dragActive
+            ? "border-violet-400 bg-violet-50"
+            : fileName
+              ? "border-emerald-300 bg-emerald-50/40"
+              : "border-slate-300 bg-slate-50/60"
+        )}
+      >
+        {fileName ? (
+          <>
+            <FileText className="h-6 w-6 text-emerald-600" />
+            <p className="text-sm font-medium text-slate-800">{fileName}</p>
+            <span className="pointer-events-none text-xs font-medium text-violet-600">Değiştir</span>
+          </>
+        ) : (
+          <>
+            <UploadCloud className="h-6 w-6 text-slate-400" />
+            <p className="text-sm text-slate-600">CSV dosyanızı buraya sürükleyin veya seçin</p>
+            <span className="pointer-events-none inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200">
+              Dosya seç
+            </span>
+          </>
+        )}
         <input
+          ref={inputRef}
           type="file"
           accept=".csv,text/csv"
-          onChange={handleFile}
+          onChange={(e) => void handleInputChange(e)}
           aria-label={`${title} CSV dosyası seç`}
-          className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button type="button" variant="secondary" onClick={handlePreview} disabled={!csvText || loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Önizle
@@ -124,9 +194,17 @@ export function CsvImportSection<T,>({
             {preview.validCount} kaydı içe aktar
           </Button>
         ) : null}
+        {fileName ? (
+          <button
+            type="button"
+            onClick={handleResetFile}
+            className="text-xs font-medium text-slate-400 hover:text-slate-600"
+          >
+            Dosyayı kaldır
+          </button>
+        ) : null}
       </div>
 
-      {fileName ? <p className="mt-2 text-xs text-slate-400">Seçilen dosya: {fileName}</p> : null}
       {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
 
       {preview ? (
@@ -149,11 +227,36 @@ export function CsvImportSection<T,>({
       ) : null}
 
       {commitSuccess ? (
-        <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-          {commitSuccess.created} kayıt eklendi, {commitSuccess.updated} kayıt güncellendi.{" "}
-          <Link href="/panel/kurulum" className="font-medium underline">
-            Kurulum Merkezi&apos;ne dön
-          </Link>
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-emerald-800">
+              Aktarım tamamlandı: {commitSuccess.created} yeni kayıt eklendi, {commitSuccess.updated} kayıt
+              güncellendi.
+            </p>
+            <button
+              type="button"
+              onClick={() => setCommitSuccess(null)}
+              aria-label="Kapat"
+              className="shrink-0 text-emerald-600 hover:text-emerald-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <Link
+              href={successHref}
+              className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 underline hover:text-emerald-900"
+            >
+              {successLinkLabel} <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              type="button"
+              onClick={handleResetFile}
+              className="text-sm font-medium text-emerald-700 underline hover:text-emerald-900"
+            >
+              Yeni dosya aktar
+            </button>
+          </div>
         </div>
       ) : null}
     </Card>

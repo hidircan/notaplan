@@ -32,6 +32,8 @@ export default function VeriAktarPage() {
           columns={BRANCH_CSV_COLUMNS}
           sampleCsv={BRANCH_CSV_SAMPLE}
           sampleFileName="subeler_ornek.csv"
+          successHref="/panel/subeler"
+          successLinkLabel="Şubeleri görüntüle"
           onPreview={actionPreviewBranchImport}
           onCommit={actionCommitBranchImport}
         />
@@ -42,6 +44,8 @@ export default function VeriAktarPage() {
           columns={TEACHER_CSV_COLUMNS}
           sampleCsv={TEACHER_CSV_SAMPLE}
           sampleFileName="ogretmenler_ornek.csv"
+          successHref="/panel/ogretmenler"
+          successLinkLabel="Öğretmenleri görüntüle"
           onPreview={actionPreviewTeacherImport}
           onCommit={actionCommitTeacherImport}
         />
@@ -52,6 +56,8 @@ export default function VeriAktarPage() {
           columns={ROOM_CSV_COLUMNS}
           sampleCsv={ROOM_CSV_SAMPLE}
           sampleFileName="odalar_ornek.csv"
+          successHref="/panel/odalar"
+          successLinkLabel="Odaları görüntüle"
           onPreview={actionPreviewRoomImport}
           onCommit={actionCommitRoomImport}
         />
@@ -62,6 +68,8 @@ export default function VeriAktarPage() {
           columns={STUDENT_CSV_COLUMNS}
           sampleCsv={STUDENT_CSV_SAMPLE}
           sampleFileName="ogrenciler_ornek.csv"
+          successHref="/panel/ogrenciler"
+          successLinkLabel="Öğrencileri görüntüle"
           onPreview={actionPreviewStudentImport}
           onCommit={actionCommitStudentImport}
         />
