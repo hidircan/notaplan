@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Circle, RefreshCcw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, RefreshCcw, Upload } from "lucide-react";
 import { actionResetDemo } from "@/lib/actions";
 import { readData } from "@/lib/store";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 
 const STEP_LINKS: Record<SetupStepId, { href: string; doneLabel: string; missingLabel: string }> = {
   school: {
-    href: "/panel/program",
-    doneLabel: "Programı görüntüle",
-    missingLabel: "Programı görüntüle",
+    href: "/panel/subeler",
+    doneLabel: "Şubeleri yönet",
+    missingLabel: "Şube ekle",
   },
   teachers: {
     href: "/panel/ogretmenler",
@@ -70,6 +70,13 @@ export default async function KurulumPage() {
             : "Aşağıdaki eksik adımları tamamlayarak okulunuzu operasyona hazır hale getirin."}
         </p>
       </Card>
+
+      <Link
+        href="/panel/veri-aktar"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+      >
+        <Upload className="h-4 w-4" /> Verilerinizi topluca aktarın (CSV)
+      </Link>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {progress.steps.map((step) => {
