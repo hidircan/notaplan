@@ -3,8 +3,10 @@ import {
   filterLessonsForCalendar,
   activeTeachersForBranch,
   resolveTeacherFilterForBranch,
+  studentsForBranch,
+  resolveStudentFilterForBranch,
 } from "../../components/program-studio";
-import type { Lesson, Teacher } from "../types";
+import type { Lesson, Student, Teacher } from "../types";
 
 function lesson(overrides: Partial<Lesson>): Lesson {
   return {
@@ -38,11 +40,32 @@ function teacher(overrides: Partial<Teacher>): Teacher {
   };
 }
 
+function student(overrides: Partial<Student>): Student {
+  return {
+    id: "s1",
+    name: "Zeynep Arslan",
+    email: "z@x.com",
+    phone: "0",
+    parentName: "P",
+    parentPhone: "0",
+    branchId: "erzene",
+    instruments: ["Piyano"],
+    teacherId: "t1",
+    packageName: "",
+    weeklyLessonCount: 1,
+    monthlyFee: 0,
+    active: true,
+    notes: "",
+    createdAt: "2026-01-01T00:00:00+03:00",
+    ...overrides,
+  };
+}
+
 describe("filterLessonsForCalendar", () => {
   const lessons = [
-    lesson({ id: "l1", branchId: "erzene", teacherId: "t1" }),
-    lesson({ id: "l2", branchId: "evka3", teacherId: "t2" }),
-    lesson({ id: "l3", branchId: "erzene", teacherId: "t2" }),
+    lesson({ id: "l1", branchId: "erzene", teacherId: "t1", studentId: "s1" }),
+    lesson({ id: "l2", branchId: "evka3", teacherId: "t2", studentId: "s2" }),
+    lesson({ id: "l3", branchId: "erzene", teacherId: "t2", studentId: "s1" }),
   ];
 
   it("filtre yokken tüm dersleri döner", () => {
@@ -61,6 +84,27 @@ describe("filterLessonsForCalendar", () => {
 
   it("şube ve öğretmen filtresi birlikte çalışır", () => {
     const result = filterLessonsForCalendar(lessons, "erzene", "t2");
+    expect(result.map((l) => l.id)).toEqual(["l3"]);
+  });
+
+  it("öğrenci filtresi boşken eski iki filtreli davranış aynen korunur", () => {
+    expect(filterLessonsForCalendar(lessons, "erzene", "t2", "")).toEqual(
+      filterLessonsForCalendar(lessons, "erzene", "t2")
+    );
+  });
+
+  it("öğrenci filtresi yalnız seçili öğrencinin derslerini döndürür", () => {
+    const result = filterLessonsForCalendar(lessons, "", "", "s1");
+    expect(result.map((l) => l.id)).toEqual(["l1", "l3"]);
+  });
+
+  it("şube ve öğrenci filtresi AND mantığıyla çalışır", () => {
+    const result = filterLessonsForCalendar(lessons, "evka3", "", "s1");
+    expect(result).toHaveLength(0);
+  });
+
+  it("öğretmen ve öğrenci filtresi AND mantığıyla çalışır", () => {
+    const result = filterLessonsForCalendar(lessons, "", "t2", "s1");
     expect(result.map((l) => l.id)).toEqual(["l3"]);
   });
 });
@@ -100,5 +144,43 @@ describe("resolveTeacherFilterForBranch", () => {
 
   it("Tüm şubeler seçilirse önceki öğretmen filtresi korunur", () => {
     expect(resolveTeacherFilterForBranch(teachers, "", "t1")).toBe("t1");
+  });
+});
+
+describe("studentsForBranch", () => {
+  const students = [
+    student({ id: "s1", name: "Zeynep Arslan", branchId: "erzene" }),
+    student({ id: "s2", name: "Ali Koç", branchId: "evka3" }),
+    student({ id: "s3", name: "Burak Aydın", branchId: "erzene" }),
+  ];
+
+  it("filtre yokken tüm öğrencileri Türkçe ada göre sıralı döner", () => {
+    const result = studentsForBranch(students, "");
+    expect(result.map((s) => s.id)).toEqual(["s2", "s3", "s1"]);
+  });
+
+  it("şube filtresi yalnızca o şubenin öğrencilerini bırakır", () => {
+    const result = studentsForBranch(students, "erzene");
+    expect(result.map((s) => s.id)).toEqual(["s3", "s1"]);
+  });
+});
+
+describe("resolveStudentFilterForBranch", () => {
+  const students = [student({ id: "s1", branchId: "erzene" }), student({ id: "s2", branchId: "evka3" })];
+
+  it("öğrenci filtresi seçili değilse boş kalır", () => {
+    expect(resolveStudentFilterForBranch(students, "evka3", "")).toBe("");
+  });
+
+  it("seçili öğrenci yeni şubede geçerliyse korunur", () => {
+    expect(resolveStudentFilterForBranch(students, "erzene", "s1")).toBe("s1");
+  });
+
+  it("şube değiştiğinde o şubeye ait olmayan seçili öğrencinin filtresi temizlenir", () => {
+    expect(resolveStudentFilterForBranch(students, "evka3", "s1")).toBe("");
+  });
+
+  it("Tüm şubeler seçilirse önceki öğrenci filtresi korunur", () => {
+    expect(resolveStudentFilterForBranch(students, "", "s1")).toBe("s1");
   });
 });
