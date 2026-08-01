@@ -88,6 +88,23 @@ describe("checkSeriesOccurrences", () => {
     if (!checks[0].ok) expect(["TEACHER_CONFLICT", "ROOM_CONFLICT"]).toContain(checks[0].code);
   });
 
+  it("öğrenci çakışmasını öğretmen/oda çakışmasından ayrı yakalar", () => {
+    const data = createSeedData();
+    // l12: s1,t1,r1,Piyano. Aynı öğrenci (s1) aynı saatte, FARKLI öğretmen
+    // (t2) ve FARKLI oda (r2) ile talep edilirse yalnızca STUDENT_CONFLICT
+    // tetiklenmeli — öğretmen/oda tarafında hiçbir çakışma yok.
+    const l12 = data.lessons.find((l) => l.id === "l12")!;
+    const params: Pick<SeriesParams, "studentId" | "teacherId" | "roomId" | "instrument"> = {
+      studentId: "s1",
+      teacherId: "t2",
+      roomId: "r2",
+      instrument: "Gitar",
+    };
+    const checks = checkSeriesOccurrences(data, params, [{ startAt: l12.startAt, endAt: l12.endAt }], FIXED_NOW);
+    expect(checks[0].ok).toBe(false);
+    if (!checks[0].ok) expect(checks[0].code).toBe("STUDENT_CONFLICT");
+  });
+
   it("çakışmasız bir seri için tüm oluşumları geçerli sayar", () => {
     const data = createSeedData();
     const occurrences = computeSeriesOccurrences({
