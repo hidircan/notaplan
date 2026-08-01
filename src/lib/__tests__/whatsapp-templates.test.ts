@@ -59,6 +59,7 @@ function buildFixture(): AppData {
     ],
     rooms: [{ id: "r1", name: "Stüdyo 1", branchId: "erzene", capacity: 2, instruments: ["Piyano"] }],
     lessons: [],
+    lessonSeries: [],
     attendances: [],
     makeupRequests: [],
     payments: [],

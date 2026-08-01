@@ -121,6 +121,7 @@ function buildFixture(overrides?: { extraLesson?: Partial<AppData> }): AppData {
       },
     ],
     lessons: overrides?.extraLesson?.lessons ?? [lesson],
+    lessonSeries: [],
     attendances: [],
     makeupRequests: [request],
     payments: [],

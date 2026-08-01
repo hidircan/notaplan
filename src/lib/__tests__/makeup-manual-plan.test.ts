@@ -99,6 +99,7 @@ function buildFixture(): AppData {
       { id: "r2", name: "Stüdyo 2", branchId: "erzene", capacity: 2, instruments: ["Piyano"] },
     ],
     lessons: [],
+    lessonSeries: [],
     attendances: [],
     makeupRequests: [
       {

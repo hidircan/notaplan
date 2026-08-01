@@ -7,6 +7,7 @@ import type {
   AttendanceStatus,
   BranchId,
   Instrument,
+  LessonSeriesStatus,
   MakeupSlot,
   Room,
   Student,
@@ -36,6 +37,7 @@ type PrismaSchoolWithRelations = Prisma.SchoolGetPayload<{
     students: true;
     rooms: true;
     lessons: true;
+    lessonSeries: true;
     attendances: true;
     makeupRequests: true;
     payments: true;
@@ -118,7 +120,24 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       type: lesson.type as import("./types").LessonType,
       status: lesson.status as "scheduled" | "completed" | "cancelled" | "no_show",
       makeupRequestId: lesson.makeupRequestId ?? undefined,
+      seriesId: lesson.seriesId ?? undefined,
       notes: lesson.notes ?? undefined,
+    })),
+    lessonSeries: school.lessonSeries.map((series) => ({
+      id: series.id,
+      studentId: series.studentId,
+      teacherId: series.teacherId,
+      roomId: series.roomId,
+      branchId: series.branchId as BranchId,
+      instrument: series.instrument as Instrument,
+      weekday: series.weekday,
+      startTime: series.startTime,
+      durationMinutes: series.durationMinutes,
+      startsOn: series.startsOn.toISOString(),
+      endsOn: series.endsOn.toISOString(),
+      status: series.status as LessonSeriesStatus,
+      createdAt: series.createdAt.toISOString(),
+      updatedAt: series.updatedAt.toISOString(),
     })),
     attendances: school.attendances.map((attendance) => ({
       id: attendance.id,
@@ -197,6 +216,7 @@ async function seedDatabase(seed: AppData) {
     prisma.makeupRequest.deleteMany({ where: { tenantId: tid } }),
     prisma.payment.deleteMany({ where: { tenantId: tid } }),
     prisma.lesson.deleteMany({ where: { tenantId: tid } }),
+    prisma.lessonSeries.deleteMany({ where: { tenantId: tid } }),
     prisma.student.deleteMany({ where: { tenantId: tid } }),
     prisma.teacher.deleteMany({ where: { tenantId: tid } }),
     prisma.room.deleteMany({ where: { tenantId: tid } }),
@@ -411,6 +431,7 @@ const schoolInclude = {
   students: true,
   rooms: true,
   lessons: true,
+  lessonSeries: true,
   attendances: true,
   makeupRequests: true,
   payments: true,

@@ -89,7 +89,38 @@ export interface Lesson {
   type: LessonType;
   status: "scheduled" | "completed" | "cancelled" | "no_show";
   makeupRequestId?: string;
+  /** Bu ders bir tekrarlayan seriden üretildiyse ait olduğu LessonSeries.id */
+  seriesId?: string;
   notes?: string;
+}
+
+export type LessonSeriesStatus = "active" | "ended" | "cancelled";
+
+/**
+ * Haftalık tekrarlayan ders serisi — "Ece her Salı 17:00'de piyano dersi
+ * alacak" gibi dönemlik bir kaydın kaynağı. Dönem boyunca üretilen her
+ * Lesson, `seriesId` ile bu kayda bağlanır. Seri asla fiziksel silinmez;
+ * yalnızca `status` ile pasifleştirilir (ended/cancelled).
+ */
+export interface LessonSeries {
+  id: string;
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  branchId: BranchId;
+  instrument: Instrument;
+  /** 0=Pazar ... 6=Cumartesi — Teacher.availability ile aynı kural */
+  weekday: number;
+  /** "HH:mm" */
+  startTime: string;
+  durationMinutes: number;
+  /** ISO tarih — dönemin ilk günü */
+  startsOn: string;
+  /** ISO tarih — dönemin son günü (dahil) */
+  endsOn: string;
+  status: LessonSeriesStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Attendance {
@@ -165,6 +196,7 @@ export interface AppData {
   students: Student[];
   rooms: Room[];
   lessons: Lesson[];
+  lessonSeries: LessonSeries[];
   attendances: Attendance[];
   makeupRequests: MakeupRequest[];
   payments: Payment[];

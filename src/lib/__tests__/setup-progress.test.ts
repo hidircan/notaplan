@@ -28,6 +28,7 @@ function emptyData(): AppData {
     students: [],
     rooms: [],
     lessons: [],
+    lessonSeries: [],
     attendances: [],
     makeupRequests: [],
     payments: [],

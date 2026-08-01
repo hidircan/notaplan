@@ -416,6 +416,7 @@ export function createSeedData(): AppData {
     students,
     rooms,
     lessons,
+    lessonSeries: [],
     attendances,
     makeupRequests,
     payments,
