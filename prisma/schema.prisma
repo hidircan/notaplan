@@ -19,6 +19,7 @@ model Tenant {
   students  Student[]
   rooms     Room[]
   lessons   Lesson[]
+  lessonSeries LessonSeries[]
   attendances Attendance[]
   makeupRequests MakeupRequest[]
   payments  Payment[]
@@ -68,6 +69,7 @@ model School {
   students              Student[]
   rooms                 Room[]
   lessons               Lesson[]
+  lessonSeries          LessonSeries[]
   attendances           Attendance[]
   makeupRequests        MakeupRequest[]
   payments              Payment[]
@@ -93,6 +95,7 @@ model Branch {
   students       Student[]
   rooms          Room[]
   lessons        Lesson[]
+  lessonSeries   LessonSeries[]
   makeupRequests MakeupRequest[]
 
   @@index([tenantId])
@@ -117,6 +120,7 @@ model Teacher {
   color           String
   students        Student[]
   lessons         Lesson[]
+  lessonSeries    LessonSeries[]
   makeupRequests  MakeupRequest[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -148,6 +152,7 @@ model Student {
   notes             String
   createdAt         DateTime  @default(now())
   lessons           Lesson[]
+  lessonSeries      LessonSeries[]
   attendances       Attendance[]
   payments          Payment[]
   makeupRequests    MakeupRequest[]
@@ -168,6 +173,7 @@ model Room {
   capacity    Int
   instruments Json
   lessons     Lesson[]
+  lessonSeries LessonSeries[]
 
   @@index([tenantId])
 }
@@ -192,8 +198,45 @@ model Lesson {
   type            String
   status          String
   makeupRequestId String?
+  series          LessonSeries? @relation(fields: [seriesId], references: [id])
+  seriesId        String?
   notes           String?
   attendances     Attendance[]
+
+  @@index([tenantId])
+  @@index([schoolId])
+  @@index([seriesId])
+}
+
+/// Haftalık tekrarlayan ders serisi — dönem boyunca üretilen Lesson
+/// kayıtlarının kaynağı. Lesson.seriesId ile bağlanır; seri silinmez,
+/// yalnızca status ile pasifleştirilir (cancelled/ended).
+model LessonSeries {
+  id              String   @id
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         Student  @relation(fields: [studentId], references: [id])
+  studentId       String
+  teacher         Teacher  @relation(fields: [teacherId], references: [id])
+  teacherId       String
+  room            Room     @relation(fields: [roomId], references: [id])
+  roomId          String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  branchId        String
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId        String
+  instrument      String
+  /// 0=Pazar ... 6=Cumartesi (mevcut Teacher.availability ile aynı kural)
+  weekday         Int
+  /// "HH:mm" — mevcut workingHours alanlarıyla aynı biçim
+  startTime       String
+  durationMinutes Int
+  startsOn        DateTime
+  endsOn          DateTime
+  status          String
+  lessons         Lesson[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([tenantId])
   @@index([schoolId])
