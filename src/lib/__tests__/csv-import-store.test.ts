@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "../config";
 import { importBranches, importTeachers, importRooms, importStudents, readData } from "../store";
+import type { RoomImportRow } from "../import/rooms";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
 
@@ -59,7 +60,7 @@ describe("importTeachers (store)", () => {
 
 describe("importRooms (store)", () => {
   it("geçerli satır yeni oda ekler; aynı (şube, ad) tekrarında günceller", async () => {
-    const row = { name: "Yeni Stüdyo", branchId: "erzene", capacity: 2, instruments: ["Piyano"] as const };
+    const row: RoomImportRow = { name: "Yeni Stüdyo", branchId: "erzene", capacity: 2, instruments: ["Piyano"] };
     const first = await importRooms([row]);
     expect(first.created).toBe(1);
 

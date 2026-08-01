@@ -16,6 +16,14 @@ import {
   createTeacherTool,
   createBranchTool,
   updateBranchTool,
+  previewBranchImportTool,
+  commitBranchImportTool,
+  previewTeacherImportTool,
+  commitTeacherImportTool,
+  previewRoomImportTool,
+  commitRoomImportTool,
+  previewStudentImportTool,
+  commitStudentImportTool,
   createRoomTool,
   createLessonTool,
   suggestLessonSlotsTool,
@@ -31,6 +39,12 @@ import { getSessionContext, requireSessionContext } from "./auth/session";
 import { readData } from "./store";
 import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./whatsapp-templates";
 import type { LessonSlotSuggestion } from "./lesson-scheduling";
+import type { ImportPreview } from "./import/types";
+import type { ImportCommitResult } from "./import/commit-result";
+import type { BranchImportRow } from "./import/branches";
+import type { TeacherImportRow } from "./import/teachers";
+import type { RoomImportRow } from "./import/rooms";
+import type { StudentImportRow } from "./import/students";
 import type { ServiceContext } from "./services/context";
 
 function revalidateAll() {
@@ -258,6 +272,114 @@ export async function actionUpdateBranch(formData: FormData) {
     logger.error("actionUpdateBranch failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
+  }
+}
+
+export type ImportPreviewActionResult<T> =
+  | { ok: true; preview: ImportPreview<T> }
+  | { ok: false; message: string };
+
+export type ImportCommitActionResult =
+  | { ok: true; result: ImportCommitResult }
+  | { ok: false; message: string };
+
+export async function actionPreviewBranchImport(csvText: string): Promise<ImportPreviewActionResult<BranchImportRow>> {
+  try {
+    const result = await withAuthContext((ctx) => previewBranchImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, preview: result.data };
+  } catch (error) {
+    logger.error("actionPreviewBranchImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCommitBranchImport(csvText: string): Promise<ImportCommitActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => commitBranchImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, result: result.data };
+  } catch (error) {
+    logger.error("actionCommitBranchImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionPreviewTeacherImport(csvText: string): Promise<ImportPreviewActionResult<TeacherImportRow>> {
+  try {
+    const result = await withAuthContext((ctx) => previewTeacherImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, preview: result.data };
+  } catch (error) {
+    logger.error("actionPreviewTeacherImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCommitTeacherImport(csvText: string): Promise<ImportCommitActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => commitTeacherImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, result: result.data };
+  } catch (error) {
+    logger.error("actionCommitTeacherImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionPreviewRoomImport(csvText: string): Promise<ImportPreviewActionResult<RoomImportRow>> {
+  try {
+    const result = await withAuthContext((ctx) => previewRoomImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, preview: result.data };
+  } catch (error) {
+    logger.error("actionPreviewRoomImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCommitRoomImport(csvText: string): Promise<ImportCommitActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => commitRoomImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, result: result.data };
+  } catch (error) {
+    logger.error("actionCommitRoomImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionPreviewStudentImport(csvText: string): Promise<ImportPreviewActionResult<StudentImportRow>> {
+  try {
+    const result = await withAuthContext((ctx) => previewStudentImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, preview: result.data };
+  } catch (error) {
+    logger.error("actionPreviewStudentImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCommitStudentImport(csvText: string): Promise<ImportCommitActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => commitStudentImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, result: result.data };
+  } catch (error) {
+    logger.error("actionCommitStudentImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
   }
 }
 

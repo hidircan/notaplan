@@ -16,6 +16,10 @@ import {
   cancelMakeup,
   confirmSlot,
   generateSuggestions,
+  importBranches,
+  importRooms,
+  importStudents,
+  importTeachers,
   markAttendance,
   markPaymentPaid,
   readData,
@@ -26,6 +30,13 @@ import {
 import { suggestMakeupSlots } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
 import { clearFollowUpCases } from "../tahsilat/cases";
+import { parseCsv, rowsToRecords } from "../import/csv";
+import { validateBranchRows, type BranchImportRow } from "../import/branches";
+import { validateTeacherRows, type TeacherImportRow } from "../import/teachers";
+import { validateRoomRows, type RoomImportRow } from "../import/rooms";
+import { validateStudentRows, type StudentImportRow } from "../import/students";
+import type { ImportPreview } from "../import/types";
+import type { ImportCommitResult } from "../import/commit-result";
 import {
   templateMakeupConfirmed,
   templateMakeupCreated,
@@ -522,6 +533,142 @@ export async function updateBranchTool(
   }
 }
 
+const csvInputSchema = z.object({ csvText: z.string().min(1) });
+
+function csvRecords(csvText: string) {
+  return rowsToRecords(parseCsv(csvText)).records;
+}
+
+export async function previewBranchImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportPreview<BranchImportRow>>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  return ok(validateBranchRows(csvRecords(v.data.csvText)));
+}
+
+export async function commitBranchImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportCommitResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const preview = validateBranchRows(csvRecords(v.data.csvText));
+  if (preview.errorCount > 0) {
+    return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
+  }
+  if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
+  try {
+    return ok(await importBranches(preview.valid));
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importBranches failed");
+  }
+}
+
+export async function previewTeacherImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportPreview<TeacherImportRow>>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  return ok(validateTeacherRows(data, csvRecords(v.data.csvText)));
+}
+
+export async function commitTeacherImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportCommitResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const preview = validateTeacherRows(data, csvRecords(v.data.csvText));
+  if (preview.errorCount > 0) {
+    return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
+  }
+  if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
+  try {
+    return ok(await importTeachers(preview.valid));
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importTeachers failed");
+  }
+}
+
+export async function previewRoomImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportPreview<RoomImportRow>>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  return ok(validateRoomRows(data, csvRecords(v.data.csvText)));
+}
+
+export async function commitRoomImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportCommitResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const preview = validateRoomRows(data, csvRecords(v.data.csvText));
+  if (preview.errorCount > 0) {
+    return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
+  }
+  if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
+  try {
+    return ok(await importRooms(preview.valid));
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importRooms failed");
+  }
+}
+
+export async function previewStudentImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportPreview<StudentImportRow>>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  return ok(validateStudentRows(data, csvRecords(v.data.csvText)));
+}
+
+export async function commitStudentImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportCommitResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const preview = validateStudentRows(data, csvRecords(v.data.csvText));
+  if (preview.errorCount > 0) {
+    return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
+  }
+  if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
+  try {
+    return ok(await importStudents(preview.valid));
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importStudents failed");
+  }
+}
+
 export async function createRoomTool(
   ctx: ServiceContext,
   input: unknown
@@ -704,6 +851,14 @@ export const TOOL_CATALOG = [
   { name: "cancelLesson", description: "Cancel a regular lesson" },
   { name: "createBranch", description: "Add a new branch" },
   { name: "updateBranch", description: "Edit an existing branch" },
+  { name: "previewBranchImport", description: "Validate a branches CSV without writing" },
+  { name: "commitBranchImport", description: "Import branches from CSV" },
+  { name: "previewTeacherImport", description: "Validate a teachers CSV without writing" },
+  { name: "commitTeacherImport", description: "Import teachers from CSV" },
+  { name: "previewRoomImport", description: "Validate a rooms CSV without writing" },
+  { name: "commitRoomImport", description: "Import rooms from CSV" },
+  { name: "previewStudentImport", description: "Validate a students CSV without writing" },
+  { name: "commitStudentImport", description: "Import students from CSV" },
   { name: "resetDemo", description: "Reset tenant demo data" },
 ] as const;
 
