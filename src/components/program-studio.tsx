@@ -121,11 +121,13 @@ function assignLanes(dayLessons: Lesson[]): { laneOf: Map<string, number>; laneC
 export function filterLessonsForCalendar(
   lessons: Lesson[],
   filterBranchId: string,
-  filterTeacherId: string
+  filterTeacherId: string,
+  filterStudentId = ""
 ): Lesson[] {
   return lessons.filter((l) => {
     if (filterBranchId && l.branchId !== filterBranchId) return false;
     if (filterTeacherId && l.teacherId !== filterTeacherId) return false;
+    if (filterStudentId && l.studentId !== filterStudentId) return false;
     return true;
   });
 }
@@ -146,6 +148,24 @@ export function resolveTeacherFilterForBranch(
   const teacher = teachers.find((t) => t.id === currentTeacherId);
   if (!teacher || (nextBranchId && teacher.branchId !== nextBranchId)) return "";
   return currentTeacherId;
+}
+
+export function studentsForBranch(students: Student[], filterBranchId: string): Student[] {
+  return students
+    .filter((s) => !filterBranchId || s.branchId === filterBranchId)
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+}
+
+/** Şube filtresi değişince geçersiz kalan öğrenci filtresini "Tüm öğrenciler"e döndürür. */
+export function resolveStudentFilterForBranch(
+  students: Student[],
+  nextBranchId: string,
+  currentStudentId: string
+): string {
+  if (!currentStudentId) return currentStudentId;
+  const student = students.find((s) => s.id === currentStudentId);
+  if (!student || (nextBranchId && student.branchId !== nextBranchId)) return "";
+  return currentStudentId;
 }
 
 /** Bağımsız katman: form içeriği takvimin akışını hiç etkilemesin diye sabit konumlu (fixed) katman. Yeni paket gerektirmez. */
@@ -188,6 +208,7 @@ function FormModal({ title, onClose, children }: { title: string; onClose: () =>
 }
 
 type ActivePanel = "none" | "create" | "series";
+type CalendarView = "day" | "week";
 
 export function ProgramStudio({
   students,
@@ -206,6 +227,7 @@ export function ProgramStudio({
   const windowStartMin = slots[0] ?? 0;
 
   const [activePanel, setActivePanel] = useState<ActivePanel>("none");
+  const [calendarView, setCalendarView] = useState<CalendarView>("day");
 
   const [studentId, setStudentId] = useState("");
   const [teacherId, setTeacherId] = useState("");
@@ -246,18 +268,21 @@ export function ProgramStudio({
   // etkiler; sunucu/yetki/global şube bağlamı bu sprintin kapsamı dışında.
   const [filterBranchId, setFilterBranchId] = useState("");
   const [filterTeacherId, setFilterTeacherId] = useState("");
+  const [filterStudentId, setFilterStudentId] = useState("");
 
   const branchIds = Object.keys(branchNames).sort((a, b) =>
     (branchNames[a] ?? "").localeCompare(branchNames[b] ?? "", "tr")
   );
   const filterableTeachers = activeTeachersForBranch(teachers, filterBranchId);
+  const filterableStudents = studentsForBranch(students, filterBranchId);
 
   function selectFilterBranch(id: string) {
     setFilterBranchId(id);
     setFilterTeacherId((current) => resolveTeacherFilterForBranch(teachers, id, current));
+    setFilterStudentId((current) => resolveStudentFilterForBranch(students, id, current));
   }
 
-  const visibleWeekLessons = filterLessonsForCalendar(weekLessons, filterBranchId, filterTeacherId);
+  const visibleWeekLessons = filterLessonsForCalendar(weekLessons, filterBranchId, filterTeacherId, filterStudentId);
 
   const selectedStudent = students.find((s) => s.id === studentId);
   const selectedTeacher = teachers.find((t) => t.id === teacherId);
@@ -1018,11 +1043,39 @@ export function ProgramStudio({
       ) : null}
 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-slate-900">Haftalık program</h2>
-          <p className="mt-0.5 hidden text-xs text-slate-400 lg:block">
-            Dersi taşımak için sürükleyin · Süreyi değiştirmek için kartın altından uzatın
-          </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <h2 className="font-semibold text-slate-900">Haftalık program</h2>
+            <p className="mt-0.5 hidden text-xs text-slate-400 lg:block">
+              Dersi taşımak için sürükleyin · Süreyi değiştirmek için kartın altından uzatın
+            </p>
+          </div>
+          <div
+            role="group"
+            aria-label="Takvim görünümü"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5"
+          >
+            <button
+              type="button"
+              aria-pressed={calendarView === "day"}
+              onClick={() => setCalendarView("day")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                calendarView === "day" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Gün görünümü
+            </button>
+            <button
+              type="button"
+              aria-pressed={calendarView === "week"}
+              onClick={() => setCalendarView("week")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                calendarView === "week" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Haftalık görünüm
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={filterBranchId} onChange={(e) => selectFilterBranch(e.target.value)} className="w-auto">
@@ -1041,6 +1094,14 @@ export function ProgramStudio({
               </option>
             ))}
           </Select>
+          <Select value={filterStudentId} onChange={(e) => setFilterStudentId(e.target.value)} className="w-auto">
+            <option value="">Tüm öğrenciler</option>
+            {filterableStudents.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
           <Button variant="secondary" onClick={openSeriesPanel}>
             Tekrarlayan ders oluştur
           </Button>
@@ -1051,7 +1112,9 @@ export function ProgramStudio({
       {visibleWeekLessons.length === 0 ? (
         <Card className="mb-4 border-dashed border-slate-200 bg-slate-50/60 text-center">
           <p className="text-sm text-slate-500">
-            {filterBranchId || filterTeacherId ? "Bu filtrelerle eşleşen ders yok." : "Bu hafta için planlanmış ders yok."}
+            {filterBranchId || filterTeacherId || filterStudentId
+              ? "Bu filtrelerle eşleşen ders yok."
+              : "Bu hafta için planlanmış ders yok."}
           </p>
           <div className="mt-3 flex justify-center">
             <Button onClick={() => openPlanner()}>Ders planla</Button>
@@ -1093,16 +1156,17 @@ export function ProgramStudio({
         />
       ) : null}
 
-      <div className="hidden overflow-x-auto lg:block">
-        <div className="flex">
-          <div className="w-14 shrink-0" />
+      {calendarView === "week" ? (
+      <div className="overflow-x-auto">
+        <div className="flex min-w-[820px]">
+          <div className="sticky left-0 z-20 w-14 shrink-0 border-b border-slate-100 bg-white" />
           {days.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
             return (
               <div
                 key={dayIso}
-                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
+                className={`min-w-[110px] flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
                   today ? "bg-violet-50 text-violet-700" : "text-slate-600"
                 }`}
               >
@@ -1113,11 +1177,17 @@ export function ProgramStudio({
           })}
         </div>
 
-        <div className="flex">
-          <div className="w-14 shrink-0">
+        <div className="flex min-w-[820px]">
+          <div className="sticky left-0 z-20 w-14 shrink-0 bg-white">
             {slots.map((min) => (
-              <div key={min} className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400" style={{ height: SLOT_HEIGHT_PX }}>
-                {min % 60 === 0 ? formatMinutes(min) : ""}
+              <div
+                key={min}
+                className={`border-r pr-2 text-right text-[11px] text-slate-400 ${
+                  min % 60 === 0 ? "border-slate-200" : "border-slate-100"
+                }`}
+                style={{ height: SLOT_HEIGHT_PX }}
+              >
+                {formatMinutes(min)}
               </div>
             ))}
           </div>
@@ -1132,12 +1202,13 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`relative flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
+                className={`relative min-w-[110px] flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
                 style={{ height: totalHeight }}
               >
                 {slots.map((min, i) => {
                   const key = `${dayIso}|${min}`;
                   const isDragOver = dragOverKey === key;
+                  const isHourMark = min % 60 === 0;
                   return (
                     <button
                       key={min}
@@ -1152,8 +1223,12 @@ export function ProgramStudio({
                         e.preventDefault();
                         handleDrop(dayIso, min);
                       }}
-                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
-                        isDragOver ? "border-violet-400 bg-violet-100/60" : "border-slate-50"
+                      className={`absolute left-0 right-0 border-b text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
+                        isDragOver
+                          ? "border-violet-400 bg-violet-100/60"
+                          : isHourMark
+                            ? "border-slate-200"
+                            : "border-dashed border-slate-100"
                       }`}
                       style={{ top: i * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
                       aria-label={`${format(day, "d MMM")} ${formatMinutes(min)} — ders planla`}
@@ -1222,9 +1297,10 @@ export function ProgramStudio({
           })}
         </div>
       </div>
+      ) : null}
 
-      <div className="lg:hidden">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Gün görünümü</p>
+      {calendarView === "day" ? (
+      <div>
         <div className="grid gap-3">
           {days.map((dayIso) => {
             const day = parseISO(dayIso);
@@ -1273,6 +1349,7 @@ export function ProgramStudio({
           })}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }
