@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, Sparkles, X } from "lucide-react";
-import { format, parseISO, isSameDay, setHours, setMinutes } from "date-fns";
+import { addMinutes, differenceInMinutes, format, isSameDay, parseISO, startOfDay } from "date-fns";
 import { tr } from "date-fns/locale";
-import { actionAddLesson, actionSuggestLessonSlots } from "@/lib/actions";
+import {
+  actionAddLesson,
+  actionCancelLesson,
+  actionSuggestLessonSlots,
+  actionUpdateLessonSchedule,
+} from "@/lib/actions";
 import type { LessonCommunicationMessage } from "@/lib/whatsapp-templates";
 import type { LessonSlotSuggestion } from "@/lib/lesson-scheduling";
 import { Badge, Button, Card, Input, Label, Select } from "@/components/ui";
@@ -23,17 +28,67 @@ type ProgramStudioProps = {
   todayIso: string;
 };
 
+const SLOT_MINUTES = 30;
+const SLOT_HEIGHT_PX = 28;
+
 function toDatetimeLocalValue(iso: string) {
   return format(parseISO(iso), "yyyy-MM-dd'T'HH:mm");
 }
 
-function hourRange(workingHours: { start: string; end: string }) {
-  const [startH] = workingHours.start.split(":").map(Number);
-  const [endH, endM] = workingHours.end.split(":").map(Number);
-  const lastHour = endM > 0 ? endH : endH - 1;
-  const hours: number[] = [];
-  for (let h = startH; h <= lastHour; h++) hours.push(h);
-  return hours;
+function parseHm(hm: string) {
+  const [h, m] = hm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function formatMinutes(min: number) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function slotStarts(workingHours: { start: string; end: string }) {
+  const startMin = parseHm(workingHours.start);
+  const endMin = parseHm(workingHours.end);
+  const slots: number[] = [];
+  for (let t = startMin; t < endMin; t += SLOT_MINUTES) slots.push(t);
+  return slots;
+}
+
+/** Sadece normal (telafi olmayan), planlanmış ve gelecekteki dersler taşınabilir/resize edilebilir. */
+function canMoveOrResize(lesson: Lesson, now: Date) {
+  return lesson.type === "regular" && lesson.status === "scheduled" && parseISO(lesson.startAt) > now;
+}
+
+/** İptal, geçmiş dersler için de mümkündür — yalnızca tür ve durum şartı aranır. */
+function canCancel(lesson: Lesson) {
+  return lesson.type === "regular" && lesson.status === "scheduled";
+}
+
+function ineligibilityReason(lesson: Lesson, now: Date): string | null {
+  if (lesson.type !== "regular") return "Telafi dersleri bu ekrandan taşınamaz, süresi değiştirilemez veya iptal edilemez.";
+  if (lesson.status !== "scheduled") return "Bu ders zaten tamamlanmış veya iptal edilmiş.";
+  if (!(parseISO(lesson.startAt) > now)) return "Geçmiş bir ders taşınamaz veya süresi değiştirilemez, ancak iptal edilebilir.";
+  return null;
+}
+
+/** Aynı gün çakışan (farklı öğretmen/oda) dersler için basit "lane" ataması — greedy interval scheduling. */
+function assignLanes(dayLessons: Lesson[]): { laneOf: Map<string, number>; laneCount: number } {
+  const sorted = [...dayLessons].sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const laneEndTimes: number[] = [];
+  const laneOf = new Map<string, number>();
+  for (const lesson of sorted) {
+    const start = parseISO(lesson.startAt).getTime();
+    const end = parseISO(lesson.endAt).getTime();
+    let lane = laneEndTimes.findIndex((endTime) => endTime <= start);
+    if (lane === -1) {
+      lane = laneEndTimes.length;
+      laneEndTimes.push(end);
+    } else {
+      laneEndTimes[lane] = end;
+    }
+    laneOf.set(lesson.id, lane);
+  }
+  return { laneOf, laneCount: Math.max(laneEndTimes.length, 1) };
 }
 
 export function ProgramStudio({
@@ -48,7 +103,9 @@ export function ProgramStudio({
   todayIso,
 }: ProgramStudioProps) {
   const router = useRouter();
-  const hours = hourRange(workingHours);
+  const now = parseISO(todayIso);
+  const slots = slotStarts(workingHours);
+  const windowStartMin = slots[0] ?? 0;
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
@@ -67,6 +124,23 @@ export function ProgramStudio({
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<LessonSlotSuggestion[] | null>(null);
   const [suggestLimit, setSuggestLimit] = useState(8);
+
+  const [gridError, setGridError] = useState<string | null>(null);
+  const [draggingLessonId, setDraggingLessonId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [resizePreview, setResizePreview] = useState<{ lessonId: string; duration: number } | null>(null);
+  const resizeRef = useRef<{
+    lessonId: string;
+    startY: number;
+    initialDuration: number;
+    currentDuration: number;
+  } | null>(null);
+
+  const [detailLesson, setDetailLesson] = useState<Lesson | null>(null);
+  const [detailMoveOpen, setDetailMoveOpen] = useState(false);
+  const [detailMoveStartAt, setDetailMoveStartAt] = useState("");
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailSubmitting, setDetailSubmitting] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === studentId);
   const selectedTeacher = teachers.find((t) => t.id === teacherId);
@@ -103,9 +177,9 @@ export function ProgramStudio({
     if (prefillStartAt) setStartAt(prefillStartAt);
   }
 
-  function openPlannerAtCell(dayIso: string, hour: number) {
+  function openPlannerAtSlot(dayIso: string, slotMin: number) {
     const day = parseISO(dayIso);
-    const dt = setMinutes(setHours(day, hour), 0);
+    const dt = addMinutes(startOfDay(day), slotMin);
     openPlanner(format(dt, "yyyy-MM-dd'T'HH:mm"));
   }
 
@@ -180,6 +254,119 @@ export function ProgramStudio({
     setPanelOpen(false);
     setSuggestions(null);
     router.refresh();
+  }
+
+  function openDetail(lesson: Lesson) {
+    setDetailLesson(lesson);
+    setDetailMoveOpen(false);
+    setDetailError(null);
+  }
+
+  function closeDetail() {
+    setDetailLesson(null);
+    setDetailMoveOpen(false);
+    setDetailError(null);
+  }
+
+  function openDetailMove() {
+    if (!detailLesson) return;
+    setDetailMoveStartAt(toDatetimeLocalValue(detailLesson.startAt));
+    setDetailMoveOpen(true);
+    setDetailError(null);
+  }
+
+  async function submitDetailMove(e: FormEvent) {
+    e.preventDefault();
+    if (!detailLesson) return;
+    setDetailSubmitting(true);
+    setDetailError(null);
+    const result = await actionUpdateLessonSchedule({
+      lessonId: detailLesson.id,
+      startAt: new Date(detailMoveStartAt).toISOString(),
+    });
+    setDetailSubmitting(false);
+    if (!result.ok) {
+      setDetailError(result.message);
+      return;
+    }
+    closeDetail();
+    router.refresh();
+  }
+
+  async function submitDetailCancel() {
+    if (!detailLesson) return;
+    if (!window.confirm("Bu dersi iptal etmek istediğinize emin misiniz?")) return;
+    setDetailSubmitting(true);
+    setDetailError(null);
+    const result = await actionCancelLesson({ lessonId: detailLesson.id });
+    setDetailSubmitting(false);
+    if (!result.ok) {
+      setDetailError(result.message);
+      return;
+    }
+    closeDetail();
+    router.refresh();
+  }
+
+  async function performMove(lessonId: string, newStartAtIso: string) {
+    setGridError(null);
+    const result = await actionUpdateLessonSchedule({ lessonId, startAt: newStartAtIso });
+    if (!result.ok) {
+      setGridError(result.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  function handleDrop(dayIso: string, slotMin: number) {
+    setDragOverKey(null);
+    const lessonId = draggingLessonId;
+    setDraggingLessonId(null);
+    if (!lessonId) return;
+    const day = parseISO(dayIso);
+    const dt = addMinutes(startOfDay(day), slotMin);
+    void performMove(lessonId, dt.toISOString());
+  }
+
+  function startResize(e: React.MouseEvent, lesson: Lesson) {
+    e.preventDefault();
+    e.stopPropagation();
+    const duration = differenceInMinutes(parseISO(lesson.endAt), parseISO(lesson.startAt));
+    resizeRef.current = { lessonId: lesson.id, startY: e.clientY, initialDuration: duration, currentDuration: duration };
+    setResizePreview({ lessonId: lesson.id, duration });
+
+    function onMove(ev: MouseEvent) {
+      const ref = resizeRef.current;
+      if (!ref) return;
+      const deltaY = ev.clientY - ref.startY;
+      const deltaSlots = Math.round(deltaY / SLOT_HEIGHT_PX);
+      const newDuration = Math.max(SLOT_MINUTES, ref.initialDuration + deltaSlots * SLOT_MINUTES);
+      ref.currentDuration = newDuration;
+      setResizePreview({ lessonId: ref.lessonId, duration: newDuration });
+    }
+
+    async function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      const ref = resizeRef.current;
+      resizeRef.current = null;
+      setResizePreview(null);
+      if (!ref) return;
+      if (ref.currentDuration === ref.initialDuration) return;
+      setGridError(null);
+      const result = await actionUpdateLessonSchedule({
+        lessonId: ref.lessonId,
+        durationMinutes: ref.currentDuration,
+      });
+      if (!result.ok) {
+        setGridError(result.message);
+        return;
+      }
+      router.refresh();
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   }
 
   return (
@@ -352,91 +539,170 @@ export function ProgramStudio({
         </Card>
       ) : null}
 
+      {detailLesson ? (
+        <DetailPanel
+          lesson={detailLesson}
+          student={students.find((s) => s.id === detailLesson.studentId)}
+          teacher={teachers.find((t) => t.id === detailLesson.teacherId)}
+          room={rooms.find((r) => r.id === detailLesson.roomId)}
+          branchName={branchNames[detailLesson.branchId]}
+          now={now}
+          moveOpen={detailMoveOpen}
+          moveStartAt={detailMoveStartAt}
+          submitting={detailSubmitting}
+          error={detailError}
+          onClose={closeDetail}
+          onOpenMove={openDetailMove}
+          onChangeMoveStartAt={setDetailMoveStartAt}
+          onSubmitMove={submitDetailMove}
+          onCancelLesson={submitDetailCancel}
+        />
+      ) : null}
+
+      {gridError ? (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+          <span>{gridError}</span>
+          <button type="button" onClick={() => setGridError(null)} aria-label="Kapat">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
       <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full border-separate border-spacing-0 text-xs">
-          <thead>
-            <tr>
-              <th className="w-16 border-b border-slate-100 bg-white p-2 text-left font-medium text-slate-400"></th>
-              {days.map((dayIso) => {
-                const day = parseISO(dayIso);
-                const today = isSameDay(day, parseISO(todayIso));
-                return (
-                  <th
-                    key={dayIso}
-                    className={`border-b border-slate-100 p-2 text-left font-semibold ${
-                      today ? "bg-violet-50 text-violet-700" : "text-slate-600"
-                    }`}
-                  >
-                    {format(day, "EEEE", { locale: tr })}
-                    <span className="ml-1 font-normal text-slate-400">{format(day, "d MMM")}</span>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {hours.map((hour) => (
-              <tr key={hour}>
-                <td className="border-b border-slate-50 p-2 align-top font-medium text-slate-400">
-                  {String(hour).padStart(2, "0")}:00
-                </td>
-                {days.map((dayIso) => {
-                  const day = parseISO(dayIso);
-                  const today = isSameDay(day, parseISO(todayIso));
-                  const cellLessons = weekLessons.filter((l) => {
-                    const start = parseISO(l.startAt);
-                    return isSameDay(start, day) && start.getHours() === hour;
-                  });
+        <div className="flex">
+          <div className="w-14 shrink-0" />
+          {days.map((dayIso) => {
+            const day = parseISO(dayIso);
+            const today = isSameDay(day, now);
+            return (
+              <div
+                key={dayIso}
+                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
+                  today ? "bg-violet-50 text-violet-700" : "text-slate-600"
+                }`}
+              >
+                {format(day, "EEEE", { locale: tr })}
+                <span className="ml-1 font-normal text-slate-400">{format(day, "d MMM")}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex">
+          <div className="w-14 shrink-0">
+            {slots.map((min) => (
+              <div key={min} className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400" style={{ height: SLOT_HEIGHT_PX }}>
+                {min % 60 === 0 ? formatMinutes(min) : ""}
+              </div>
+            ))}
+          </div>
+
+          {days.map((dayIso) => {
+            const day = parseISO(dayIso);
+            const today = isSameDay(day, now);
+            const dayLessons = weekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
+            const { laneOf, laneCount } = assignLanes(dayLessons);
+            const totalHeight = slots.length * SLOT_HEIGHT_PX;
+
+            return (
+              <div
+                key={dayIso}
+                className={`relative flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
+                style={{ height: totalHeight }}
+              >
+                {slots.map((min, i) => {
+                  const key = `${dayIso}|${min}`;
+                  const isDragOver = dragOverKey === key;
                   return (
-                    <td
-                      key={dayIso}
-                      className={`min-w-[140px] border-b border-slate-50 p-1 align-top ${
-                        today ? "bg-violet-50/30" : ""
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => openPlannerAtSlot(dayIso, min)}
+                      onDragOver={(e) => {
+                        if (draggingLessonId) e.preventDefault();
+                        setDragOverKey(key);
+                      }}
+                      onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDrop(dayIso, min);
+                      }}
+                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
+                        isDragOver ? "border-violet-400 bg-violet-100/60" : "border-slate-50"
                       }`}
+                      style={{ top: i * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
+                      aria-label={`${format(day, "d MMM")} ${formatMinutes(min)} — ders planla`}
                     >
-                      <div className="space-y-1">
-                        {cellLessons.map((lesson) => {
-                          const student = students.find((s) => s.id === lesson.studentId);
-                          const teacher = teachers.find((t) => t.id === lesson.teacherId);
-                          const room = rooms.find((r) => r.id === lesson.roomId);
-                          return (
-                            <div
-                              key={lesson.id}
-                              className="rounded-lg border border-slate-100 bg-slate-50 p-1.5"
-                              style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
-                            >
-                              <p className="font-semibold text-slate-800">
-                                {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
-                              </p>
-                              <p className="text-slate-600">{student?.name}</p>
-                              <p className="text-slate-400">
-                                {teacher?.name} · {room?.name}
-                              </p>
-                              <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
-                            </div>
-                          );
-                        })}
-                        <button
-                          type="button"
-                          onClick={() => openPlannerAtCell(dayIso, hour)}
-                          className="w-full rounded-lg border border-dashed border-slate-200 py-1 text-[11px] text-slate-400 hover:border-violet-300 hover:text-violet-600"
-                        >
-                          + Ders planla
-                        </button>
-                      </div>
-                    </td>
+                      +
+                    </button>
                   );
                 })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+                {dayLessons.map((lesson) => {
+                  const student = students.find((s) => s.id === lesson.studentId);
+                  const teacher = teachers.find((t) => t.id === lesson.teacherId);
+                  const room = rooms.find((r) => r.id === lesson.roomId);
+                  const startMin =
+                    parseISO(lesson.startAt).getHours() * 60 + parseISO(lesson.startAt).getMinutes();
+                  const duration =
+                    resizePreview?.lessonId === lesson.id
+                      ? resizePreview.duration
+                      : differenceInMinutes(parseISO(lesson.endAt), parseISO(lesson.startAt));
+                  const top = ((startMin - windowStartMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+                  const height = Math.max((duration / SLOT_MINUTES) * SLOT_HEIGHT_PX - 2, SLOT_HEIGHT_PX - 2);
+                  const lane = laneOf.get(lesson.id) ?? 0;
+                  const widthPct = 100 / laneCount;
+                  const editable = canMoveOrResize(lesson, now);
+
+                  return (
+                    <div
+                      key={lesson.id}
+                      draggable={editable}
+                      onDragStart={() => setDraggingLessonId(lesson.id)}
+                      onDragEnd={() => {
+                        setDraggingLessonId(null);
+                        setDragOverKey(null);
+                      }}
+                      onClick={() => openDetail(lesson)}
+                      className={`absolute z-10 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 text-[10px] shadow-sm ${
+                        editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-90"
+                      }`}
+                      style={{
+                        top,
+                        height,
+                        left: `${lane * widthPct}%`,
+                        width: `calc(${widthPct}% - 2px)`,
+                        borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}`,
+                      }}
+                    >
+                      <p className="truncate font-semibold text-slate-800">
+                        {format(parseISO(lesson.startAt), "HH:mm")} {lesson.instrument}
+                      </p>
+                      <p className="truncate text-slate-600">{student?.name}</p>
+                      <p className="truncate text-slate-400">
+                        {teacher?.name} · {room?.name}
+                      </p>
+                      <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+                      {editable ? (
+                        <div
+                          onMouseDown={(e) => startResize(e, lesson)}
+                          className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-200/0 hover:bg-violet-300/70"
+                          aria-label="Süreyi değiştir"
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid gap-3 lg:hidden">
         {days.map((dayIso) => {
           const day = parseISO(dayIso);
-          const today = isSameDay(day, parseISO(todayIso));
+          const today = isSameDay(day, now);
           const dayLessons = weekLessons
             .filter((l) => isSameDay(parseISO(l.startAt), day))
             .sort((a, b) => a.startAt.localeCompare(b.startAt));
@@ -457,9 +723,11 @@ export function ProgramStudio({
                     const teacher = teachers.find((t) => t.id === lesson.teacherId);
                     const room = rooms.find((r) => r.id === lesson.roomId);
                     return (
-                      <div
+                      <button
                         key={lesson.id}
-                        className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs"
+                        type="button"
+                        onClick={() => openDetail(lesson)}
+                        className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-violet-200"
                         style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
                       >
                         <p className="font-semibold text-slate-800">
@@ -473,7 +741,7 @@ export function ProgramStudio({
                         <div className="mt-1">
                           <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -483,6 +751,103 @@ export function ProgramStudio({
         })}
       </div>
     </div>
+  );
+}
+
+function DetailPanel({
+  lesson,
+  student,
+  teacher,
+  room,
+  branchName,
+  now,
+  moveOpen,
+  moveStartAt,
+  submitting,
+  error,
+  onClose,
+  onOpenMove,
+  onChangeMoveStartAt,
+  onSubmitMove,
+  onCancelLesson,
+}: {
+  lesson: Lesson;
+  student?: Student;
+  teacher?: Teacher;
+  room?: Room;
+  branchName?: string;
+  now: Date;
+  moveOpen: boolean;
+  moveStartAt: string;
+  submitting: boolean;
+  error: string | null;
+  onClose: () => void;
+  onOpenMove: () => void;
+  onChangeMoveStartAt: (value: string) => void;
+  onSubmitMove: (e: FormEvent) => void;
+  onCancelLesson: () => void;
+}) {
+  const canMove = canMoveOrResize(lesson, now);
+  const canCancelLesson = canCancel(lesson);
+  const reason = ineligibilityReason(lesson, now);
+
+  return (
+    <Card className="mb-6 border-slate-300">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">Ders detayı</h3>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="Kapat">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mb-3 text-sm text-slate-700">
+        <p className="font-medium text-slate-900">
+          {format(parseISO(lesson.startAt), "d MMMM yyyy · HH:mm", { locale: tr })} — {lesson.instrument}
+        </p>
+        <p className="mt-1 text-slate-500">
+          {student?.name} · {teacher?.name} · {room?.name}
+          {branchName ? ` · ${branchName}` : ""}
+        </p>
+        <div className="mt-2">
+          <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+        </div>
+      </div>
+
+      {reason ? <p className="mb-3 text-xs text-amber-600">{reason}</p> : null}
+
+      <div className="flex flex-wrap gap-2">
+        {canMove ? (
+          <Button variant="secondary" onClick={onOpenMove} disabled={submitting}>
+            Bu dersi taşı
+          </Button>
+        ) : null}
+        {canCancelLesson ? (
+          <Button variant="danger" onClick={onCancelLesson} disabled={submitting}>
+            Bu dersi iptal et
+          </Button>
+        ) : null}
+      </div>
+
+      {moveOpen ? (
+        <form onSubmit={onSubmitMove} className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+          <div>
+            <Label>Yeni tarih/saat</Label>
+            <Input
+              type="datetime-local"
+              value={moveStartAt}
+              onChange={(e) => onChangeMoveStartAt(e.target.value)}
+              required
+            />
+          </div>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Taşı
+          </Button>
+        </form>
+      ) : null}
+
+      {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
+    </Card>
   );
 }
 
