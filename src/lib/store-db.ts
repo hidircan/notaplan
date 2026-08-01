@@ -13,6 +13,7 @@ import type {
   Teacher,
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
+import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import { addDays } from "date-fns";
 import { requireTenantId, tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
@@ -744,6 +745,60 @@ export async function addLesson(input: {
       status: "scheduled",
     },
   });
+  return readData();
+}
+
+const CONCURRENT_UPDATE_MESSAGE =
+  "Bu ders bu sırada başka bir işlemle değiştirildi. Lütfen sayfayı yenileyip tekrar deneyin.";
+
+/**
+ * Şema değişikliği (versiyon kolonu) olmadan iyimser eşzamanlılık kontrolü:
+ * WHERE koşulu son okuduğumuz startAt/endAt/status değerlerini de içerir —
+ * araya başka bir işlem girip dersi değiştirmişse `updateMany` hiçbir satırı
+ * eşleştirmez ve biz bunu çakışma olarak raporlarız (sessizce üzerine yazmayız).
+ */
+export async function updateLessonSchedule(input: {
+  lessonId: string;
+  startAt?: string;
+  durationMinutes?: number;
+}): Promise<AppData> {
+  logger.info("updateLessonSchedule", input.lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const original = data.lessons.find((l) => l.id === input.lessonId);
+  const result = applyLessonScheduleUpdate(data, input);
+  if (!result.ok) throw new Error(result.message);
+
+  const updateResult = await prisma.lesson.updateMany({
+    where: {
+      id: input.lessonId,
+      tenantId: tid,
+      startAt: new Date(original!.startAt),
+      endAt: new Date(original!.endAt),
+      status: original!.status,
+    },
+    data: {
+      startAt: new Date(result.lesson.startAt),
+      endAt: new Date(result.lesson.endAt),
+    },
+  });
+  if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
+  return readData();
+}
+
+export async function cancelLesson(lessonId: string): Promise<AppData> {
+  logger.info("cancelLesson", lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const original = data.lessons.find((l) => l.id === lessonId);
+  const result = applyLessonCancel(data, lessonId);
+  if (!result.ok) throw new Error(result.message);
+
+  const updateResult = await prisma.lesson.updateMany({
+    where: { id: lessonId, tenantId: tid, status: original!.status },
+    data: { status: "cancelled" },
+  });
+  if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
   return readData();
 }
 

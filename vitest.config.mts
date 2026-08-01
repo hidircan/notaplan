@@ -6,6 +6,10 @@ export default defineConfig({
     environment: "node",
     globals: false,
     include: ["src/lib/__tests__/**/*.test.ts"],
+    // Birden fazla test dosyası STORE_MODE=json altında aynı paylaşılan
+    // /tmp/notaplan-data/store.json dosyasını kullanıyor; dosyalar paralel
+    // çalışırsa birbirinin verisini sıfırlayıp bozabiliyor (flaky testler).
+    fileParallelism: false,
     env: {
       STORE_MODE: "json",
       VERCEL: "1",

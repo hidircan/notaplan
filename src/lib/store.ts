@@ -38,6 +38,12 @@ type StoreApi = {
     amount: number;
     dueDate: string;
   }) => Promise<AppData>;
+  updateLessonSchedule: (input: {
+    lessonId: string;
+    startAt?: string;
+    durationMinutes?: number;
+  }) => Promise<AppData>;
+  cancelLesson: (lessonId: string) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -161,6 +167,18 @@ export async function addPayment(input: {
   dueDate: string;
 }): Promise<AppData> {
   return withTenantScope(() => store.addPayment(input));
+}
+
+export async function updateLessonSchedule(input: {
+  lessonId: string;
+  startAt?: string;
+  durationMinutes?: number;
+}): Promise<AppData> {
+  return withTenantScope(() => store.updateLessonSchedule(input));
+}
+
+export async function cancelLesson(lessonId: string): Promise<AppData> {
+  return withTenantScope(() => store.cancelLesson(lessonId));
 }
 
 export function getDashboardStats(data: AppData) {

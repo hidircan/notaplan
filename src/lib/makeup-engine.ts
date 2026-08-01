@@ -88,6 +88,7 @@ function dailyLessonCount(teacherId: string, day: Date, lessons: Lesson[]) {
 export type SlotValidationCode =
   | "REQUEST_NOT_OPEN"
   | "INVALID_START"
+  | "INVALID_DURATION"
   | "PAST_START"
   | "AFTER_EXPIRY"
   | "OUTSIDE_WORKING_DAY"
@@ -107,6 +108,7 @@ export type SlotValidationCode =
 export const SLOT_ERROR_MESSAGES: Record<SlotValidationCode, string> = {
   REQUEST_NOT_OPEN: "Bu telafi talebi zaten sonuçlandırılmış.",
   INVALID_START: "Geçerli bir tarih ve saat seçin.",
+  INVALID_DURATION: "Ders süresi en az 30 dakika olmalı.",
   PAST_START: "Başlangıç saati geçmişte olamaz.",
   AFTER_EXPIRY: "Ders, telafi son kullanım tarihini aşıyor.",
   OUTSIDE_WORKING_DAY: "Seçilen gün okulun çalışma günleri dışında.",
@@ -159,7 +161,7 @@ export function validateLessonSlot(
   data: AppData,
   context: SlotValidationContext,
   input: { teacherId: string; roomId: string; startAt: string },
-  options?: { excludeLessonId?: string; now?: Date }
+  options?: { excludeLessonId?: string; now?: Date; durationMinutes?: number }
 ): SlotValidationResult {
   const fail = (code: SlotValidationCode): SlotValidationResult => ({
     ok: false,
@@ -178,10 +180,14 @@ export function validateLessonSlot(
   const start = parseISO(input.startAt);
   if (Number.isNaN(start.getTime())) return fail("INVALID_START");
 
+  if (options?.durationMinutes !== undefined && options.durationMinutes < 30) {
+    return fail("INVALID_DURATION");
+  }
+
   const now = options?.now ?? new Date();
   if (start < now) return fail("PAST_START");
 
-  const duration = data.settings.lessonDurationMinutes;
+  const duration = options?.durationMinutes ?? data.settings.lessonDurationMinutes;
   const end = addMinutes(start, duration);
 
   if (context.expiresAt !== undefined) {

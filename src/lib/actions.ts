@@ -17,6 +17,8 @@ import {
   createRoomTool,
   createLessonTool,
   suggestLessonSlotsTool,
+  updateLessonScheduleTool,
+  cancelLessonTool,
   createPaymentRecordTool,
   findAvailableSlotsTool,
   markAttendanceTool,
@@ -306,6 +308,49 @@ export async function actionSuggestLessonSlots(input: {
     logger.error("actionSuggestLessonSlots failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Uygun saatler aranırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type LessonUpdateActionResult =
+  | { ok: true; lessonId: string; startAt: string; endAt: string }
+  | { ok: false; message: string };
+
+/**
+ * Sürükle-bırak taşıma, resize ve ileride manuel "dersi taşı" formu için TEK
+ * ortak yol — hepsi aynı tool/store fonksiyonunu (dolayısıyla aynı
+ * validateLessonSlot doğrulamasını) paylaşır. Hata durumunda fırlatmaz;
+ * takvim UI'ı sonucu doğrudan gösterip kısa Türkçe hata verebilsin diye
+ * `{ ok: false, message }` döner.
+ */
+export async function actionUpdateLessonSchedule(input: {
+  lessonId: string;
+  startAt?: string;
+  durationMinutes?: number;
+}): Promise<LessonUpdateActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => updateLessonScheduleTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, ...result.data };
+  } catch (error) {
+    logger.error("actionUpdateLessonSchedule failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ders güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type CancelLessonActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionCancelLesson(input: { lessonId: string }): Promise<CancelLessonActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => cancelLessonTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionCancelLesson failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ders iptal edilirken beklenmeyen bir hata oluştu." };
   }
 }
 

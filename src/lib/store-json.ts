@@ -18,6 +18,7 @@ import type {
   Teacher,
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
+import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
@@ -254,6 +255,26 @@ export async function addLesson(input: {
   const next = { ...data, lessons: [...data.lessons, lesson] };
   await writeData(next);
   return next;
+}
+
+export async function updateLessonSchedule(input: {
+  lessonId: string;
+  startAt?: string;
+  durationMinutes?: number;
+}): Promise<AppData> {
+  const data = await readData();
+  const result = applyLessonScheduleUpdate(data, input);
+  if (!result.ok) throw new Error(result.message);
+  await writeData(result.data);
+  return result.data;
+}
+
+export async function cancelLesson(lessonId: string): Promise<AppData> {
+  const data = await readData();
+  const result = applyLessonCancel(data, lessonId);
+  if (!result.ok) throw new Error(result.message);
+  await writeData(result.data);
+  return result.data;
 }
 
 export async function addPayment(input: {

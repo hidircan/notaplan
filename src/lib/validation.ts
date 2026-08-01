@@ -59,6 +59,20 @@ export const paymentRecordSchema = z.object({
   dueDate: z.string().min(1),
 });
 
+export const updateLessonScheduleSchema = z
+  .object({
+    lessonId: z.string().min(1),
+    startAt: z.string().min(1).optional(),
+    durationMinutes: z.coerce.number().int().min(30).max(240).optional(),
+  })
+  .refine((d) => d.startAt !== undefined || d.durationMinutes !== undefined, {
+    message: "startAt veya durationMinutes gerekli",
+  });
+
+export const cancelLessonSchema = z.object({
+  lessonId: z.string().min(1),
+});
+
 export const suggestLessonSlotsSchema = z.object({
   studentId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),

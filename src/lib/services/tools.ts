@@ -11,6 +11,7 @@ import {
   addRoom,
   addStudent,
   addTeacher,
+  cancelLesson,
   cancelMakeup,
   confirmSlot,
   generateSuggestions,
@@ -18,6 +19,7 @@ import {
   markPaymentPaid,
   readData,
   resetData,
+  updateLessonSchedule,
 } from "../store";
 import { suggestMakeupSlots } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
@@ -30,6 +32,7 @@ import {
 } from "../whatsapp-templates";
 import {
   attendanceSchema,
+  cancelLessonSchema,
   lessonSchema,
   makeupSlotSchema,
   paymentRecordSchema,
@@ -37,6 +40,7 @@ import {
   studentSchema,
   suggestLessonSlotsSchema,
   teacherSchema,
+  updateLessonScheduleSchema,
 } from "../validation";
 import type { BranchId, Instrument, MakeupSlot, Student, Teacher } from "../types";
 import {
@@ -548,6 +552,45 @@ export async function createLessonTool(
   }
 }
 
+export async function updateLessonScheduleTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string; startAt: string; endAt: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateLessonScheduleSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    await updateLessonSchedule(v.data);
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+    if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+    return ok({ lessonId: lesson.id, startAt: lesson.startAt, endAt: lesson.endAt });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateLessonSchedule failed");
+  }
+}
+
+export async function cancelLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(cancelLessonSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    await cancelLesson(v.data.lessonId);
+    return ok({ lessonId: v.data.lessonId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "cancelLesson failed");
+  }
+}
+
 export async function createPaymentRecordTool(
   ctx: ServiceContext,
   input: unknown
@@ -611,6 +654,8 @@ export const TOOL_CATALOG = [
   { name: "createStudent", description: "Register a student" },
   { name: "createTeacher", description: "Register a teacher" },
   { name: "suggestLessonSlots", description: "Suggest available times for a regular lesson" },
+  { name: "updateLessonSchedule", description: "Move or resize a regular lesson" },
+  { name: "cancelLesson", description: "Cancel a regular lesson" },
   { name: "resetDemo", description: "Reset tenant demo data" },
 ] as const;
 
