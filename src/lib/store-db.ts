@@ -685,6 +685,46 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   return readData();
 }
 
+export async function addBranch(branch: {
+  name: string;
+  shortName: string;
+  address: string;
+  phone: string;
+  city: string;
+}): Promise<AppData> {
+  logger.info("addBranch", branch.name);
+  const tid = requireTenantId();
+  const school = await prisma.school.findFirst({ where: { tenantId: tid } });
+  if (!school) throw new Error("Okul bulunamadı");
+  await prisma.branch.create({
+    data: {
+      id: `branch_${Date.now().toString(36)}`,
+      tenantId: tid,
+      schoolId: school.id,
+      name: branch.name,
+      shortName: branch.shortName,
+      address: branch.address,
+      phone: branch.phone,
+      city: branch.city,
+    },
+  });
+  return readData();
+}
+
+export async function updateBranch(
+  branchId: string,
+  patch: Partial<{ name: string; shortName: string; address: string; phone: string; city: string }>
+): Promise<AppData> {
+  logger.info("updateBranch", branchId);
+  const tid = requireTenantId();
+  const result = await prisma.branch.updateMany({
+    where: { id: branchId, tenantId: tid },
+    data: patch,
+  });
+  if (result.count === 0) throw new Error("Şube bulunamadı");
+  return readData();
+}
+
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   logger.info("addRoom", room.name);
   const tid = requireTenantId();

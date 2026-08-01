@@ -18,6 +18,8 @@ export {
   sendTeacherMessageTool,
   createStudentTool,
   createTeacherTool,
+  createBranchTool,
+  updateBranchTool,
   createRoomTool,
   createLessonTool,
   suggestLessonSlotsTool,

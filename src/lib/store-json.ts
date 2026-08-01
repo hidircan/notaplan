@@ -8,6 +8,7 @@ import type {
   AppData,
   Attendance,
   AttendanceStatus,
+  Branch,
   Instrument,
   Lesson,
   MakeupRequest,
@@ -172,6 +173,29 @@ function assertBranchExists(data: AppData, branchId: string) {
   if (!data.settings.branches.some((b) => b.id === branchId)) {
     throw new Error("Şube bulunamadı");
   }
+}
+
+export async function addBranch(branch: Omit<Branch, "id">): Promise<AppData> {
+  const data = await readData();
+  const b: Branch = { ...branch, id: uid("branch") };
+  const next = {
+    ...data,
+    settings: { ...data.settings, branches: [...data.settings.branches, b] },
+  };
+  await writeData(next);
+  return next;
+}
+
+export async function updateBranch(
+  branchId: string,
+  patch: Partial<Omit<Branch, "id">>
+): Promise<AppData> {
+  const data = await readData();
+  assertBranchExists(data, branchId);
+  const branches = data.settings.branches.map((b) => (b.id === branchId ? { ...b, ...patch } : b));
+  const next = { ...data, settings: { ...data.settings, branches } };
+  await writeData(next);
+  return next;
 }
 
 export async function addStudent(

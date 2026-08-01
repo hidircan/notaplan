@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import {
+  addBranch,
   addLesson,
   addPayment,
   addRoom,
@@ -19,6 +20,7 @@ import {
   markPaymentPaid,
   readData,
   resetData,
+  updateBranch,
   updateLessonSchedule,
 } from "../store";
 import { suggestMakeupSlots } from "../makeup-engine";
@@ -32,6 +34,7 @@ import {
 } from "../whatsapp-templates";
 import {
   attendanceSchema,
+  branchSchema,
   cancelLessonSchema,
   lessonSchema,
   makeupSlotSchema,
@@ -40,6 +43,7 @@ import {
   studentSchema,
   suggestLessonSlotsSchema,
   teacherSchema,
+  updateBranchSchema,
   updateLessonScheduleSchema,
 } from "../validation";
 import type { BranchId, Instrument, MakeupSlot, Student, Teacher } from "../types";
@@ -477,6 +481,47 @@ export async function createTeacherTool(
   }
 }
 
+export async function createBranchTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ branchId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(branchSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const before = await readData();
+    const ids = new Set(before.settings.branches.map((b) => b.id));
+    await addBranch(v.data);
+    const after = await readData();
+    const created = after.settings.branches.find((b) => !ids.has(b.id));
+    return ok({ branchId: created?.id ?? "unknown" });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createBranch failed");
+  }
+}
+
+export async function updateBranchTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ branchId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateBranchSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const { branchId, ...patch } = v.data;
+    await updateBranch(branchId, patch);
+    return ok({ branchId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateBranch failed");
+  }
+}
+
 export async function createRoomTool(
   ctx: ServiceContext,
   input: unknown
@@ -657,6 +702,8 @@ export const TOOL_CATALOG = [
   { name: "suggestLessonSlots", description: "Suggest available times for a regular lesson" },
   { name: "updateLessonSchedule", description: "Move or resize a regular lesson" },
   { name: "cancelLesson", description: "Cancel a regular lesson" },
+  { name: "createBranch", description: "Add a new branch" },
+  { name: "updateBranch", description: "Edit an existing branch" },
   { name: "resetDemo", description: "Reset tenant demo data" },
 ] as const;
 

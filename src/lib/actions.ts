@@ -14,6 +14,8 @@ import {
   createPaymentTool,
   createStudentTool,
   createTeacherTool,
+  createBranchTool,
+  updateBranchTool,
   createRoomTool,
   createLessonTool,
   suggestLessonSlotsTool,
@@ -37,6 +39,8 @@ function revalidateAll() {
   revalidatePath("/panel/ogrenciler");
   revalidatePath("/panel/ogretmenler");
   revalidatePath("/panel/odalar");
+  revalidatePath("/panel/subeler");
+  revalidatePath("/panel/veri-aktar");
   revalidatePath("/panel/program");
   revalidatePath("/panel/telafi");
   revalidatePath("/panel/odemeler");
@@ -209,6 +213,49 @@ export async function actionAddTeacher(formData: FormData) {
     revalidateAll();
   } catch (error) {
     logger.error("actionAddTeacher failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+export async function actionAddBranch(formData: FormData) {
+  try {
+    await withAuthContext(async (ctx) => {
+      assertOk(
+        await createBranchTool(ctx, {
+          name: String(formData.get("name") || ""),
+          shortName: String(formData.get("shortName") || ""),
+          city: String(formData.get("city") || ""),
+          phone: String(formData.get("phone") || ""),
+          address: String(formData.get("address") || ""),
+        })
+      );
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionAddBranch failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+export async function actionUpdateBranch(formData: FormData) {
+  try {
+    await withAuthContext(async (ctx) => {
+      assertOk(
+        await updateBranchTool(ctx, {
+          branchId: String(formData.get("branchId") || ""),
+          name: String(formData.get("name") || ""),
+          shortName: String(formData.get("shortName") || ""),
+          city: String(formData.get("city") || ""),
+          phone: String(formData.get("phone") || ""),
+          address: String(formData.get("address") || ""),
+        })
+      );
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionUpdateBranch failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
   }

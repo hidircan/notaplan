@@ -3,6 +3,7 @@ import * as jsonStore from "./store-json";
 import type {
   AppData,
   AttendanceStatus,
+  Branch,
   Instrument,
   MakeupSlot,
   Room,
@@ -44,6 +45,8 @@ type StoreApi = {
     durationMinutes?: number;
   }) => Promise<AppData>;
   cancelLesson: (lessonId: string) => Promise<AppData>;
+  addBranch: (branch: Omit<Branch, "id">) => Promise<AppData>;
+  updateBranch: (branchId: string, patch: Partial<Omit<Branch, "id">>) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -179,6 +182,17 @@ export async function updateLessonSchedule(input: {
 
 export async function cancelLesson(lessonId: string): Promise<AppData> {
   return withTenantScope(() => store.cancelLesson(lessonId));
+}
+
+export async function addBranch(branch: Omit<Branch, "id">): Promise<AppData> {
+  return withTenantScope(() => store.addBranch(branch));
+}
+
+export async function updateBranch(
+  branchId: string,
+  patch: Partial<Omit<Branch, "id">>
+): Promise<AppData> {
+  return withTenantScope(() => store.updateBranch(branchId, patch));
 }
 
 export function getDashboardStats(data: AppData) {
