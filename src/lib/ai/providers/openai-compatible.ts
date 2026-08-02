@@ -5,7 +5,7 @@
 import type { LlmPlan, LlmProvider, LlmMessage, ToolDescriptor } from "../types";
 import type { AgentToolName } from "../../agent/types";
 import { isRegisteredTool } from "../../agent";
-import { LlmProviderError } from "../config";
+import { LlmProviderError, isAuthConfigError } from "../config";
 import { withRetry } from "../retry";
 
 export type OpenAiCompatConfig = {
@@ -89,6 +89,9 @@ async function complete(
     retries: Number(process.env.AI_RETRY_COUNT || 2),
     timeoutMs: (cfg.timeoutMs ?? 60_000) + 5_000,
     label: `${cfg.name}.complete`,
+    // An invalid/expired key fails identically on every attempt — retrying
+    // burns time and rate-limit budget for a request that can't succeed.
+    shouldRetry: (e) => !isAuthConfigError(e),
   });
 }
 

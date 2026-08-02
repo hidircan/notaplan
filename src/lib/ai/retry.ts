@@ -7,6 +7,10 @@ export type RetryOptions = {
   timeoutMs?: number;
   baseDelayMs?: number;
   label?: string;
+  /** Return false to stop retrying immediately (e.g. auth/key errors — retrying
+   * the same provider with the same invalid key can never succeed). Defaults
+   * to always-retry when omitted. */
+  shouldRetry?: (error: unknown) => boolean;
 };
 
 export class TimeoutError extends Error {
@@ -50,6 +54,7 @@ export async function withRetry<T>(
     } catch (e) {
       lastError = e;
       if (attempt >= retries) break;
+      if (opts.shouldRetry && !opts.shouldRetry(e)) break;
       const delay = baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));
     }
