@@ -1141,7 +1141,8 @@ TeachingMaterial modelleri, dosya/video erişim token'ı, TeacherFeedback
 
 ## EPIC 8 — Ders başlat/bitiş, sayaç, canlı durum [P2]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟢 Tamamlandı (commit `afa99f2`) — bkz. "Tamamlanan (uygulama
+özeti)" altında.
 
 ### Mevcut durum
 `Lesson.status`: `scheduled|completed|cancelled|no_show` — gerçek başlangıç/bitiş
@@ -1182,6 +1183,50 @@ EPIC 0 (düzeltme audit'i), yoklama/hakediş akışlarıyla tutarlılık (EPIC 3
 veri kesişimi: `actualEndAt - actualStartAt` ileride hakediş süresi kaynağı
 olabilir mi — bu turda HAYIR, hakediş yine planlanan `startAt/endAt` süresini
 kullanmaya devam eder; değişikliği ayrı bir ürün kararı gerektirir).
+
+### Tamamlanan (uygulama özeti — commit `afa99f2`)
+- `prisma/schema.prisma`: `Lesson`'a `actualStartAt/actualEndAt/
+  startCorrectedBy/startCorrectionNote/endCorrectedBy/endCorrectionNote`
+  (nullable, additive) + yeni `status: "in_progress"` değeri.
+- `src/lib/lesson-live-status.ts` (yeni, saf fonksiyonlar): canlı durum
+  `computeLiveDisplayStatus` ile kalıcı `status`'tan TÜRETİLİR, ayrıca
+  saklanmaz. Erken/geç başlatma toleransı BİLİNÇLİ OLARAK yok — planlanan
+  saatten ne kadar sapmış olursa olsun başlatma kabul edilir, yalnızca
+  dersin mevcut durumu (zaten başlamış/bitmiş/iptal) geçişi engeller.
+- Store katmanı dörtlü paritesi (`store.ts`/`store-json.ts`/
+  `store-memory.ts`/`store-db.ts`): `startLessonLive`/`endLessonLive`/
+  `correctLessonTimesLive`; db modu mevcut `cancelLesson`/
+  `updateLessonSchedule` iyimser eşzamanlılık desenini yeniden kullanır
+  (tenant+eski-status'a göre `updateMany`, `count===0` ise
+  `CONCURRENT_UPDATE_MESSAGE`).
+- Tools (`src/lib/services/tools.ts`): `startLessonTool`/`endLessonTool`
+  — `TEACHER` yalnızca kendi dersi (`lesson.teacherId !== ctx.teacherId`
+  ise FORBIDDEN), `SCHOOL_ADMIN`/`SUPER_ADMIN` her dersi başlatıp
+  bitirebilir. `correctLessonTimesTool` — yalnızca `SCHOOL_ADMIN`/
+  `SUPER_ADMIN`, not ZORUNLU (boşsa VALIDATION_ERROR), her üç işlem de
+  EPIC 0 audit log'una yazılır (`lesson.start`/`lesson.end`/
+  `lesson.time_correction`).
+- API: `POST /api/v1/lessons/[lessonId]/start`, `POST .../end`,
+  `PATCH .../correct`.
+- UI: `/ogretmen/program`'da bugünün dersleri için "Dersi başlat"/
+  "Dersi bitir" butonları (`src/components/lesson-live-actions.tsx`);
+  `/veli` ve `/ogrenci`'de yaklaşan ders rozeti artık `l.status` yerine
+  `computeLiveDisplayStatus(l)` kullanıyor (sayfa yüklendiğinde türetilir
+  — polling/WebSocket bu turda YOK, plandaki kapsam dışı notuyla uyumlu).
+- Test: `src/lib/__tests__/lesson-live-status.test.ts` (30 test) — saf
+  fonksiyon geçişleri (scheduled→in_progress→completed, erken/geç
+  başlatma toleransı, zaten sonuçlanmış dersin reddi, notsuz düzeltmenin
+  reddi) + tool seviyesinde RBAC (TEACHER başka öğretmenin dersini
+  başlatamıyor, TEACHER düzeltme yapamıyor, admin notsuz düzeltemiyor).
+  Toplam 689/689 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil.
+
+**Ertelenen:** ayrı bir yönetici "düzeltme" ekranı (form) yazılmadı — API/
+tool/RBAC yolu tam, yalnızca UI formu eksik; `PATCH .../correct` doğrudan
+çağrılabilir durumda ama admin paneline entegre değil. Bağlantı kopması/
+offline senaryosu (plandaki risk notuyla aynı) çözülmedi, kullanıcıya UI'da
+açık bir uyarı da eklenmedi — ayrı bir keşif görevi. Kart/RFID entegrasyonu
+zaten plan dışıydı (bkz. üstteki genel not).
 
 ---
 
