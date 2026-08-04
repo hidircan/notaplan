@@ -274,7 +274,7 @@ Yok.
 
 ## EPIC 3 — Öğretmen saatlik ücret ve hakediş [P1]
 
-**Durum:** 🔴 Planlandı (bu turda uygulanmadı — bkz. kapanış raporu)
+**Durum:** 🟢 Tamamlandı (commit `e7433a6`) — bkz. "Tamamlanan (uygulama özeti)" altında.
 
 ### Mevcut durum
 `src/lib/teacher-payout.ts` zaten dakika-bazlı, versiyonlu (`effectiveFrom`/
@@ -358,6 +358,51 @@ UI değişiklikleri dosya bazlı revert.
 
 ### Bağımlılıklar
 EPIC 0 (audit log — ücret değişikliği kritik işlem listesinde).
+
+### Tamamlanan (uygulama özeti — commit `e7433a6`)
+- **Şema:** `School.feeRoundingMode String @default("exact_minutes")` eklendi
+  (additive, `TeacherFeeRule`/`TeacherPayout` şemaları HİÇ değişmedi —
+  `hourlyRate` alanı eklenmedi; plandaki "yalnızca giriş/çıkış katmanında
+  dönüşüm" seçeneği izlendi, `perMinuteRate` tek gerçek kaynak kaldı).
+- **Hesaplama:** `computeTeacherEarningsForPeriod` içine `payableMinutesFor()`
+  yuvarlama dalı eklendi (`exact_minutes`/`round_30`/`fixed_package`).
+  `TeacherEarningsLine.durationMinutes` her zaman GERÇEK süreyi taşımaya devam
+  eder — yalnızca `amount` yuvarlanmış dakika üzerinden hesaplanır. Ders tipi
+  politikası (trial tam oran, cancelled/no_show hariç, Attendance "absent"
+  hakedişi etkilemez) kod yorumuyla + testle kilitlendi.
+- **Yeni uç:** `updateFeeRoundingModeTool`/`actionUpdateFeeRoundingMode` —
+  SCHOOL_ADMIN/SUPER_ADMIN, audit log (`school.fee_rounding_mode.update`).
+  Bilinçli olarak AI tool registry'sine eklenmedi (kurum politikası — insan
+  kararı, AI'a açılacak bir yüzey değil).
+- **UI:** `/panel/ucret-kurallari`'na `FeeRoundingModeSelector` kartı eklendi;
+  `fee-rule-manager.tsx` ve `teacher-payout-dashboard.tsx` dakika-başı yerine
+  saatlik ücret gösterir/toplar (`hourlyRate = perMinuteRate × 60`, yalnızca
+  UI sınırında dönüşüm — depolanan değer değişmedi).
+- **Mode parity:** `store.ts`/`store-json.ts`/`store-memory.ts`/`store-db.ts`
+  dördünde de `updateFeeRoundingMode` uygulandı; `store-db.ts`'te
+  `mapSchoolToAppData` ve `seedDatabase`'e `feeRoundingMode` eşlemesi eklendi.
+- **Test:** `teacher-payout.test.ts`'e 3 yuvarlama modu + 3 ders-tipi-politikası
+  senaryosu eklendi (round_30 tam dilimde yukarı atlamama dahil); tüm mevcut
+  testler (donmuş snapshot garantisi dahil) yeşil kaldı — toplam 551/551.
+- **Kapsam dışı bırakılanlar (bilinçli, açıkça raporlanan):** Çalışma
+  alanında bu epic'ten TAMAMEN bağımsız, önceki oturumlardan kalma büyük bir
+  "kurum seçici / write-scope / audit" altyapısı (`src/lib/institution/`,
+  `withAuthContext`'in `actionName` parametresi) ve bir "ders süresi
+  standardizasyonu" özelliği (`durationMinutes: 30|40|50`, `lesson-duration.ts`,
+  `findPersonScheduleTool`) zaten uncommitted olarak duruyordu. Bunlar EPIC 3
+  ile karışmasın diye her tracked dosyada ilgisiz hunk'lar geçici olarak
+  çıkarılıp commit'lendi, sonra dosya tam haliyle çalışma alanına geri
+  yazıldı (staged içerik ile disk içeriği farklı, bu kasıtlı). `/panel/page.tsx`
+  üzerindeki "Öğretmen Hakedişleri" widget'ı ve `teacher-portal-scope.test.ts`
+  benzer şekilde dark-mode/institution-scope değişiklikleriyle iç içe geçtiği
+  için bu commit'e dahil edilmedi — o dosyalar hâlâ çalışma alanında
+  değişikliğe açık duruyor, ileride ilgili epic'lerle birlikte commit'lenmeli.
+  `/panel/ucret-kurallari` sayfası ve `/panel/ogretmenler/[teacherId]/hakedis`
+  sayfası, henüz commit'lenmemiş `institution/context.ts` ve
+  `assistant-page-context.tsx` modüllerine import bağımlıdır — bu nedenle bu
+  commit tek başına checkout edilirse derlenmez; doğrulama tam çalışma
+  alanına (tüm bekleyen işler birlikte) karşı yapıldı, izole HEAD'e karşı
+  değil.
 
 ---
 
