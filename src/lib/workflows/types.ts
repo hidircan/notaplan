@@ -7,7 +7,8 @@ export type WorkflowId =
   | "attendance_followup"
   | "weekly_reports"
   | "teacher_utilization"
-  | "makeup_suggestions";
+  | "makeup_suggestions"
+  | "makeup_sla_check";
 
 export type WorkflowStepResult = {
   tool: AgentToolName;

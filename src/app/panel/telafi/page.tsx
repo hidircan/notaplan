@@ -4,11 +4,12 @@ import {
   actionGenerateSuggestions,
 } from "@/lib/actions";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
+import { MakeupDecisionForm } from "@/components/makeup-decision-form";
 import { ManualMakeupPlanForm } from "@/components/manual-makeup-plan-form";
 import { formatDateTime, formatTime } from "@/lib/utils";
-import { CheckCircle2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Download, Sparkles, X } from "lucide-react";
 
 const MORE_SUGGESTIONS_COUNT = 18;
 
@@ -20,8 +21,9 @@ export default async function TelafiPage() {
     b.createdAt.localeCompare(a.createdAt)
   );
 
-  const open = requests.filter((r) => ["pending", "suggested"].includes(r.status));
-  const done = requests.filter((r) => !["pending", "suggested"].includes(r.status));
+  const OPEN_STATUSES = ["pending", "suggested", "awaiting_info"];
+  const open = requests.filter((r) => OPEN_STATUSES.includes(r.status));
+  const done = requests.filter((r) => !OPEN_STATUSES.includes(r.status));
 
   return (
     <div>
@@ -91,13 +93,16 @@ export default async function TelafiPage() {
                         {req.suggestedSlots.length ? "Saatleri yenile" : "En uygun saatleri bul"}
                       </TelafiSubmitButton>
                     </form>
-                    <form action={actionCancelMakeup}>
-                      <input type="hidden" name="requestId" value={req.id} />
-                      <Button type="submit" variant="ghost">
-                        <X className="h-4 w-4" />
-                        İptal
-                      </Button>
-                    </form>
+                    <MakeupDecisionForm
+                      action={actionCancelMakeup}
+                      hiddenFields={{ requestId: req.id }}
+                      pendingLabel="İptal ediliyor..."
+                      variant="ghost"
+                      placeholder="İptal/ret gerekçesi (zorunlu)…"
+                    >
+                      <X className="h-4 w-4" />
+                      İptal / reddet
+                    </MakeupDecisionForm>
                   </div>
                 </div>
 
@@ -144,18 +149,18 @@ export default async function TelafiPage() {
                                 </li>
                               ))}
                             </ul>
-                            <form action={actionConfirmSlot} className="mt-3">
-                              <input type="hidden" name="requestId" value={req.id} />
-                              <input type="hidden" name="slot" value={JSON.stringify(slot)} />
-                              <TelafiSubmitButton
-                                variant="success"
-                                className="w-full"
+                            <div className="mt-3">
+                              <MakeupDecisionForm
+                                action={actionConfirmSlot}
+                                hiddenFields={{ requestId: req.id, slot: JSON.stringify(slot) }}
                                 pendingLabel="Onaylanıyor..."
+                                variant="success"
+                                placeholder="Onay notu (zorunlu)…"
                               >
                                 <CheckCircle2 className="h-4 w-4" />
                                 Bu slota onayla
-                              </TelafiSubmitButton>
-                            </form>
+                              </MakeupDecisionForm>
+                            </div>
                           </div>
                         );
                       })}
@@ -202,9 +207,16 @@ export default async function TelafiPage() {
         </div>
       )}
 
+      <div className="mb-3 mt-10 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">Geçmiş / tamamlanan</h2>
+        <a
+          href="/api/v1/export?entity=makeupRequests"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Download className="h-3.5 w-3.5" /> Tüm talepleri CSV indir
+        </a>
+      </div>
       {done.length > 0 ? (
-        <>
-          <h2 className="mb-3 mt-10 text-lg font-semibold text-slate-900">Geçmiş / tamamlanan</h2>
           <Card className="overflow-hidden p-0">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -213,6 +225,9 @@ export default async function TelafiPage() {
                   <th className="px-4 py-3">Enstrüman</th>
                   <th className="px-4 py-3">Durum</th>
                   <th className="px-4 py-3">Onaylı ders</th>
+                  <th className="px-4 py-3">SLA</th>
+                  <th className="px-4 py-3">Karar notu</th>
+                  <th className="px-4 py-3">Karar tarihi</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,13 +244,24 @@ export default async function TelafiPage() {
                       <td className="px-4 py-3 text-slate-600">
                         {lesson ? formatDateTime(lesson.startAt) : "—"}
                       </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {req.slaDeadline ? formatDateTime(req.slaDeadline) : "—"}
+                        {(req.slaEscalationLevel ?? 0) >= 5 ? (
+                          <span className="ml-1 font-semibold text-rose-600">Aşıldı</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {req.decisionNote ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {req.decidedAt ? formatDateTime(req.decidedAt) : "—"}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </Card>
-        </>
       ) : null}
     </div>
   );

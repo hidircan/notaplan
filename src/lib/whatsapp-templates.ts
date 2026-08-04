@@ -164,7 +164,9 @@ export function buildDemoMessages(data: AppData): WaMessage[] {
     msgs.push(templateAbsenceNotice(school, student, lesson, att.reason || "Devamsızlık"));
   }
 
-  for (const req of data.makeupRequests.filter((m) => m.status === "pending" || m.status === "suggested")) {
+  for (const req of data.makeupRequests.filter(
+    (m) => m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"
+  )) {
     const student = data.students.find((s) => s.id === req.studentId);
     if (!student) continue;
     const branch = data.settings.branches.find((b) => b.id === req.branchId);

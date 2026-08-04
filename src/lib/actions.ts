@@ -139,6 +139,7 @@ export async function actionConfirmSlot(formData: FormData) {
         await confirmMakeupLessonTool(ctx, {
           requestId: String(formData.get("requestId") || ""),
           slot,
+          decisionNote: String(formData.get("decisionNote") || ""),
         })
       );
     });
@@ -156,6 +157,7 @@ export async function actionCancelMakeup(formData: FormData) {
       assertOk(
         await cancelMakeupLessonTool(ctx, {
           requestId: String(formData.get("requestId") || ""),
+          decisionNote: String(formData.get("decisionNote") || ""),
         })
       );
     });

@@ -22,7 +22,13 @@ import type {
   Teacher,
   TeacherFeeRule,
 } from "./types";
-import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
+import {
+  suggestMakeupSlots,
+  confirmMakeupSlot,
+  cancelMakeupData,
+  validateLessonSlot,
+  type MakeupDecision,
+} from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import {
   createLessonSeriesData,
@@ -177,16 +183,26 @@ export async function generateSuggestions(
   return save({ ...data, makeupRequests });
 }
 
-export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
+export async function confirmSlot(
+  requestId: string,
+  slot: MakeupSlot,
+  decision: MakeupDecision
+): Promise<AppData> {
   const data = load();
-  const { data: next } = confirmMakeupSlot(data, requestId, slot);
+  const { data: next } = confirmMakeupSlot(data, requestId, slot, decision);
   return save(next);
 }
 
-export async function cancelMakeup(requestId: string): Promise<AppData> {
+export async function cancelMakeup(requestId: string, decision: MakeupDecision): Promise<AppData> {
+  const data = load();
+  const { data: next } = cancelMakeupData(data, requestId, decision);
+  return save(next);
+}
+
+export async function updateMakeupSlaEscalation(requestId: string, level: number): Promise<AppData> {
   const data = load();
   const makeupRequests = data.makeupRequests.map((m) =>
-    m.id === requestId ? { ...m, status: "cancelled" as const } : m
+    m.id === requestId ? { ...m, slaEscalationLevel: level } : m
   );
   return save({ ...data, makeupRequests });
 }
@@ -561,7 +577,7 @@ export async function addPayment(input: {
 
 export function getDashboardStats(data: AppData) {
   const pendingMakeup = data.makeupRequests.filter(
-    (m) => m.status === "pending" || m.status === "suggested"
+    (m) => m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"
   ).length;
   const confirmedMakeup = data.makeupRequests.filter((m) => m.status === "confirmed").length;
   const overduePayments = data.payments.filter((p) => p.status === "overdue" || p.status === "partial");

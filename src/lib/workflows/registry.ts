@@ -124,6 +124,24 @@ export const WORKFLOW_REGISTRY: Record<WorkflowId, WorkflowDefinition> = {
       return steps;
     },
   },
+
+  /**
+   * EPIC 10 — sabit demo ID listesi TARAMAZ; `checkMakeupSlaTool` kendi
+   * içinde tenant'ın TÜM onaylı telafi taleplerini `readData()` ile okur
+   * (bkz. `findAvailableTeachers`'ın `{}` girdili tarama deseni). Eşik
+   * atlaması (15/7/3/1 gün, aşıldı) yalnızca YÜKSELEN seviyeler için
+   * audit log üretir — idempotent, günde birden çok kez çalıştırılabilir.
+   */
+  makeup_sla_check: {
+    id: "makeup_sla_check",
+    name: "Telafi SLA kontrolü",
+    description: "Onaylı telafi taleplerinin 30 günlük SLA süresini tarar; eşik aşımlarını kaydeder.",
+    intervalMinutes: 60 * 6,
+    defaultEnabled: true,
+    async run(ctx) {
+      return [await runWorkflowTool(ctx, "checkMakeupSla", {})];
+    },
+  },
 };
 
 export function listWorkflowDefinitions() {

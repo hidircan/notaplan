@@ -33,7 +33,21 @@ export interface Branch {
 }
 
 export type AttendanceStatus = "present" | "absent" | "late" | "cancelled_by_school";
-export type MakeupStatus = "pending" | "suggested" | "confirmed" | "completed" | "expired" | "cancelled";
+/**
+ * EPIC 10 (IMPLEMENTATION_PLAN.md) — "awaiting_info" eklendi: AI, WhatsApp
+ * mesajından telafi sebebini düşük güvenle çıkarırsa (veya hiç çıkaramazsa)
+ * talep bu durumda oluşturulur — asla doğrudan "pending"e düşmez. Yönetici
+ * netleştirene kadar açık sayılır (bkz. src/lib/utils.ts statusLabel/statusColor,
+ * src/app/panel/telafi/page.tsx açık/kapalı ayrımı).
+ */
+export type MakeupStatus =
+  | "pending"
+  | "suggested"
+  | "awaiting_info"
+  | "confirmed"
+  | "completed"
+  | "expired"
+  | "cancelled";
 export type PaymentStatus = "paid" | "pending" | "overdue" | "partial";
 export type LessonType = "regular" | "makeup" | "trial" | "group";
 
@@ -183,6 +197,16 @@ export interface MakeupRequest {
   confirmedLessonId?: string;
   createdAt: string;
   policyNote: string;
+  /** EPIC 10 — onay/iptal/ret kararında zorunlu (uygulama katmanında), şemada opsiyonel. */
+  decisionNote?: string;
+  /** Kararı veren kullanıcının id'si */
+  decidedBy?: string;
+  /** ISO tarih */
+  decidedAt?: string;
+  /** ISO tarih — yalnızca onaylandığında set edilir (30 gün, onay anından itibaren) */
+  slaDeadline?: string;
+  /** 0=yok 1=15gün 2=7gün 3=3gün 4=1gün 5=aşıldı */
+  slaEscalationLevel?: number;
 }
 
 export interface MakeupSlot {

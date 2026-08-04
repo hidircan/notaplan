@@ -25,6 +25,7 @@ import type {
   CreateTeacherPayoutResult,
   MarkPayoutPaidResult,
 } from "./teacher-payout";
+import type { MakeupDecision } from "./makeup-engine";
 
 type StoreApi = {
   readData: () => Promise<AppData>;
@@ -35,8 +36,9 @@ type StoreApi = {
     reason?: string;
   }) => Promise<AppData>;
   generateSuggestions: (requestId: string, options?: { maxSlots?: number }) => Promise<AppData>;
-  confirmSlot: (requestId: string, slot: MakeupSlot) => Promise<AppData>;
-  cancelMakeup: (requestId: string) => Promise<AppData>;
+  confirmSlot: (requestId: string, slot: MakeupSlot, decision: MakeupDecision) => Promise<AppData>;
+  cancelMakeup: (requestId: string, decision: MakeupDecision) => Promise<AppData>;
+  updateMakeupSlaEscalation: (requestId: string, level: number) => Promise<AppData>;
   addStudent: (student: Omit<Student, "id" | "createdAt" | "active">) => Promise<AppData>;
   updateStudentProfile: (studentId: string, patch: StudentProfilePatch) => Promise<AppData>;
   addTeacher: (teacher: Omit<Teacher, "id" | "active" | "color">) => Promise<AppData>;
@@ -136,7 +138,7 @@ export async function readData(): Promise<AppData> {
 function applyMakeupExpiry(data: AppData): AppData {
   const now = Date.now();
   const makeupRequests = data.makeupRequests.map((m) =>
-    (m.status === "pending" || m.status === "suggested") &&
+    (m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info") &&
     new Date(m.expiresAt).getTime() < now
       ? { ...m, status: "expired" as const }
       : m
@@ -163,12 +165,20 @@ export async function generateSuggestions(
   return withTenantScope(() => store.generateSuggestions(requestId, options));
 }
 
-export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
-  return withTenantScope(() => store.confirmSlot(requestId, slot));
+export async function confirmSlot(
+  requestId: string,
+  slot: MakeupSlot,
+  decision: MakeupDecision
+): Promise<AppData> {
+  return withTenantScope(() => store.confirmSlot(requestId, slot, decision));
 }
 
-export async function cancelMakeup(requestId: string): Promise<AppData> {
-  return withTenantScope(() => store.cancelMakeup(requestId));
+export async function cancelMakeup(requestId: string, decision: MakeupDecision): Promise<AppData> {
+  return withTenantScope(() => store.cancelMakeup(requestId, decision));
+}
+
+export async function updateMakeupSlaEscalation(requestId: string, level: number): Promise<AppData> {
+  return withTenantScope(() => store.updateMakeupSlaEscalation(requestId, level));
 }
 
 export async function addStudent(

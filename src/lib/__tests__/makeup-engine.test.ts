@@ -67,6 +67,7 @@ function buildFixture(overrides?: { extraLesson?: Partial<AppData> }): AppData {
       workingHours: { start: "10:00", end: "14:00" },
       workingDays: [1],
       currency: "TRY",
+      feeRoundingMode: "exact_minutes",
       branches: [
         {
           id: "erzene",
@@ -125,6 +126,8 @@ function buildFixture(overrides?: { extraLesson?: Partial<AppData> }): AppData {
     attendances: [],
     makeupRequests: [request],
     payments: [],
+    teacherFeeRules: [],
+    teacherPayouts: [],
   };
   return data;
 }
@@ -216,8 +219,10 @@ describe("makeup-engine · suggestMakeupSlots", () => {
   });
 });
 
+const DECISION = { decisionNote: "Test onayı", decidedBy: "admin1" };
+
 describe("makeup-engine · confirmMakeupSlot", () => {
-  it("ders oluşturur ve talebi confirmed yapar", () => {
+  it("ders oluşturur ve talebi confirmed yapar (EPIC 10: karar bilgisi + SLA de yazılır)", () => {
     const data = buildFixture();
     const request = data.makeupRequests[0];
     const mondayOffset = nextDayOffsetForWeekday(1);
@@ -231,7 +236,7 @@ describe("makeup-engine · confirmMakeupSlot", () => {
       reasons: ["Aynı öğretmen"],
     };
 
-    const { data: next, lessonId } = confirmMakeupSlot(data, request.id, slot);
+    const { data: next, lessonId } = confirmMakeupSlot(data, request.id, slot, DECISION);
 
     const lesson = next.lessons.find((l) => l.id === lessonId);
     expect(lesson).toBeDefined();
@@ -243,6 +248,11 @@ describe("makeup-engine · confirmMakeupSlot", () => {
     const updated = next.makeupRequests.find((m) => m.id === request.id);
     expect(updated?.status).toBe("confirmed");
     expect(updated?.confirmedLessonId).toBe(lessonId);
+    expect(updated?.decisionNote).toBe(DECISION.decisionNote);
+    expect(updated?.decidedBy).toBe(DECISION.decidedBy);
+    expect(updated?.decidedAt).toBeDefined();
+    expect(updated?.slaDeadline).toBeDefined();
+    expect(updated?.slaEscalationLevel).toBe(0);
   });
 
   it("var olmayan talep için hata fırlatır", () => {
@@ -256,7 +266,7 @@ describe("makeup-engine · confirmMakeupSlot", () => {
       score: 90,
       reasons: [],
     };
-    expect(() => confirmMakeupSlot(data, "missing", slot)).toThrow(
+    expect(() => confirmMakeupSlot(data, "missing", slot, DECISION)).toThrow(
       "Telafi talebi bulunamadı"
     );
   });
@@ -275,10 +285,10 @@ describe("makeup-engine · confirmMakeupSlot", () => {
       reasons: ["Aynı öğretmen"],
     };
 
-    const { data: confirmed } = confirmMakeupSlot(data, request.id, slot);
+    const { data: confirmed } = confirmMakeupSlot(data, request.id, slot, DECISION);
     const lessonCountAfterFirst = confirmed.lessons.length;
 
-    expect(() => confirmMakeupSlot(confirmed, request.id, slot)).toThrow(
+    expect(() => confirmMakeupSlot(confirmed, request.id, slot, DECISION)).toThrow(
       "Bu telafi talebi zaten sonuçlandırılmış"
     );
     expect(confirmed.lessons.length).toBe(lessonCountAfterFirst);

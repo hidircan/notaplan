@@ -27,6 +27,7 @@ export function ManualMakeupPlanForm({
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [decisionNote, setDecisionNote] = useState("");
   const initialTeacherId =
     teachers.find((t) => t.id === preferredTeacherId)?.id ??
     teachers.find((t) => t.branchId === sourceBranchId)?.id ??
@@ -58,6 +59,10 @@ export function ManualMakeupPlanForm({
       setError("Tarih, saat, öğretmen ve oda seçimi zorunlu.");
       return;
     }
+    if (!decisionNote.trim()) {
+      setError("Karar notu zorunludur.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setSuccess(false);
@@ -84,6 +89,7 @@ export function ManualMakeupPlanForm({
             score: 0,
             reasons: ["Manuel planlama"],
           },
+          decisionNote,
         }),
       });
       const json = (await res.json()) as { ok: boolean; error?: { message: string } };
@@ -172,6 +178,19 @@ export function ManualMakeupPlanForm({
             )}
           </select>
         </div>
+      </div>
+      <div className="mt-3">
+        <label className="mb-1 block text-xs font-medium text-slate-500">
+          Karar notu (zorunlu)
+        </label>
+        <textarea
+          value={decisionNote}
+          onChange={(event) => setDecisionNote(event.target.value)}
+          required
+          rows={2}
+          placeholder="Bu saat neden seçildi?"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+        />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button type="submit" variant="success" disabled={busy || availableRooms.length === 0}>

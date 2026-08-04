@@ -156,17 +156,46 @@ export function buildInstitutionExport(
 
   if (entities.includes("makeupRequests")) {
     out.makeupRequests = toCsv(
-      ["id", "ogrenciId", "ogretmenId", "sube", "durum", "sebep", "sonKullanimTarihi", "onaylananDersId"],
-      data.makeupRequests.map((m) => ({
-        id: m.id,
-        ogrenciId: m.studentId,
-        ogretmenId: m.teacherId,
-        sube: branchName(data, m.branchId),
-        durum: m.status,
-        sebep: m.reason,
-        sonKullanimTarihi: m.expiresAt,
-        onaylananDersId: m.confirmedLessonId,
-      }))
+      [
+        "id",
+        "olusturmaTarihi",
+        "ogrenci",
+        "veli",
+        "anaOgretmen",
+        "sube",
+        "enstruman",
+        "sebep",
+        "durum",
+        "slaSonTarihi",
+        "slaSeviyesi",
+        "kararNotu",
+        "kararVeren",
+        "kararTarihi",
+        "sonKullanimTarihi",
+        "onaylananDersId",
+      ],
+      data.makeupRequests.map((m) => {
+        const student = data.students.find((s) => s.id === m.studentId);
+        const teacher = data.teachers.find((t) => t.id === m.teacherId);
+        return {
+          id: m.id,
+          olusturmaTarihi: m.createdAt,
+          ogrenci: student?.name ?? m.studentId,
+          veli: student?.parentName ?? "",
+          anaOgretmen: teacher?.name ?? m.teacherId,
+          sube: branchName(data, m.branchId),
+          enstruman: m.instrument,
+          sebep: m.reason,
+          durum: m.status,
+          slaSonTarihi: m.slaDeadline ?? "",
+          slaSeviyesi: m.slaEscalationLevel ?? 0,
+          kararNotu: m.decisionNote ?? "",
+          kararVeren: m.decidedBy ?? "",
+          kararTarihi: m.decidedAt ?? "",
+          sonKullanimTarihi: m.expiresAt,
+          onaylananDersId: m.confirmedLessonId,
+        };
+      })
     );
   }
 

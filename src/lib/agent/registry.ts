@@ -13,6 +13,7 @@ import {
 import type { AppRole } from "../auth/types";
 import {
   cancelMakeupLessonTool,
+  checkMakeupSlaTool,
   confirmMakeupLessonTool,
   createMakeupLessonTool,
   createPaymentTool,
@@ -72,10 +73,13 @@ export const TOOL_REGISTRY: Record<AgentToolName, ToolDefinition<any, any>> = {
   },
   confirmMakeupLesson: {
     name: "confirmMakeupLesson",
-    description: "Confirm a suggested makeup slot and schedule the lesson",
+    description:
+      "Confirm a suggested makeup slot and schedule the lesson. A non-empty decisionNote " +
+      "(why this slot/decision) is REQUIRED — starts the 30-day SLA clock.",
     inputSchema: z.object({
       requestId: z.string().min(1),
       slot: makeupSlotSchema,
+      decisionNote: z.string().min(1, "Karar notu zorunludur"),
     }),
     outputSchema: z.object({
       requestId: z.string(),
@@ -96,11 +100,26 @@ export const TOOL_REGISTRY: Record<AgentToolName, ToolDefinition<any, any>> = {
   },
   cancelMakeupLesson: {
     name: "cancelMakeupLesson",
-    description: "Cancel an open makeup request",
-    inputSchema: requestIdSchema,
+    description:
+      "Cancel/reject an open makeup request. A non-empty decisionNote (reason for " +
+      "cancelling/rejecting) is REQUIRED.",
+    inputSchema: requestIdSchema.extend({
+      decisionNote: z.string().min(1, "Karar notu zorunludur"),
+    }),
     outputSchema: z.object({ requestId: z.string() }),
     requiredRoles: ADMIN,
     execute: (ctx, input) => cancelMakeupLessonTool(ctx, input),
+  },
+  checkMakeupSla: {
+    name: "checkMakeupSla",
+    description:
+      "Scan confirmed makeup requests for SLA threshold crossings (15/7/3/1 days remaining, " +
+      "or exceeded) and record any escalation. Idempotent — re-running does not re-notify " +
+      "for a threshold already reached.",
+    inputSchema: emptyOrRecord,
+    outputSchema: z.object({ checked: z.number(), escalated: z.array(z.unknown()) }),
+    requiredRoles: ADMIN,
+    execute: (ctx) => checkMakeupSlaTool(ctx),
   },
   findAvailableTeachers: {
     name: "findAvailableTeachers",

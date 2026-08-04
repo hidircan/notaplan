@@ -33,11 +33,16 @@ import {
   updateBranch,
   updateFeeRoundingMode,
   updateLessonSchedule,
+  updateMakeupSlaEscalation,
   updateStudentProfile,
   updateTeacherFeeRule,
 } from "../store";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
-import { suggestMakeupSlots } from "../makeup-engine";
+import {
+  suggestMakeupSlots,
+  resolveSlaEscalationLevel,
+  type MakeupSlaEscalation,
+} from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
 import {
   buildSeriesPreviewText,
@@ -182,6 +187,12 @@ export async function findAvailableSlotsTool(
   }
 }
 
+/**
+ * EPIC 10 — `decisionNote` ZORUNLU (kasıtlı, dokümante edilmiş sözleşme
+ * kırılması): "onay/iptal/ret işlemlerinde karar notu zorunlu olmalı" ürün
+ * kararı geriye dönük uyumluluktan önceliklidir. Onay, 30 günlük SLA
+ * sayacını başlatır (bkz. `confirmMakeupSlot`/`computeSlaDeadline`).
+ */
 export async function confirmMakeupLessonTool(
   ctx: ServiceContext,
   input: unknown
@@ -193,17 +204,22 @@ export async function confirmMakeupLessonTool(
     z.object({
       requestId: z.string().min(1),
       slot: makeupSlotSchema,
+      decisionNote: z.string().min(1, "Karar notu zorunludur"),
     }),
     input
   );
   if (!v.ok) return v;
 
   try {
-    await confirmSlot(v.data.requestId, v.data.slot as MakeupSlot);
+    await confirmSlot(v.data.requestId, v.data.slot as MakeupSlot, {
+      decisionNote: v.data.decisionNote,
+      decidedBy: ctx.userId,
+    });
     const data = await readData();
     const req = data.makeupRequests.find((m) => m.id === v.data.requestId);
     audit(ctx, "makeup.confirm", "MakeupRequest", v.data.requestId, {
       lessonId: req?.confirmedLessonId,
+      decisionNote: v.data.decisionNote,
     });
     return ok({ requestId: v.data.requestId, lessonId: req?.confirmedLessonId });
   } catch (e) {
@@ -238,6 +254,7 @@ export async function createMakeupLessonTool(
   }
 }
 
+/** EPIC 10 — `decisionNote` ZORUNLU; hem iptal hem ret akışı bu tek yolu kullanır. */
 export async function cancelMakeupLessonTool(
   ctx: ServiceContext,
   input: unknown
@@ -245,16 +262,66 @@ export async function cancelMakeupLessonTool(
   const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
-  const v = parseOrFail(z.object({ requestId: z.string().min(1) }), input);
+  const v = parseOrFail(
+    z.object({
+      requestId: z.string().min(1),
+      decisionNote: z.string().min(1, "Karar notu zorunludur"),
+    }),
+    input
+  );
   if (!v.ok) return v;
 
   try {
-    await cancelMakeup(v.data.requestId);
-    audit(ctx, "makeup.cancel", "MakeupRequest", v.data.requestId);
+    await cancelMakeup(v.data.requestId, { decisionNote: v.data.decisionNote, decidedBy: ctx.userId });
+    audit(ctx, "makeup.cancel", "MakeupRequest", v.data.requestId, {
+      decisionNote: v.data.decisionNote,
+    });
     return ok({ requestId: v.data.requestId });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "cancelMakeup failed");
   }
+}
+
+/**
+ * EPIC 10 — SLA eskalasyon taraması. Yalnızca `slaDeadline` set edilmiş
+ * (yani onaylanmış) talepleri kontrol eder; seviyesi YÜKSELEN her talep için
+ * kaydı günceller + audit log yazar — aynı eşik için tekrar bildirim
+ * ÜRETMEZ (idempotent). Bildirim KANALI (WhatsApp/uygulama-içi) bu turda
+ * kapsam dışı bırakıldı — EPIC 1'in genel bildirim altyapısı henüz yok;
+ * eskalasyon `slaEscalationLevel` alanında ve audit log'da görünür kalır.
+ */
+export async function checkMakeupSlaTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ checked: number; escalated: MakeupSlaEscalation[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "AI_AGENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const data = await readData();
+  const now = new Date().toISOString();
+  const escalated: MakeupSlaEscalation[] = [];
+
+  for (const request of data.makeupRequests) {
+    if (!request.slaDeadline) continue;
+    const previousLevel = request.slaEscalationLevel ?? 0;
+    const newLevel = resolveSlaEscalationLevel(request.slaDeadline, now);
+    if (newLevel <= previousLevel) continue;
+
+    await updateMakeupSlaEscalation(request.id, newLevel);
+    audit(ctx, "makeup.sla_escalation", "MakeupRequest", request.id, {
+      previousLevel,
+      newLevel,
+      slaDeadline: request.slaDeadline,
+    });
+    escalated.push({
+      requestId: request.id,
+      studentId: request.studentId,
+      previousLevel,
+      newLevel,
+      slaDeadline: request.slaDeadline,
+    });
+  }
+
+  return ok({ checked: data.makeupRequests.length, escalated });
 }
 
 export async function findAvailableTeachersTool(
@@ -420,7 +487,8 @@ export async function sendParentMessageTool(
     const req = data.makeupRequests.find(
       (m) =>
         m.id === v.data.makeupRequestId ||
-        (m.studentId === student.id && (m.status === "pending" || m.status === "suggested"))
+        (m.studentId === student.id &&
+          (m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"))
     );
     if (!req) return fail("NOT_FOUND", "Makeup request not found for parent message");
     const branch = data.settings.branches.find((b) => b.id === req.branchId);

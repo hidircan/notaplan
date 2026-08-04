@@ -357,6 +357,16 @@ model MakeupRequest {
   confirmedLessonId String?
   createdAt         DateTime
   policyNote        String
+  /// EPIC 10 (IMPLEMENTATION_PLAN.md) — hepsi opsiyonel/additive. decisionNote
+  /// yalnızca uygulama katmanında (confirmMakeupLessonTool/cancelMakeupLessonTool)
+  /// zorunlu kılınır, şemada nullable kalır ki geçmiş kayıtlar bozulmasın.
+  /// slaDeadline yalnızca onaylandığında set edilir; slaEscalationLevel:
+  /// 0=yok 1=15gün 2=7gün 3=3gün 4=1gün 5=aşıldı (bkz. resolveSlaEscalationLevel).
+  decisionNote        String?
+  decidedBy           String?
+  decidedAt           DateTime?
+  slaDeadline         DateTime?
+  slaEscalationLevel  Int       @default(0)
 
   @@index([tenantId])
   @@index([sourceLessonId])

@@ -1,6 +1,7 @@
 import {
   addDays,
   addMinutes,
+  differenceInCalendarDays,
   format,
   getDay,
   isBefore,
@@ -377,10 +378,50 @@ export function suggestMakeupSlots(
   return unique;
 }
 
+/**
+ * EPIC 10 — 30 günlük SLA sayacı, yönetici ONAYLADIĞI anda (`fromIso`) başlar;
+ * talep oluşturma tarihinden değil. `days` parametreleştirilmiş — ileride
+ * kurum bazlı ayara dönüştürülebilir (bkz. Açık kararlar).
+ */
+export function computeSlaDeadline(fromIso: string, days = 30): string {
+  return addDays(parseISO(fromIso), days).toISOString();
+}
+
+/**
+ * Kalan güne göre eskalasyon seviyesi: 0=henüz eşik yok, 1=15 gün kaldı,
+ * 2=7 gün, 3=3 gün, 4=1 gün, 5=SLA aşıldı. Yalnızca EN YÜKSEK ulaşılan
+ * seviyeyi döner — çağıran taraf (checkMakeupSlaTool) bunu kayıttaki mevcut
+ * `slaEscalationLevel` ile karşılaştırıp yalnızca YÜKSELİRSE bildirim/audit
+ * üretir; böylece aynı eşik için tekrar tekrar bildirim gitmez.
+ */
+export function resolveSlaEscalationLevel(deadlineIso: string, nowIso: string): number {
+  const daysRemaining = differenceInCalendarDays(parseISO(deadlineIso), parseISO(nowIso));
+  if (daysRemaining < 0) return 5;
+  if (daysRemaining <= 1) return 4;
+  if (daysRemaining <= 3) return 3;
+  if (daysRemaining <= 7) return 2;
+  if (daysRemaining <= 15) return 1;
+  return 0;
+}
+
+/** EPIC 10 — onay/iptal/ret kararında zorunlu tutulan (uygulama katmanında) alanlar. */
+export type MakeupDecision = { decisionNote: string; decidedBy: string };
+
+/** EPIC 10 — bir talebin SLA eskalasyon seviyesinin yükseldiği tek olay. */
+export type MakeupSlaEscalation = {
+  requestId: string;
+  studentId: string;
+  previousLevel: number;
+  newLevel: number;
+  slaDeadline: string;
+};
+
 export function confirmMakeupSlot(
   data: AppData,
   requestId: string,
-  input: { teacherId: string; roomId: string; startAt: string }
+  input: { teacherId: string; roomId: string; startAt: string },
+  decision: MakeupDecision,
+  now: Date = new Date()
 ): { data: AppData; lessonId: string; slot: ValidatedSlot } {
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
@@ -405,6 +446,9 @@ export function confirmMakeupSlot(
     notes: `Telafi · kaynak ders ${request.sourceLessonId}`,
   };
 
+  const decidedAt = now.toISOString();
+  const slaDeadline = computeSlaDeadline(decidedAt);
+
   const makeupRequests = data.makeupRequests.map((m) =>
     m.id === requestId
       ? {
@@ -412,6 +456,11 @@ export function confirmMakeupSlot(
           status: "confirmed" as const,
           suggestedSlots: m.suggestedSlots,
           confirmedLessonId: lessonId,
+          decisionNote: decision.decisionNote,
+          decidedBy: decision.decidedBy,
+          decidedAt,
+          slaDeadline,
+          slaEscalationLevel: 0,
         }
       : m
   );
@@ -425,4 +474,74 @@ export function confirmMakeupSlot(
     lessonId,
     slot,
   };
+}
+
+/**
+ * Bir telafi talebini reddeder/iptal eder — `confirmMakeupSlot`'un iptal
+ * karşılığı. Yeni ders oluşturmaz, `slaDeadline` set etmez (kapanmış talebin
+ * SLA'sı yoktur).
+ */
+export function cancelMakeupData(
+  data: AppData,
+  requestId: string,
+  decision: MakeupDecision,
+  now: Date = new Date()
+): { data: AppData } {
+  const request = data.makeupRequests.find((m) => m.id === requestId);
+  if (!request) throw new Error("Telafi talebi bulunamadı");
+
+  const makeupRequests = data.makeupRequests.map((m) =>
+    m.id === requestId
+      ? {
+          ...m,
+          status: "cancelled" as const,
+          decisionNote: decision.decisionNote,
+          decidedBy: decision.decidedBy,
+          decidedAt: now.toISOString(),
+        }
+      : m
+  );
+
+  return { data: { ...data, makeupRequests } };
+}
+
+/**
+ * EPIC 10 — AI'ın WhatsApp mesajından çıkardığı bir telafi sebebinin ne
+ * kadar güvenilir olduğunu değerlendiren SAF sezgisel fonksiyon. Bilinçli
+ * olarak minimal: bir metin sınıflandırma modeli DEĞİL, yalnızca "bu metin
+ * bir telafi sebebi olarak insan onayı olmadan kabul edilecek kadar açık
+ * mı?" sorusuna kaba bir cevap verir. DÜŞÜK güvenle ASLA otomatik yazma
+ * yapılmamalı — çağıran taraf `confidence === "low"` durumunda talebi
+ * `"awaiting_info"` durumunda oluşturmalı ve netleştirme şablonu göndermeli.
+ *
+ * NOT (kapsam kararı): Bu fonksiyon şu an `markAttendance`/telafi oluşturma
+ * akışına BAĞLANMADI — mevcut, yoğun test kapsamlı akışı bu turda riske
+ * atmamak için kasıtlı olarak yalnızca saf, test edilmiş bir yapı taşı
+ * olarak bırakıldı (bkz. IMPLEMENTATION_PLAN.md EPIC 10 "Açık kararlar").
+ */
+export function inferMakeupReasonConfidence(
+  rawReason: string | undefined
+): { confidence: "high" | "low"; reason?: string } {
+  const reason = rawReason?.trim();
+  if (!reason) return { confidence: "low" };
+
+  // Çok kısa ("ok", "tamam", "evet" gibi) ya da yalnızca noktalama/rakamdan
+  // oluşan metinler bir sebep taşımaz.
+  if (reason.length < 6 || !/[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(reason)) {
+    return { confidence: "low", reason };
+  }
+
+  const VAGUE_PHRASES = [
+    "bilmiyorum",
+    "sonra söylerim",
+    "bakarım",
+    "belki",
+    "haber veririm",
+  ];
+  const lower = reason.toLocaleLowerCase("tr");
+  if (VAGUE_PHRASES.some((p) => lower.includes(p))) {
+    return { confidence: "low", reason };
+  }
+
+  return { confidence: "high", reason };
 }

@@ -45,6 +45,7 @@ function buildFixture(): AppData {
       workingHours: { start: "09:00", end: "18:00" },
       workingDays: [1, 2, 3, 4, 5],
       currency: "TRY",
+      feeRoundingMode: "exact_minutes",
       branches: [
         { id: "erzene", name: "Erzene", shortName: "Erzene", address: "", phone: "", city: "İzmir" },
       ],
@@ -119,6 +120,8 @@ function buildFixture(): AppData {
       },
     ],
     payments: [],
+    teacherFeeRules: [],
+    teacherPayouts: [],
   };
 }
 
@@ -139,11 +142,12 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     });
     expect(validation.ok).toBe(true);
 
-    const { data: next, lessonId } = confirmMakeupSlot(data, request.id, {
-      teacherId: "t1",
-      roomId: "r1",
-      startAt,
-    });
+    const { data: next, lessonId } = confirmMakeupSlot(
+      data,
+      request.id,
+      { teacherId: "t1", roomId: "r1", startAt },
+      { decisionNote: "Manuel plan", decidedBy: "admin1" }
+    );
     const lesson = next.lessons.find((l) => l.id === lessonId);
     expect(lesson).toBeDefined();
     expect(lesson?.type).toBe("makeup");
@@ -258,19 +262,21 @@ describe("makeup-engine · manuel telafi planlama validasyonu", () => {
     const firstStart = at(offset, 11, 0);
     const secondStart = at(offset, 13, 0);
 
-    const { data: confirmed } = confirmMakeupSlot(data, request.id, {
-      teacherId: "t1",
-      roomId: "r1",
-      startAt: firstStart,
-    });
+    const { data: confirmed } = confirmMakeupSlot(
+      data,
+      request.id,
+      { teacherId: "t1", roomId: "r1", startAt: firstStart },
+      { decisionNote: "İlk onay", decidedBy: "admin1" }
+    );
     const lessonCountAfterFirst = confirmed.lessons.length;
 
     expect(() =>
-      confirmMakeupSlot(confirmed, request.id, {
-        teacherId: "t1",
-        roomId: "r1",
-        startAt: secondStart,
-      })
+      confirmMakeupSlot(
+        confirmed,
+        request.id,
+        { teacherId: "t1", roomId: "r1", startAt: secondStart },
+        { decisionNote: "İkinci onay", decidedBy: "admin1" }
+      )
     ).toThrow("Bu telafi talebi zaten sonuçlandırılmış.");
     expect(confirmed.lessons.length).toBe(lessonCountAfterFirst);
   });
@@ -298,11 +304,12 @@ describe("makeup-engine · demo senaryosu (Lara) uçtan uca manuel planlama", ()
     }
     expect(targetStart).not.toBeNull();
 
-    const { data: next, lessonId } = confirmMakeupSlot(seed, laraRequest!.id, {
-      teacherId: laraRequest!.teacherId,
-      roomId: "r1",
-      startAt: targetStart!,
-    });
+    const { data: next, lessonId } = confirmMakeupSlot(
+      seed,
+      laraRequest!.id,
+      { teacherId: laraRequest!.teacherId, roomId: "r1", startAt: targetStart! },
+      { decisionNote: "Lara için manuel plan", decidedBy: "admin1" }
+    );
 
     const lesson = next.lessons.find((l) => l.id === lessonId);
     expect(lesson).toBeDefined();

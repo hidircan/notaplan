@@ -17,7 +17,13 @@ import type {
   Teacher,
   TeacherFeeRule,
 } from "./types";
-import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
+import {
+  suggestMakeupSlots,
+  confirmMakeupSlot,
+  computeSlaDeadline,
+  validateLessonSlot,
+  type MakeupDecision,
+} from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import {
   createLessonSeriesData,
@@ -194,6 +200,11 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       confirmedLessonId: request.confirmedLessonId ?? undefined,
       createdAt: request.createdAt.toISOString(),
       policyNote: request.policyNote,
+      decisionNote: request.decisionNote ?? undefined,
+      decidedBy: request.decidedBy ?? undefined,
+      decidedAt: request.decidedAt?.toISOString() ?? undefined,
+      slaDeadline: request.slaDeadline?.toISOString() ?? undefined,
+      slaEscalationLevel: request.slaEscalationLevel,
     })),
     payments: school.payments.map((payment) => ({
       id: payment.id,
@@ -233,7 +244,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
 
 export function getDashboardStats(data: AppData) {
   const pendingMakeup = data.makeupRequests.filter(
-    (m) => m.status === "pending" || m.status === "suggested"
+    (m) => m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"
   ).length;
   const confirmedMakeup = data.makeupRequests.filter((m) => m.status === "confirmed").length;
   const overduePayments = data.payments.filter((p) => p.status === "overdue" || p.status === "partial");
@@ -465,6 +476,11 @@ async function seedDatabase(seed: AppData) {
           confirmedLessonId: request.confirmedLessonId,
           createdAt: new Date(request.createdAt),
           policyNote: request.policyNote,
+          decisionNote: request.decisionNote,
+          decidedBy: request.decidedBy,
+          decidedAt: request.decidedAt ? new Date(request.decidedAt) : undefined,
+          slaDeadline: request.slaDeadline ? new Date(request.slaDeadline) : undefined,
+          slaEscalationLevel: request.slaEscalationLevel ?? 0,
         },
       })
     )
@@ -690,14 +706,18 @@ export async function generateSuggestions(
   return readData();
 }
 
-export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<AppData> {
+export async function confirmSlot(
+  requestId: string,
+  slot: MakeupSlot,
+  decision: MakeupDecision
+): Promise<AppData> {
   logger.info("confirmSlot", requestId, slot.startAt, slot.teacherId, slot.roomId);
   const tid = requireTenantId();
   const data = await readData();
   const request = data.makeupRequests.find((m) => m.id === requestId);
   if (!request) throw new Error("Telafi talebi bulunamadı");
 
-  const { lessonId, slot: validatedSlot } = confirmMakeupSlot(data, requestId, slot);
+  const { lessonId, slot: validatedSlot } = confirmMakeupSlot(data, requestId, slot, decision);
 
   const branch = await prisma.branch.findFirst({
     where: { id: request.branchId, tenantId: tid },
@@ -723,20 +743,46 @@ export async function confirmSlot(requestId: string, slot: MakeupSlot): Promise<
     },
   });
 
+  const decidedAt = new Date();
+  const slaDeadline = computeSlaDeadline(decidedAt.toISOString());
+
   await prisma.makeupRequest.updateMany({
     where: { id: requestId, tenantId: tid },
-    data: { status: "confirmed", confirmedLessonId: lessonId },
+    data: {
+      status: "confirmed",
+      confirmedLessonId: lessonId,
+      decisionNote: decision.decisionNote,
+      decidedBy: decision.decidedBy,
+      decidedAt,
+      slaDeadline: new Date(slaDeadline),
+      slaEscalationLevel: 0,
+    },
   });
 
   return readData();
 }
 
-export async function cancelMakeup(requestId: string): Promise<AppData> {
+export async function cancelMakeup(requestId: string, decision: MakeupDecision): Promise<AppData> {
   logger.info("cancelMakeup", requestId);
   const tid = requireTenantId();
   const updated = await prisma.makeupRequest.updateMany({
     where: { id: requestId, tenantId: tid },
-    data: { status: "cancelled" },
+    data: {
+      status: "cancelled",
+      decisionNote: decision.decisionNote,
+      decidedBy: decision.decidedBy,
+      decidedAt: new Date(),
+    },
+  });
+  if (updated.count === 0) throw new Error("Telafi talebi bulunamadı");
+  return readData();
+}
+
+export async function updateMakeupSlaEscalation(requestId: string, level: number): Promise<AppData> {
+  const tid = requireTenantId();
+  const updated = await prisma.makeupRequest.updateMany({
+    where: { id: requestId, tenantId: tid },
+    data: { slaEscalationLevel: level },
   });
   if (updated.count === 0) throw new Error("Telafi talebi bulunamadı");
   return readData();
