@@ -51,6 +51,26 @@ export interface Teacher {
   color: string;
 }
 
+/**
+ * EPIC 4 (IMPLEMENTATION_PLAN.md) — öğrencinin eğitim programı türü. Sabit
+ * bir kapalı küme (kurum admini yeni tür ekleyemez — ileride gerekirse
+ * `Branch` gibi kurum-tanımlı bir modele taşınır).
+ */
+export type StudentType =
+  | "Hobi"
+  | "MEB"
+  | "London College of Music Hazırlık"
+  | "Konservatuvar Hazırlık"
+  | "Güzel Sanatlar Lisesi Hazırlık";
+
+export const STUDENT_TYPES: StudentType[] = [
+  "Hobi",
+  "MEB",
+  "London College of Music Hazırlık",
+  "Konservatuvar Hazırlık",
+  "Güzel Sanatlar Lisesi Hazırlık",
+];
+
 export interface Student {
   id: string;
   name: string;
@@ -67,7 +87,22 @@ export interface Student {
   active: boolean;
   notes: string;
   createdAt: string;
+  /** EPIC 4 — hepsi opsiyonel; boşsa UI "Belirtilmemiş" gösterir, hata vermez. */
+  studentType?: StudentType;
+  /** ISO tarih */
+  enrollmentStartDate?: string;
+  /** ISO tarih — verilmezse açık uçlu (hâlâ kayıtlı) */
+  enrollmentEndDate?: string;
+  level?: string;
+  /** Hedef sınav / performans dönemi — serbest metin */
+  targetExam?: string;
+  specialNotes?: string;
 }
+
+/** EPIC 4 — öğrenci eğitim profili alanları, tek bir yerden güncellenir. */
+export type StudentProfilePatch = Partial<
+  Pick<Student, "studentType" | "enrollmentStartDate" | "enrollmentEndDate" | "level" | "targetExam" | "specialNotes">
+>;
 
 export interface Room {
   id: string;

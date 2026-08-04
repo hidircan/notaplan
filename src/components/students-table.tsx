@@ -17,6 +17,11 @@ export type StudentRow = {
   weeklyLessonCount: number;
   monthlyFee: number;
   active: boolean;
+  /** EPIC 4 — hepsi opsiyonel; boşsa rozet/etiket gösterilmez. */
+  studentType?: string;
+  enrollmentEndDate?: string;
+  level?: string;
+  targetExam?: string;
 };
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -80,6 +85,7 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Öğrenci</th>
+              <th className="px-4 py-3">Tür / Hedef</th>
               <th className="px-4 py-3">Enstrüman</th>
               <th className="px-4 py-3">Öğretmen</th>
               <th className="px-4 py-3">Paket</th>
@@ -89,12 +95,14 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
                   Bu filtreye uyan öğrenci bulunamadı.
                 </td>
               </tr>
             ) : (
-              filtered.map((s) => (
+              filtered.map((s) => {
+                const enrollmentEnded = s.enrollmentEndDate ? new Date(s.enrollmentEndDate) < new Date() : false;
+                return (
                 <tr key={s.id} className="border-b border-slate-50 align-top">
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-900">{s.name}</p>
@@ -102,6 +110,14 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
                       Veli: {s.parentName} · {s.parentPhone} · {s.branchName}
                     </p>
                     {s.notes ? <p className="mt-1 text-xs text-violet-600">{s.notes}</p> : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    {s.studentType ? <Badge>{s.studentType}</Badge> : <span className="text-xs text-slate-400">Belirtilmemiş</span>}
+                    {s.level ? <p className="mt-1 text-xs text-slate-500">Seviye: {s.level}</p> : null}
+                    {s.targetExam ? <p className="text-xs text-slate-500">{s.targetExam}</p> : null}
+                    {enrollmentEnded ? (
+                      <p className="mt-1 text-xs font-medium text-rose-600">Kayıt sona erdi</p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     {s.instruments.map((i) => (
@@ -115,7 +131,8 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
                   </td>
                   <td className="px-4 py-3 font-medium">{formatMoney(s.monthlyFee)}</td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

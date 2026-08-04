@@ -24,6 +24,20 @@ const optionalEmail = z
   .transform((v) => (v && v.trim() ? v : undefined))
   .pipe(z.string().email().optional());
 
+const STUDENT_TYPE_ENUM = [
+  "Hobi",
+  "MEB",
+  "London College of Music Hazırlık",
+  "Konservatuvar Hazırlık",
+  "Güzel Sanatlar Lisesi Hazırlık",
+] as const;
+
+/** EPIC 4 — öğrenci profil alanları hepsi opsiyonel; boş bırakılırsa "" olarak değil undefined olarak normalize edilir. */
+const optionalTrimmed = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() ? v.trim() : undefined));
+
 export const studentSchema = z.object({
   name: z.string().min(1),
   email: optionalEmail,
@@ -37,6 +51,22 @@ export const studentSchema = z.object({
   weeklyLessonCount: z.coerce.number().int().min(1),
   monthlyFee: z.coerce.number().int().min(0),
   notes: z.string().optional(),
+  studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
+  enrollmentStartDate: optionalTrimmed,
+  enrollmentEndDate: optionalTrimmed,
+  level: optionalTrimmed,
+  targetExam: optionalTrimmed,
+  specialNotes: optionalTrimmed,
+});
+
+export const updateStudentProfileSchema = z.object({
+  studentId: z.string().min(1),
+  studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
+  enrollmentStartDate: optionalTrimmed,
+  enrollmentEndDate: optionalTrimmed,
+  level: optionalTrimmed,
+  targetExam: optionalTrimmed,
+  specialNotes: optionalTrimmed,
 });
 
 export const teacherSchema = z.object({

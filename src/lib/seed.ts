@@ -1,4 +1,4 @@
-import type { AppData, BranchId, Instrument } from "./types";
+import type { AppData, BranchId, Instrument, StudentType } from "./types";
 import { addDays, setHours, setMinutes, startOfDay, formatISO } from "date-fns";
 import { DEFAULT_TENANT_ID } from "./auth/config";
 
@@ -153,6 +153,8 @@ export function createSeedData(): AppData {
       active: true,
       notes: "Piyano başlangıç+",
       createdAt: at(-90, 10),
+      studentType: "Hobi" as StudentType,
+      enrollmentStartDate: at(-90, 10),
     },
     {
       id: "s2",
@@ -170,6 +172,9 @@ export function createSeedData(): AppData {
       active: true,
       notes: "Akustik gitar",
       createdAt: at(-60, 11),
+      studentType: "MEB" as StudentType,
+      enrollmentStartDate: at(-60, 11),
+      level: "Orta",
     },
     {
       id: "s3",
@@ -187,6 +192,10 @@ export function createSeedData(): AppData {
       active: true,
       notes: "",
       createdAt: at(-45, 9),
+      studentType: "Konservatuvar Hazırlık" as StudentType,
+      enrollmentStartDate: at(-45, 9),
+      level: "İleri",
+      targetExam: "2027 Konservatuvar giriş sınavı",
     },
     {
       id: "s4",
@@ -204,6 +213,8 @@ export function createSeedData(): AppData {
       active: true,
       notes: "Rock tempo",
       createdAt: at(-30, 14),
+      studentType: "Hobi" as StudentType,
+      enrollmentStartDate: at(-30, 14),
     },
     {
       id: "s5",
@@ -221,6 +232,9 @@ export function createSeedData(): AppData {
       active: true,
       notes: "Pop vokal",
       createdAt: at(-20, 12),
+      studentType: "Güzel Sanatlar Lisesi Hazırlık" as StudentType,
+      enrollmentStartDate: at(-20, 12),
+      targetExam: "2026 GSL yetenek sınavı",
     },
     {
       id: "s6",
@@ -238,6 +252,8 @@ export function createSeedData(): AppData {
       active: true,
       notes: "",
       createdAt: at(-15, 16),
+      studentType: "Hobi" as StudentType,
+      enrollmentStartDate: at(-15, 16),
     },
     {
       id: "s7",
@@ -255,6 +271,9 @@ export function createSeedData(): AppData {
       active: true,
       notes: "",
       createdAt: at(-10, 10),
+      studentType: "London College of Music Hazırlık" as StudentType,
+      enrollmentStartDate: at(-10, 10),
+      level: "Başlangıç",
     },
     {
       id: "s8",
@@ -272,6 +291,8 @@ export function createSeedData(): AppData {
       active: true,
       notes: "Başlangıç",
       createdAt: at(-5, 11),
+      studentType: "MEB" as StudentType,
+      enrollmentStartDate: at(-5, 11),
     },
   ];
 

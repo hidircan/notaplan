@@ -9,6 +9,7 @@ import type {
   MakeupSlot,
   Room,
   Student,
+  StudentProfilePatch,
   Teacher,
   TeacherFeeRule,
 } from "./types";
@@ -37,6 +38,7 @@ type StoreApi = {
   confirmSlot: (requestId: string, slot: MakeupSlot) => Promise<AppData>;
   cancelMakeup: (requestId: string) => Promise<AppData>;
   addStudent: (student: Omit<Student, "id" | "createdAt" | "active">) => Promise<AppData>;
+  updateStudentProfile: (studentId: string, patch: StudentProfilePatch) => Promise<AppData>;
   addTeacher: (teacher: Omit<Teacher, "id" | "active" | "color">) => Promise<AppData>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
@@ -173,6 +175,13 @@ export async function addStudent(
   student: Omit<Student, "id" | "createdAt" | "active">
 ): Promise<AppData> {
   return withTenantScope(() => store.addStudent(student));
+}
+
+export async function updateStudentProfile(
+  studentId: string,
+  patch: StudentProfilePatch
+): Promise<AppData> {
+  return withTenantScope(() => store.updateStudentProfile(studentId, patch));
 }
 
 export async function addTeacher(

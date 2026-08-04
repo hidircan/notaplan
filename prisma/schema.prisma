@@ -164,6 +164,16 @@ model Student {
   active            Boolean
   notes             String
   createdAt         DateTime  @default(now())
+  /// EPIC 4 (IMPLEMENTATION_PLAN.md) — hepsi opsiyonel: geçmiş öğrenci
+  /// kayıtları zorunlu backfill istemeden migration sonrası çalışmaya devam
+  /// eder. "Hobi" | "MEB" | "London College of Music Hazırlık" |
+  /// "Konservatuvar Hazırlık" | "Güzel Sanatlar Lisesi Hazırlık"
+  studentType          String?
+  enrollmentStartDate  DateTime?
+  enrollmentEndDate    DateTime?
+  level                String?
+  targetExam           String?
+  specialNotes         String?
   lessons           Lesson[]
   lessonSeries      LessonSeries[]
   attendances       Attendance[]

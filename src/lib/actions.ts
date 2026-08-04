@@ -13,6 +13,7 @@ import {
   confirmMakeupLessonTool,
   createPaymentTool,
   createStudentTool,
+  updateStudentProfileTool,
   createTeacherTool,
   createBranchTool,
   updateBranchTool,
@@ -213,6 +214,10 @@ export async function actionAddStudent(formData: FormData) {
           weeklyLessonCount: Number(formData.get("weeklyLessonCount") || 1),
           monthlyFee: Number(formData.get("monthlyFee") || 3000),
           notes: String(formData.get("notes") || ""),
+          studentType: String(formData.get("studentType") || "") || undefined,
+          enrollmentStartDate: String(formData.get("enrollmentStartDate") || "") || undefined,
+          level: String(formData.get("level") || "") || undefined,
+          targetExam: String(formData.get("targetExam") || "") || undefined,
         })
       );
     });
@@ -221,6 +226,31 @@ export async function actionAddStudent(formData: FormData) {
     logger.error("actionAddStudent failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
+  }
+}
+
+export type UpdateStudentProfileActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionUpdateStudentProfile(input: {
+  studentId: string;
+  studentType?: string;
+  enrollmentStartDate?: string;
+  enrollmentEndDate?: string;
+  level?: string;
+  targetExam?: string;
+  specialNotes?: string;
+}): Promise<UpdateStudentProfileActionResult> {
+  try {
+    const result = await withAuthContext((ctx) =>
+      updateStudentProfileTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateStudentProfile failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Öğrenci profili güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

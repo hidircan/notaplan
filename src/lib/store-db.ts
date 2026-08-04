@@ -12,6 +12,8 @@ import type {
   MakeupSlot,
   Room,
   Student,
+  StudentProfilePatch,
+  StudentType,
   Teacher,
   TeacherFeeRule,
 } from "./types";
@@ -123,6 +125,12 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       active: student.active,
       notes: student.notes,
       createdAt: student.createdAt.toISOString(),
+      studentType: (student.studentType as StudentType) ?? undefined,
+      enrollmentStartDate: student.enrollmentStartDate?.toISOString() ?? undefined,
+      enrollmentEndDate: student.enrollmentEndDate?.toISOString() ?? undefined,
+      level: student.level ?? undefined,
+      targetExam: student.targetExam ?? undefined,
+      specialNotes: student.specialNotes ?? undefined,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -752,8 +760,31 @@ export async function addStudent(
       active: true,
       createdAt: new Date(),
       instruments: student.instruments,
+      enrollmentStartDate: student.enrollmentStartDate ? new Date(student.enrollmentStartDate) : undefined,
+      enrollmentEndDate: student.enrollmentEndDate ? new Date(student.enrollmentEndDate) : undefined,
     },
   });
+  return readData();
+}
+
+export async function updateStudentProfile(
+  studentId: string,
+  patch: StudentProfilePatch
+): Promise<AppData> {
+  logger.info("updateStudentProfile", studentId);
+  const tid = requireTenantId();
+  const result = await prisma.student.updateMany({
+    where: { id: studentId, tenantId: tid },
+    data: {
+      studentType: patch.studentType,
+      enrollmentStartDate: patch.enrollmentStartDate ? new Date(patch.enrollmentStartDate) : undefined,
+      enrollmentEndDate: patch.enrollmentEndDate ? new Date(patch.enrollmentEndDate) : undefined,
+      level: patch.level,
+      targetExam: patch.targetExam,
+      specialNotes: patch.specialNotes,
+    },
+  });
+  if (result.count === 0) throw new Error("Öğrenci bulunamadı");
   return readData();
 }
 

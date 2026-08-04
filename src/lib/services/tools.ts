@@ -33,6 +33,7 @@ import {
   updateBranch,
   updateFeeRoundingMode,
   updateLessonSchedule,
+  updateStudentProfile,
   updateTeacherFeeRule,
 } from "../store";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
@@ -81,6 +82,7 @@ import {
   updateFeeRoundingModeSchema,
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
+  updateStudentProfileSchema,
 } from "../validation";
 import type { BranchId, FeeRoundingMode, Instrument, MakeupSlot, Student, Teacher, TeacherFeeRule, TeacherPayout } from "../types";
 import {
@@ -505,6 +507,31 @@ export async function createStudentTool(
     return ok({ studentId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createStudent failed");
+  }
+}
+
+/**
+ * Öğrencinin eğitim profilini günceller (EPIC 4): tür, kayıt dönemi,
+ * seviye, hedef sınav, özel not. Öğrencinin temel iletişim/paket bilgilerini
+ * değiştirmez — o alanlar için ayrı bir yol yok (mevcut kapsam dışı).
+ */
+export async function updateStudentProfileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateStudentProfileSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const { studentId, ...patch } = v.data;
+    await updateStudentProfile(studentId, patch);
+    audit(ctx, "student.profile_update", "Student", studentId, patch);
+    return ok({ studentId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateStudentProfile failed");
   }
 }
 

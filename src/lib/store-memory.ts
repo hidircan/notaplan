@@ -18,6 +18,7 @@ import type {
   Payment,
   Room,
   Student,
+  StudentProfilePatch,
   Teacher,
   TeacherFeeRule,
 } from "./types";
@@ -227,6 +228,16 @@ export async function addStudent(
     createdAt: new Date().toISOString(),
   };
   return save({ ...data, students: [...data.students, s] });
+}
+
+export async function updateStudentProfile(
+  studentId: string,
+  patch: StudentProfilePatch
+): Promise<AppData> {
+  const data = load();
+  if (!data.students.some((s) => s.id === studentId)) throw new Error("Öğrenci bulunamadı");
+  const students = data.students.map((s) => (s.id === studentId ? { ...s, ...patch } : s));
+  return save({ ...data, students });
 }
 
 export async function addTeacher(
