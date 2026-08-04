@@ -1232,7 +1232,8 @@ zaten plan dışıydı (bkz. üstteki genel not).
 
 ## EPIC 9 — Öğretmen müsaitlik ve yönetici onayı [P2]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟢 Tamamlandı (commit `cdd3980`) — bkz. "Tamamlanan (uygulama
+özeti)" altında.
 
 ### Mevcut durum
 `Teacher.availability` (Json) doğrudan CANLI müsaitlik — onay akışı yok,
@@ -1278,6 +1279,54 @@ doğrudan, yalnızca öğretmenin KENDİ yaptığı sonraki değişiklikler onay
 
 ### Bağımlılıklar
 EPIC 0 (audit).
+
+### Tamamlanan (uygulama özeti — commit `cdd3980`)
+- `prisma/schema.prisma`: yeni `TeacherAvailabilityRequest` modeli, planla
+  birebir aynı alanlarla (additive — `Teacher.availability` DEĞİŞMEDİ).
+- Kod taraması sonucu (Riskler bölümünün istediği ön-tarama): `availability`
+  alanının DOĞRUDAN yazıldığı tek yer `createTeacherTool` (öğretmen İLK
+  kaydı, sabit varsayılan program) ve CSV `importTeachers` — ikisi de admin
+  tarafından yürütülen İLK KAYIT akışları, "Açık kararlar"daki önerilen
+  kuralla ÇAKIŞMADAN aynen bırakıldı. Öğretmenin KENDİ sonraki değişikliği
+  için doğrudan bir yazma yolu zaten YOKTU — bu epic onu hiç açmadan, yalnızca
+  onaylı öneri yolunu ekledi.
+- `src/lib/teacher-availability.ts` (yeni, `announcements`/`assessment` ile
+  aynı standalone-modül deseni): önerinin yaşam döngüsü. Zaten
+  onaylanmış/reddedilmiş bir öneriyi tekrar incelemek `null`/hata döner —
+  EPIC 8'in `CONCURRENT_UPDATE` desenine benzer idempotent koruma.
+- Store paritesi: `updateTeacherAvailability(teacherId, availability)`
+  (`store.ts`/`store-json.ts`/`store-memory.ts`/`store-db.ts`) — canlı alana
+  giden TEK yazma yolu, yalnızca onay tool'u tarafından çağrılır.
+- Tools: `proposeTeacherAvailabilityTool` (`TEACHER` yalnızca kendisi için,
+  `ctx.teacherId`'den — istek gövdesinden değil), `listTeacherAvailabilityRequestsTool`
+  (TEACHER kendi, admin herhangi biri), `reviewTeacherAvailabilityRequestTool`
+  (yalnızca `SCHOOL_ADMIN`/`SUPER_ADMIN`, onaylanınca HEMEN
+  `updateTeacherAvailability` çağrılır, her iki karar da audit'e yazılır).
+- Yeni RBAC izinleri `availability:propose`/`availability:review` — bilinçli
+  olarak KESIŞMİYOR (TEACHER önerir, admin onaylar; aynı izinle ikisi birden
+  yapılamaz).
+- API: `POST /api/v1/teachers/availability/propose`,
+  `GET /api/v1/teachers/[teacherId]/availability-requests`,
+  `PATCH /api/v1/teachers/availability-requests/[requestId]/review`.
+- UI: `/ogretmen/musaitlik` (şu anki müsaitlik + haftalık öneri formu + geçmiş
+  önerilerim), `/panel/ogretmenler/[teacherId]/musaitlik` (bekleyen/
+  incelenmiş öneri listesi, onayla/reddet + not) — EPIC 7/8 ile aynı "yeni
+  kardeş route" kararıyla, `/ogretmen` ve `/panel/ogretmenler` liste
+  sayfalarına DOKUNULMADAN.
+- Test: `teacher-availability-approval.test.ts` (12 test) — önerinin
+  `Teacher.availability`'yi hemen değiştirmediği, yalnızca ilgili öğretmenin
+  kendi önerilerini görebildiği, admin olmayanın inceleyemediği, çift
+  incelemenin reddedildiği. Toplam 701/701 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil.
+
+**Ertelenen:** `/ogretmen` ve `/panel/ogretmenler` liste sayfalarına gezinme
+linki eklenmedi (ikisi de önceki oturumdan kalma, ilgisiz commit edilmemiş
+değişikliklerle iç içe — EPIC 1/5/7/6A ile aynı gerekçe); yeni sayfalar
+doğrudan URL ile ve öğretmen detay sayfasından erişilebilir durumda.
+Plandaki "onaylanan önerinin programlama motorunda kullanıldığı" test
+maddesi bu turda YOK — mevcut `makeup-engine.ts`/`lesson-scheduling.ts`
+zaten `Teacher.availability`'yi okur (dolaylı olarak test edilir, çünkü onay
+sonrası alan gerçekten değişir); ayrı bir entegrasyon testi yazılmadı.
 
 ---
 
