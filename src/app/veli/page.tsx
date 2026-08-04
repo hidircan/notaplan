@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Home,
+  Megaphone,
   MessageCircle,
   Music2,
   RefreshCcw,
@@ -17,6 +18,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
 import { listNotificationsForUser } from "@/lib/notifications";
 import { NotificationList } from "@/components/notification-list";
+import { listAnnouncementsForUserTool } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,9 @@ export default async function VeliPortalPage() {
     studentId: student.id,
   });
   const unreadCount = notifications.filter((n) => !n.readAt).length;
+
+  const announcementsResult = await listAnnouncementsForUserTool(session);
+  const announcements = announcementsResult.ok ? announcementsResult.data.announcements : [];
 
   const confirmedUpcomingMakeups = [];
   for (const m of makeups) {
@@ -170,6 +175,23 @@ export default async function VeliPortalPage() {
           </div>
           <NotificationList notifications={notifications} />
         </section>
+
+        {announcements.length > 0 ? (
+          <section>
+            <div className="mb-2 flex items-center gap-2 px-1">
+              <Megaphone className="h-4 w-4 text-violet-600" />
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Duyurular</h2>
+            </div>
+            <div className="space-y-2">
+              {announcements.map((a) => (
+                <Card key={a.id} className={a.pinned ? "!p-4 border-violet-200 bg-violet-50/60" : "!p-4"}>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{a.title}</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{a.body}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {hasMakeupHighlight ? (
           <div className="space-y-2">

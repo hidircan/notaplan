@@ -159,6 +159,48 @@ export interface Notification {
   createdAt: string;
 }
 
+/**
+ * EPIC 5 (IMPLEMENTATION_PLAN.md) — duyuru merkezi. Hedef kitle eşleşmesi
+ * SUNUCU tarafında yapılır (bkz. src/lib/announcements/audience.ts) — asla
+ * client'a hedef-dışı duyuru verisi gönderilmez. `students` şu an `parents`
+ * ile aynı alıcı kümesine eşlenir çünkü ayrı bir STUDENT rolü henüz yok
+ * (EPIC 6A); rol eklendiğinde bu eşleme güncellenecek.
+ */
+export type AnnouncementAudienceType =
+  | "all"
+  | "branch"
+  | "teachers"
+  | "parents"
+  | "students"
+  | "studentType"
+  | "selected";
+
+export type AnnouncementAudienceRef =
+  | { branchId: string }
+  | { studentType: StudentType }
+  | { userIds: string[] }
+  | Record<string, never>;
+
+export type AnnouncementStatus = "draft" | "published" | "archived";
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  attachmentUrl?: string;
+  audienceType: AnnouncementAudienceType;
+  audienceRef?: AnnouncementAudienceRef;
+  status: AnnouncementStatus;
+  pinned: boolean;
+  /** ISO tarih — verilmezse hemen yayında sayılır (status published ise) */
+  publishAt?: string;
+  /** ISO tarih — verilmezse süresiz */
+  expireAt?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Room {
   id: string;
   name: string;

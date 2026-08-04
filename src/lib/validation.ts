@@ -211,3 +211,54 @@ export const updateCollectionsSettingsSchema = z.object({
 export const markNotificationReadSchema = z.object({
   notificationId: z.string().min(1),
 });
+
+const STUDENT_TYPE_FOR_AUDIENCE = [
+  "Hobi",
+  "MEB",
+  "London College of Music Hazırlık",
+  "Konservatuvar Hazırlık",
+  "Güzel Sanatlar Lisesi Hazırlık",
+] as const;
+
+/**
+ * EPIC 5 — audienceRef, audienceType'a göre farklı şekiller alır; hangi
+ * anahtarların dolu olması gerektiği createAnnouncementTool içinde değil
+ * burada, şema seviyesinde zorlanır (branch→branchId, studentType→
+ * studentType, selected→userIds; diğerleri ref gerektirmez).
+ */
+export const createAnnouncementSchema = z
+  .object({
+    title: z.string().min(1),
+    body: z.string().min(1),
+    attachmentUrl: z.string().url().optional(),
+    audienceType: z.enum(["all", "branch", "teachers", "parents", "students", "studentType", "selected"]),
+    audienceRef: z
+      .union([
+        z.object({ branchId: z.string().min(1) }),
+        z.object({ studentType: z.enum(STUDENT_TYPE_FOR_AUDIENCE) }),
+        z.object({ userIds: z.array(z.string().min(1)).min(1) }),
+      ])
+      .optional(),
+    status: z.enum(["draft", "published", "archived"]).optional(),
+    pinned: z.boolean().optional(),
+    publishAt: z.string().min(1).optional(),
+    expireAt: z.string().min(1).optional(),
+  })
+  .refine(
+    (d) => {
+      if (d.audienceType === "branch") return !!d.audienceRef && "branchId" in d.audienceRef;
+      if (d.audienceType === "studentType") return !!d.audienceRef && "studentType" in d.audienceRef;
+      if (d.audienceType === "selected") return !!d.audienceRef && "userIds" in d.audienceRef;
+      return true;
+    },
+    { message: "audienceType için gerekli audienceRef alanı eksik" }
+  );
+
+export const updateAnnouncementStatusSchema = z.object({
+  announcementId: z.string().min(1),
+  status: z.enum(["draft", "published", "archived"]),
+});
+
+export const markAnnouncementReadSchema = z.object({
+  announcementId: z.string().min(1),
+});

@@ -27,6 +27,7 @@ model Tenant {
   teacherFeeRules TeacherFeeRule[]
   teacherPayouts  TeacherPayout[]
   notifications   Notification[]
+  announcements   Announcement[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -444,6 +445,46 @@ model Notification {
 
   @@index([tenantId, targetUserId])
   @@index([tenantId, targetStudentId])
+}
+
+/// EPIC 5 (IMPLEMENTATION_PLAN.md) — duyuru merkezi. `audienceType`:
+/// "all" | "branch" | "teachers" | "parents" | "students" | "studentType" |
+/// "selected". `audienceRef` yalnızca branch/studentType/selected için
+/// dolu olur (sırasıyla {branchId}/{studentType}/{userIds}) — hedef kitle
+/// eşleştirmesi SUNUCU tarafında yapılır (src/lib/announcements), asla
+/// client'a hedef-dışı veri gönderilmez.
+model Announcement {
+  id            String    @id
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  attachmentUrl String?
+  audienceType  String
+  audienceRef   Json?
+  /// "draft" | "published" | "archived"
+  status        String    @default("draft")
+  pinned        Boolean   @default(false)
+  publishAt     DateTime?
+  expireAt      DateTime?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  reads         AnnouncementRead[]
+
+  @@index([tenantId, status])
+}
+
+/// Bir kullanıcının bir duyuruyu okuduğu an — @@unique çift okuma kaydı
+/// oluşmasını engeller (aynı kullanıcı tekrar "okundu" işaretlerse upsert).
+model AnnouncementRead {
+  id             String   @id
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  readAt         DateTime @default(now())
+
+  @@unique([announcementId, userId])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

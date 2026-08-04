@@ -43,5 +43,11 @@ export {
   updateCollectionsSettingsTool,
   listNotificationsTool,
   markNotificationReadTool,
+  listAllAnnouncementsTool,
+  createAnnouncementTool,
+  updateAnnouncementStatusTool,
+  listAnnouncementsForUserTool,
+  markAnnouncementReadTool,
+  listAnnouncementReadersTool,
   resetDemoTool,
 } from "./tools";

@@ -59,6 +59,15 @@ import {
   listNotificationsForUser,
   markNotificationRead,
 } from "../notifications";
+import {
+  clearAnnouncements,
+  createAnnouncement,
+  listAnnouncements,
+  listReadUserIds,
+  markAnnouncementRead,
+  updateAnnouncementStatus,
+} from "../announcements";
+import { isVisibleNow, matchesAudience } from "../announcements/audience";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
@@ -80,12 +89,14 @@ import {
   cancelLessonSchema,
   cancelSeriesFromLessonSchema,
   computeTeacherPayoutSchema,
+  createAnnouncementSchema,
   createFeeRuleSchema,
   createLessonSeriesSchema,
   createTeacherPayoutSchema,
   lessonSchema,
   lessonSeriesParamsSchema,
   makeupSlotSchema,
+  markAnnouncementReadSchema,
   markNotificationReadSchema,
   markTeacherPayoutPaidSchema,
   paymentRecordSchema,
@@ -93,6 +104,7 @@ import {
   studentSchema,
   suggestLessonSlotsSchema,
   teacherSchema,
+  updateAnnouncementStatusSchema,
   updateBranchSchema,
   updateCollectionsSettingsSchema,
   updateCommunicationPreferenceSchema,
@@ -103,6 +115,9 @@ import {
 } from "../validation";
 import {
   DEFAULT_COLLECTIONS_SETTINGS,
+  type Announcement,
+  type AnnouncementAudienceRef,
+  type AnnouncementStatus,
   type BranchId,
   type CollectionsSettings,
   type FeeRoundingMode,
@@ -1435,6 +1450,132 @@ export async function markNotificationReadTool(
   }
 }
 
+/** Yönetim ekranı: durum fark etmeksizin (draft/published/archived) tüm duyurular. */
+export async function listAllAnnouncementsTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ announcements: Announcement[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    const announcements = await listAnnouncements(ctx.tenantId);
+    return ok({ announcements });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listAllAnnouncements failed");
+  }
+}
+
+export async function createAnnouncementTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ announcementId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createAnnouncementSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const announcement = await createAnnouncement({
+      tenantId: ctx.tenantId,
+      title: v.data.title,
+      body: v.data.body,
+      attachmentUrl: v.data.attachmentUrl,
+      audienceType: v.data.audienceType,
+      audienceRef: v.data.audienceRef as AnnouncementAudienceRef | undefined,
+      status: v.data.status,
+      pinned: v.data.pinned,
+      publishAt: v.data.publishAt,
+      expireAt: v.data.expireAt,
+      createdBy: ctx.userId,
+    });
+    audit(ctx, "announcement.create", "Announcement", announcement.id, {
+      audienceType: v.data.audienceType,
+      status: announcement.status,
+    });
+    return ok({ announcementId: announcement.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createAnnouncement failed");
+  }
+}
+
+export async function updateAnnouncementStatusTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ announcementId: string; status: AnnouncementStatus }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateAnnouncementStatusSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const updated = await updateAnnouncementStatus(ctx.tenantId, v.data.announcementId, v.data.status);
+    if (!updated) return fail("NOT_FOUND", "Duyuru bulunamadı");
+    audit(ctx, "announcement.status_update", "Announcement", v.data.announcementId, {
+      status: v.data.status,
+    });
+    return ok({ announcementId: v.data.announcementId, status: v.data.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateAnnouncementStatus failed");
+  }
+}
+
+/**
+ * Portal görünümü: yalnızca çağıranın hedef kitlesinde olan, YAYINDA
+ * (published + yayın penceresi içinde) duyurular — sunucu tarafında
+ * filtrelenir (bkz. src/lib/announcements/audience.ts), asla hedef-dışı
+ * duyuru client'a gönderilmez.
+ */
+export async function listAnnouncementsForUserTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ announcements: Announcement[] }>> {
+  try {
+    const [data, all] = await Promise.all([readData(), listAnnouncements(ctx.tenantId)]);
+    const recipient = { role: ctx.role, userId: ctx.userId, teacherId: ctx.teacherId, studentId: ctx.studentId };
+    const audienceContext = { students: data.students, teachers: data.teachers };
+    const visible = all.filter(
+      (a) => isVisibleNow(a) && matchesAudience(a, recipient, audienceContext)
+    );
+    return ok({ announcements: visible });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listAnnouncementsForUser failed");
+  }
+}
+
+export async function markAnnouncementReadTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ announcementId: string }>> {
+  const v = parseOrFail(markAnnouncementReadSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    await markAnnouncementRead(ctx.tenantId, v.data.announcementId, ctx.userId);
+    return ok({ announcementId: v.data.announcementId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "markAnnouncementRead failed");
+  }
+}
+
+/** Yönetim ekranı "kim okudu" tablosu. */
+export async function listAnnouncementReadersTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ userIds: string[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ announcementId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  try {
+    const userIds = await listReadUserIds(ctx.tenantId, v.data.announcementId);
+    return ok({ userIds });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listAnnouncementReaders failed");
+  }
+}
+
 export async function resetDemoTool(
   ctx: ServiceContext
 ): Promise<ServiceResult<{ reset: true }>> {
@@ -1447,6 +1588,7 @@ export async function resetDemoTool(
     // onları da temizle.
     await clearFollowUpCases(ctx.tenantId);
     await clearNotifications(ctx.tenantId);
+    await clearAnnouncements(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");

@@ -19,7 +19,9 @@ export type Permission =
   | "tenant:all"
   | "export:institution"
   | "notifications:read"
-  | "communication:write";
+  | "communication:write"
+  | "announcements:read"
+  | "announcements:write";
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -38,6 +40,8 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "export:institution",
     "notifications:read",
     "communication:write",
+    "announcements:read",
+    "announcements:write",
   ],
   SCHOOL_ADMIN: [
     "attendance:write",
@@ -54,6 +58,8 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "export:institution",
     "notifications:read",
     "communication:write",
+    "announcements:read",
+    "announcements:write",
   ],
   TEACHER: [
     "attendance:write",
@@ -64,8 +70,15 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "messages:send",
     "tools:catalog",
     "notifications:read",
+    "announcements:read",
   ],
-  PARENT: ["students:read", "tools:catalog", "notifications:read", "communication:write"],
+  PARENT: [
+    "students:read",
+    "tools:catalog",
+    "notifications:read",
+    "communication:write",
+    "announcements:read",
+  ],
   AI_AGENT: [
     "attendance:write",
     "makeup:read",
@@ -79,6 +92,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "tools:catalog",
     "notifications:read",
     "communication:write",
+    "announcements:read",
   ],
 };
 

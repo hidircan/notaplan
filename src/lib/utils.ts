@@ -66,6 +66,8 @@ export function statusLabel(status: string) {
     makeup: "Telafi",
     trial: "Deneme",
     group: "Grup",
+    published: "Yayında",
+    archived: "Arşivlendi",
   };
   return map[status] ?? status;
 }
@@ -89,6 +91,8 @@ export function statusColor(status: string) {
     late: "bg-orange-100 text-orange-800",
     scheduled: "bg-indigo-100 text-indigo-800",
     makeup: "bg-violet-100 text-violet-800",
+    published: "bg-emerald-100 text-emerald-800",
+    archived: "bg-slate-200 text-slate-600",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }
