@@ -101,18 +101,10 @@ export default async function ReceiptPage({
         <ReceiptActions backHref={backHref} />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-6">
-            <div className="min-w-0">
-              <p className="truncate text-lg font-semibold text-slate-900">{model.institutionName}</p>
-              {model.branchName ? (
-                <p className="mt-1 truncate text-sm text-slate-500">
-                  {model.branchName}
-                  {model.branchContact ? ` · ${model.branchContact}` : ""}
-                </p>
-              ) : null}
-            </div>
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
+            <p className="text-lg font-semibold text-slate-900">Ödeme Makbuzu</p>
             <div className="shrink-0 text-right">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Ödeme Makbuzu</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Referans</p>
               <p className="mt-1 font-mono text-sm font-semibold text-slate-700">{model.reference}</p>
             </div>
           </div>
@@ -157,17 +149,11 @@ export default async function ReceiptPage({
             </div>
           </div>
 
-          <div className="mt-12 flex flex-wrap gap-10 border-t border-slate-100 pt-10 print:break-inside-avoid">
-            <div className="min-w-[220px] flex-1">
+          <div className="mt-12 flex border-t border-slate-100 pt-10 print:break-inside-avoid">
+            <div className="min-w-[220px] max-w-xs flex-1">
               <div className="h-16 border-b border-slate-400" />
               <p className="mt-2 text-center text-xs font-medium text-slate-600">
-                Teslim Alan / Veli İmzası
-              </p>
-            </div>
-            <div className="min-w-[220px] flex-1">
-              <div className="h-16 border-b border-slate-400" />
-              <p className="mt-2 text-center text-xs font-medium text-slate-600">
-                Tahsil Eden / Yetkili İmzası
+                Teslim Eden
               </p>
             </div>
           </div>
