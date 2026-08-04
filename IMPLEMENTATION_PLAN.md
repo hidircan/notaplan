@@ -504,7 +504,7 @@ epic'e bağımlı.
 
 
 
-**Durum:** 🔴 Planlandı (uygulanmadı — önerilen sırada EPIC 0/2/3/4'ten sonra)
+**Durum:** 🟡 Kısmen tamamlandı (commit `dc1a642`) — bkz. "Tamamlanan (uygulama özeti)".
 
 ### Mevcut durum
 `MakeupRequest` zaten `reason` (serbest metin, zorunlu) ve `policyNote` taşıyor.
@@ -586,6 +586,48 @@ Yeni alanlar/status değeri additive. `decisionNote` zorunluluğu geri alınabil
 ### Bağımlılıklar
 EPIC 0 (audit — telafi kararı kritik işlem listesinde), EPIC 1 ile AI-WhatsApp
 neden-çıkarımı altyapısını paylaşır (aynı `capabilities.ts` deseni).
+
+### Tamamlanan (uygulama özeti — commit `dc1a642`)
+- **Veri/karar katmanı — TAM:** `MakeupRequest.decisionNote/decidedBy/decidedAt/
+  slaDeadline/slaEscalationLevel` (additive), `MakeupStatus += "awaiting_info"`.
+  `confirmMakeupLessonTool`/`cancelMakeupLessonTool` artık `decisionNote`'u
+  ZORUNLU kılar (kasıtlı sözleşme kırılması — plan buna zaten izin veriyordu).
+  Onay anında 30 günlük SLA sayacı (`computeSlaDeadline`) başlar; mevcut
+  donmuş-değil (telafi burada "snapshot" kavramı yok) ama karar bilgisi asla
+  geri alınmaz. Mode parity tam: 4 store katmanı + `mapSchoolToAppData`.
+- **SLA tarama — TAM ama bildirim kanalı olmadan:** `checkMakeupSlaTool` +
+  `makeup_sla_check` workflow'u (6 saatte bir) — sabit demo ID listesi
+  yerine `findAvailableTeachers` deseniyle tüm tenant'ı tarar, idempotent
+  (aynı eşik için tekrar tetiklenmez), her yükselişi audit log'a yazar.
+  **Bildirim KANALI (WhatsApp/uygulama-içi) bilinçli olarak kapsam dışı** —
+  EPIC 1'in genel `Notification` modeli henüz yok; eskalasyon şu an yalnızca
+  `slaEscalationLevel` alanında ve audit log'da görünür. EPIC 1
+  tamamlandığında bu tarama gerçek bildirime bağlanmalı.
+- **Backfill:** `scripts/backfill-makeup-sla.ts` (dry-run varsayılan, `--apply`
+  ile kalıcı) — tahmin yöntemi kasıtlı basit (`decidedAt ≈ createdAt`, gerçek
+  onay tarihi geçmiş kayıtlarda tutulmuyordu). **Henüz çalıştırılmadı** —
+  üretim/demo veritabanına karşı çalıştırmadan önce ürün sahibi onayı
+  gerekli (bkz. Riskler).
+- **AI sebep-çıkarımı — YARI TAMAMLANDI:** `inferMakeupReasonConfidence` saf,
+  test edilmiş sezgisel fonksiyon var (düşük/yüksek güven ayrımı) ama
+  `markAttendance`/telafi oluşturma akışına veya WhatsApp orchestrator'ına
+  BAĞLANMADI — bu, halihazırda yoğun test kapsamlı `markAttendance` akışını
+  bu turda riske atmamak için bilinçli bir kapsam kararı. Sonuç: "bilgi
+  bekleniyor" durumu ŞEMADA var ve manuel olarak set edilebilir, ama AI şu an
+  otomatik olarak bu duruma düşürmüyor.
+- **UI — KISMİ:** `/panel/telafi`'ye karar notu formu (`MakeupDecisionForm`),
+  geçmiş tablosuna SLA/karar notu/karar tarihi sütunları ve CSV export linki
+  eklendi ve commit'lendi (institution-scope/AI-insight/dark-mode'dan güvenle
+  izole edildi — bkz. EPIC 4'teki aynı teknik). **Tam filtre çubuğu (tarih
+  aralığı, öğrenci/veli/öğretmen/şube/durum/neden/SLA durumu araması) ve
+  artan-seviye renkli SLA rozetleri eklenmedi** — zaman kısıtı nedeniyle
+  kapsam dışı bırakıldı, gelecek bir turda eklenmeli. `/panel/page.tsx`
+  dashboard'undaki "açık talep" sayacına `awaiting_info` dahil edildi ama bu
+  dosya (EPIC 3/4'te de olduğu gibi) institution-scope/dark-mode/AI-widget
+  ile iç içe geçtiği için commit'e alınamadı.
+- **CSV export — TAM:** `institution-export.ts`'teki `makeupRequests` varlığı
+  öğrenci/veli/ana öğretmen adı, SLA son tarihi/seviyesi, karar notu/veren/
+  tarihi dahil tüm istenen sütunlarla genişletildi.
 
 ---
 
