@@ -778,7 +778,7 @@ kapsam dışı bırakıldı):**
 
 ## EPIC 5 — Duyuru merkezi [P1]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟡 Kısmen tamamlandı (commit `cc94840`) — bkz. "Tamamlanan (uygulama özeti)".
 
 ### Mevcut durum
 Hiç yok.
@@ -832,6 +832,58 @@ Yeni tablolar — kaldırmak mevcut hiçbir ekranı bozmaz.
 
 ### Bağımlılıklar
 EPIC 4 (studentType hedeflemesi için), EPIC 1 (bildirim altyapısı paylaşımı).
+
+### Tamamlanan (uygulama özeti — commit `cc94840`)
+- Şema: `Announcement` (tenant-scoped, `title`/`body`/`attachmentUrl?`/
+  `audienceType`/`audienceRef Json?`/`status`/`pinned`/`publishAt?`/
+  `expireAt?`/`createdBy`) ve `AnnouncementRead` (`@@unique([announcementId,
+  userId])` — çift okuma kaydı oluşmaz). Mode parity:
+  `src/lib/announcements/index.ts` (json/memory dosya store + db, `cases.ts`/
+  `notifications` ile birebir aynı desen).
+- `src/lib/announcements/audience.ts`: `matchesAudience`/`isVisibleNow` —
+  saf fonksiyonlar (I/O yok), her `audienceType` için ayrı ayrı test edildi
+  (`announcements-audience.test.ts`, 18 test). `branch`/`selected` için
+  `audienceRef` eksikse **fail-closed** (kimse görmez) — plan'ın "yanlış
+  kişiye sızma" riskine karşı kasıtlı tasarım. `students` audienceType,
+  ayrı bir STUDENT rolü henüz olmadığından (EPIC 6A) `parents` ile aynı
+  alıcı kümesine eşlenir; not eklendi.
+- Servis tool'ları (`src/lib/services/tools.ts`): `createAnnouncementTool`/
+  `updateAnnouncementStatusTool`/`listAllAnnouncementsTool` (SCHOOL_ADMIN/
+  SUPER_ADMIN), `listAnnouncementsForUserTool` (herkes — `matchesAudience`
+  + `isVisibleNow` ile SUNUCU tarafında filtrelenir, draft/archived veya
+  yayın penceresi dışındaki hiçbir duyuru client'a gitmez),
+  `markAnnouncementReadTool` (herkes, idempotent), `listAnnouncementReadersTool`
+  (admin — "kim okudu" tablosu). Yeni RBAC izinleri: `announcements:read`
+  (tüm roller), `announcements:write` (yalnızca admin'ler).
+- Yeni API: `POST/GET /api/v1/announcements`, `POST
+  /api/v1/announcements/[id]/read`, `GET /api/v1/announcements/[id]/readers`,
+  `GET+PATCH /api/v1/announcements/manage`.
+- UI: `/panel/duyurular` (yeni, admin — oluşturma formu: başlık/içerik/hedef
+  kitle/şube veya öğrenci türü veya userId listesi/hemen yayınla veya
+  taslak/sabitleme; liste: durum rozeti, yayınla/arşivle butonları). `/veli`
+  portalına "Duyurular" widget'ı (aynı `listAnnouncementsForUserTool`
+  çağrısını kullanır — UI'da ayrıca filtrelemeye GEREK yok, zaten sunucudan
+  hedefte olan veri gelir). `resetDemoTool` artık `clearAnnouncements` de
+  çağırıyor. `statusLabel`/`statusColor`'a `published`/`archived` eklendi.
+- Testler: `announcements-audience.test.ts` (18 test — plan'ın istediği tam
+  matris: her audienceType için hedefte olan görür/olmayan görmez, artı
+  yayın penceresi testleri), `announcements.test.ts` (26 test — RBAC,
+  draft'ın portale sızmadığı, branch hedeflemesinin şubeler arası izole
+  olduğu, expireAt geçmişse gizlendiği, okundu-işaretlemenin idempotent
+  olduğu, publish sonrası portale çıktığı). Toplam 622/622 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil.
+
+**Ertelenen / bu turda yapılmayan:**
+- Sidebar'a "Duyurular" nav linki ve `/ogretmen` portalına duyuru widget'ı —
+  `src/components/sidebar.tsx` (nav dizisi önceki oturumdan kalma kurum-
+  seçici/tema entegrasyonuyla tamamen yeniden sıralanmış) ve
+  `src/app/ogretmen/page.tsx` (121 satırlık diff) satır bazında güvenli
+  izolasyon için çok iç içe geçmiş — EPIC 1/4/10'daki aynı gerekçeyle
+  diskte (çalışır durumda) bırakıldı, commit'e dahil edilmedi. Backend
+  (`listAnnouncementsForUserTool`, TEACHER rolü için de test edildi) tam
+  çalışır durumda; yalnızca bu iki dosyadaki görsel entegrasyon eksik.
+- Duyuru için ayrı bir eklenti/görsel yükleme akışı — yalnızca `attachmentUrl`
+  (dış URL) alanı var, dosya yükleme UI'ı bu turda kapsam dışı.
 
 ---
 
