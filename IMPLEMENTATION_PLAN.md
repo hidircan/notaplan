@@ -889,7 +889,7 @@ EPIC 4 (studentType hedeflemesi için), EPIC 1 (bildirim altyapısı paylaşım�
 
 ## EPIC 7 — Öğretmen gelişim değerlendirme formu + PDF [P1/P2]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟢 Tamamlandı (commit `3f44ae7`) — bkz. "Tamamlanan (uygulama özeti)" altında.
 
 ### Mevcut durum
 Hiç yok. `src/lib/receipt.ts`'in "view-model + PDF/print sayfası" deseni
@@ -950,6 +950,58 @@ Yeni tablo — additive.
 ### Bağımlılıklar
 EPIC 0 (audit — "gelişim raporu" kritik işlem listesinde), EPIC 6 (portal UI'ları
 bu formu/raporu gösterecek yer).
+
+### Tamamlanan (uygulama özeti — commit `3f44ae7`)
+- Şema: `LessonAssessment` (tenant-scoped, `lessonId`/`studentId`/`teacherId`
+  düz string — `@relation` yok, Notification/Announcement ile aynı gerekçe).
+  A–E bölümlerinin her maddesi **düz `Int` sütun** (JSON değil) — plan'ın
+  istediği gibi SQL agregasyonuna uygun. Sabit rubrik: A. Teknik
+  (teknikBecerisi, notaOkuma), B. Müzikalite (muzikalite, ritimDuyusu),
+  C. Çalışma Disiplini (calismaDuzeni, evOdeviTamamlama), D. Katılım
+  (dersKatilimi, motivasyon), E. Genel Gelişim (genelIlerleme,
+  hedefeUlasma). Artı `strengthNote`/`nextStepsNote`/`improvementNote`
+  (zorunlu), `parentPrivateNote` (opsiyonel), `parentNoteVisibleToStudent`
+  (varsayılan false), `teacherSignedName`/`teacherSignedAt` (sunucu
+  saatiyle damgalanır). Mode parity: `src/lib/assessment/index.ts`
+  (`cases.ts`/`notifications`/`announcements` ile birebir aynı desen).
+- `src/lib/assessment/score.ts` (saf fonksiyonlar): `computeOverallScore`/
+  `computeSectionScore` (10/2 maddelik ortalama), `computeTrend` (son N
+  değerlendirmeyi tarihe göre sıralı puan noktalarına çevirir — rapor
+  grafiği için), `canViewParentPrivateNote`/`stripPrivateNoteForRecipient`
+  (alan API SEVİYESİNDE tamamen çıkarılır, yalnızca UI'da gizlenmez — plan'ın
+  "Riskler" bölümünün istediği güvence). Henüz STUDENT rolü olmadığından
+  (EPIC 6A) bu fonksiyon `role: string` alır ve testte "STUDENT" string'i
+  simüle edilerek doğrulanır.
+- Servis tool'ları: `createAssessmentTool` (TEACHER yalnızca kendi öğrencisi
+  — `student.teacherId === ctx.teacherId`; SCHOOL_ADMIN/SUPER_ADMIN herkes
+  için; `teacherId` her zaman öğrencinin ATANMIŞ öğretmeninden alınır, istek
+  gövdesinden değil), `listAssessmentsForStudentTool`/`getAssessmentTool`/
+  `getAssessmentReportTool` (erişim: `canAccessStudent` + TEACHER için ek
+  sahiplik kontrolü — plan'ın "mevcut canAccessStudent'ın TEACHER için
+  'true, filtrelenir' kuralını somut uygula" isteği). Yeni RBAC izinleri:
+  `assessments:read` (tüm roller), `assessments:write` (TEACHER + admin'ler).
+- Yeni API: `POST /api/v1/assessments`, `GET /api/v1/assessments/[studentId]`,
+  `GET /api/v1/assessments/[studentId]/report`.
+- UI: `/degerlendirme/[assessmentId]` ve `/degerlendirme/rapor/[studentId]`
+  — `src/lib/receipt.ts` + `makbuz` sayfasıyla AYNI PDF/print deseni
+  (`@media print`, `print:hidden` aksiyon çubuğu, `AssessmentActions`
+  bileşeni `ReceiptActions`'ın birebir eşi). `/ogretmen/degerlendirme`
+  (kendi öğrenci listesi) ve `/ogretmen/degerlendirme/[studentId]` (puan
+  formu + geçmiş) — mevcut `/ogretmen/page.tsx`'e DOKUNMADAN, `/ogretmen/
+  hakedis` ile aynı "ayrı alt-route" deseniyle eklendi (o dosya önceki
+  oturumdan kalma kurum-kapsamı değişiklikleriyle çok iç içe geçmişti — EPIC
+  1/5'teki aynı kararla dosyayı hiç düzenlemeden tam işlevsellik sağlandı).
+  `/veli` portalına "Gelişim raporunu görüntüle" linki eklendi.
+- Testler: `assessment-score.test.ts` (13 test — skor/trend hesaplama,
+  parentPrivateNote görünürlük matrisi), `assessment-visibility.test.ts`
+  (10 test — TEACHER sahiplik kısıtı hem oluşturma hem okumada, PARENT
+  yalnızca kendi çocuğu, puan aralığı dışı VALIDATION_ERROR, cross-teacher
+  erişim FORBIDDEN, rapor trend uzunluğu). Toplam 645/645 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil.
+
+**Not:** EPIC 6 (STUDENT rolü/portalı) henüz yok — bu yüzden "öğrenci kendi
+raporunu görsün" senaryosu bu turda test edilemedi (rol yok); backend zaten
+buna hazır (`stripPrivateNoteForRecipient` forward-compat).
 
 ---
 
