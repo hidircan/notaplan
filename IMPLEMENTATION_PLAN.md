@@ -1007,7 +1007,10 @@ buna hazır (`stripPrivateNoteForRecipient` forward-compat).
 
 ## EPIC 6 — Öğrenci, veli, öğretmen portalı [P1/P2]
 
-**Durum:** 🔴 Planlandı (uygulanmadı — en büyük, en riskli epic)
+**Durum:** 🟡 Kısmen tamamlandı — yalnızca 6A (STUDENT rolü + boş `/ogrenci`
+iskelet) yapıldı, commit `042be50`. 6B/6C/6D (ödev/materyal, dosya erişim
+token'ı, memnuniyet formu) henüz PLANLANDI — bkz. aşağıdaki "Riskler"
+bölümündeki 5 adımlı bölünme, yalnızca adım (1) tamamlandı.
 
 ### Mevcut durum
 `/veli` bugün TEK, sabit bir "veli" deneyimi (`session.studentId` ile
@@ -1084,6 +1087,55 @@ kendi tablosuyla additive.
 ### Bağımlılıklar
 EPIC 4 (içerik hedefleme), EPIC 7 (gelişim raporu — portallarda gösterilecek),
 EPIC 0 (dosya erişim güvenliği), EPIC 5 (duyurular portallarda gösterilecek).
+
+### Tamamlanan — yalnızca 6A (uygulama özeti — commit `042be50`)
+- `APP_ROLES`'a `STUDENT` eklendi (additive — mevcut 5 rolün davranışı
+  değişmedi). `rbac.ts`: STUDENT bilinçli olarak DAR bir izin setiyle
+  (`students:read`/`notifications:read`/`announcements:read`/
+  `assessments:read`) — hiçbir `*:write` izni yok; opt-out/mesajlaşma/ödeme
+  veli veya admin kararı olarak kalıyor.
+- `services/context.ts`: `canAccessStudent` artık STUDENT'ı PARENT ile aynı
+  şekilde kapsıyor (`ctx.studentId === studentId`); `canAccessTeacher` STUDENT
+  için her zaman false; `isStaff` STUDENT'ı dışarıda bırakıyor.
+- Sürpriz güzel haber: `listNotificationsForUser`/`listAnnouncementsForUserTool`/
+  `listAssessmentsForStudentTool` (EPIC 1/5/7'de zaten `canAccessStudent` +
+  hedef kitle eşleştirmesi üzerine kurulmuştu, sabit rol listesi değil) STUDENT
+  için SIFIR ek kod değişikliğiyle doğru şekilde çalıştı — yalnızca
+  `getStudentScheduleTool`'un sabit rol dizisine STUDENT eklendi.
+  `matchesAudience`'ın "students" hedefi (önceden PARENT'a eşlenen geçici bir
+  yer tutucuydu) artık gerçekten yalnızca STUDENT rolüne ulaşıyor; "parents"
+  yalnızca PARENT'a daraltıldı (`announcements-audience.test.ts` güncellendi).
+- Yeni demo kimliği: `user_student_s1` (`ogrenci@email.com` /
+  `demo-student`) — veli demosuyla (`selin@email.com`) AYNI öğrenciyi (s1)
+  temsil eder, birbirinin yerini almaz. `login-form.tsx`'e demo persona +
+  rol bazlı yönlendirme eklendi.
+- `src/middleware.ts`: `/ogrenci` artık `/panel`/`/veli`/`/ogretmen` ile aynı
+  JWT-varlık korumasına sahip. `homePathForRole` STUDENT → `/ogrenci`
+  eşlemesini biliyor (login/landing sayfası otomatik doğru yere yönlendiriyor).
+- Yeni `/ogrenci` sayfası — BİLİNÇLİ OLARAK dar kapsamlı "iskelet": kendi
+  yaklaşan dersleri, bildirimleri, duyuruları (hedef kitlede ise), EPIC 7
+  gelişim raporuna bağlantı. Ödev/materyal/geri bildirim formu YOK (6B/6C/6D).
+- Testler: `rbac-student-role.test.ts` (17 test — izin matrisi, `isStaff`
+  false, `canAccessStudent`/`canAccessTeacher` sınırları, yazma tool'larının
+  hepsinin FORBIDDEN döndüğü, okuma tool'larının doğru kapsandığı,
+  `parentPrivateNote`'un `parentNoteVisibleToStudent=false` iken STUDENT'a
+  hâlâ sızmadığı — EPIC 7'nin forward-compat tasarımının gerçek doğrulaması).
+  `announcements-audience.test.ts` "students"/"parents" ayrışması için
+  güncellendi. Toplam 659/659 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil
+  (bu adım şema değişikliği içermiyor — App katmanı + RBAC).
+
+**Ertelenen (sidebar linki):** `/panel`'e "Duyurular" (EPIC 5'ten kalan) ve
+portallar listesine "Öğrenci portalı" linki `src/components/sidebar.tsx`'e
+eklendi ama dosya önceki oturumdan kalma `nav` dizisi yeniden sıralamasıyla
+o kadar iç içe geçmiş ki (158 satırlık toplam diff) satır bazında izolasyon
+pratik değildi — diskte çalışır durumda, commit'e dahil edilmedi (EPIC 1/5/7
+ile aynı gerekçe). `/ogrenci` ve `/panel/duyurular` doğrudan URL ile
+erişilebilir, yalnızca sidebar'da görünür değiller.
+
+**Henüz yapılmayan (6B/6C/6D — ayrı bir turda):** Homework/HomeworkSubmission/
+TeachingMaterial modelleri, dosya/video erişim token'ı, TeacherFeedback
+(memnuniyet formu), çocuk hesabı yaş/onay politikası ürün kararı.
 
 ---
 
