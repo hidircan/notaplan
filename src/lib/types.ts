@@ -172,6 +172,17 @@ export interface Payment {
   method?: string;
 }
 
+/**
+ * EPIC 3 (IMPLEMENTATION_PLAN.md) — kesirli ders süresinin ödenecek dakikaya
+ * nasıl çevrileceği:
+ * - "exact_minutes" (varsayılan): gerçek dakika üzerinden.
+ * - "round_30": her dersin süresi, öğretmen lehine 30 dakikalık dilime
+ *   YUKARI yuvarlanır (ör. 35dk → 60dk, 65dk → 90dk).
+ * - "fixed_package": gerçek süre yok sayılır, okulun standart ders süresi
+ *   (`lessonDurationMinutes`) esas alınır.
+ */
+export type FeeRoundingMode = "exact_minutes" | "round_30" | "fixed_package";
+
 export interface SchoolSettings {
   /** Multi-tenant id — set at seed / DB; never from client */
   tenantId: string;
@@ -188,6 +199,49 @@ export interface SchoolSettings {
   workingDays: number[];
   currency: string;
   branches: Branch[];
+  feeRoundingMode: FeeRoundingMode;
+}
+
+/**
+ * Öğretmenin dakika başı ücreti. `branchId`/`instrument` verilmezse o alan
+ * için "tüm şubeler"/"tüm enstrümanlar" anlamına gelir — bkz.
+ * `resolveFeeRule` (src/lib/teacher-payout.ts) için spesifiklik önceliği.
+ * Aynı kapsamda (teacherId+branchId+instrument) tarihi çakışan iki kural
+ * aynı anda var olamaz.
+ */
+export interface TeacherFeeRule {
+  id: string;
+  teacherId: string;
+  branchId?: BranchId;
+  instrument?: Instrument;
+  perMinuteRate: number;
+  /** ISO tarih — bu tarihten itibaren (dahil) geçerli */
+  effectiveFrom: string;
+  /** ISO tarih — verilmezse açık uçlu; verilirse bu tarih dahil geçerli */
+  effectiveTo?: string;
+  createdAt: string;
+}
+
+/**
+ * Bir dönem için öğretmene ödenecek/ödenen tutarın donmuş kaydı.
+ * `totalMinutes`/`totalAmount` oluşturma anında hesaplanır ve `TeacherFeeRule`
+ * sonradan değişse bile bir daha yeniden hesaplanmaz. `Payment` (öğrenci →
+ * okul tahsilatı) ile hiçbir ilişkisi yoktur — bilinçli olarak ayrı bir
+ * varlıktır.
+ */
+export interface TeacherPayout {
+  id: string;
+  teacherId: string;
+  /** ISO tarih — dönemin ilk günü */
+  periodStart: string;
+  /** ISO tarih — dönemin son günü (dahil) */
+  periodEnd: string;
+  totalMinutes: number;
+  totalAmount: number;
+  status: "pending" | "paid";
+  paidAt?: string;
+  method?: string;
+  generatedAt: string;
 }
 
 export interface AppData {
@@ -200,4 +254,6 @@ export interface AppData {
   attendances: Attendance[];
   makeupRequests: MakeupRequest[];
   payments: Payment[];
+  teacherFeeRules: TeacherFeeRule[];
+  teacherPayouts: TeacherPayout[];
 }

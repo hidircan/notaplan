@@ -24,6 +24,8 @@ model Tenant {
   makeupRequests MakeupRequest[]
   payments  Payment[]
   followUpCases PaymentFollowUpCase[]
+  teacherFeeRules TeacherFeeRule[]
+  teacherPayouts  TeacherPayout[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -64,6 +66,12 @@ model School {
   workingHoursEnd       String
   workingDays           Json
   currency              String
+  /// EPIC 3 (IMPLEMENTATION_PLAN.md): "exact_minutes" | "round_30" | "fixed_package" —
+  /// how a lesson's actual duration is converted to payable minutes in
+  /// computeTeacherEarningsForPeriod (src/lib/teacher-payout.ts). Never
+  /// changes a TeacherPayout snapshot already generated — only affects
+  /// future computations.
+  feeRoundingMode       String    @default("exact_minutes")
   branches              Branch[]
   teachers              Teacher[]
   students              Student[]
@@ -73,6 +81,8 @@ model School {
   attendances           Attendance[]
   makeupRequests        MakeupRequest[]
   payments              Payment[]
+  teacherFeeRules       TeacherFeeRule[]
+  teacherPayouts        TeacherPayout[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -97,6 +107,7 @@ model Branch {
   lessons        Lesson[]
   lessonSeries   LessonSeries[]
   makeupRequests MakeupRequest[]
+  teacherFeeRules TeacherFeeRule[]
 
   @@index([tenantId])
   @@index([schoolId])
@@ -122,6 +133,8 @@ model Teacher {
   lessons         Lesson[]
   lessonSeries    LessonSeries[]
   makeupRequests  MakeupRequest[]
+  teacherFeeRules TeacherFeeRule[]
+  teacherPayouts  TeacherPayout[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -240,6 +253,56 @@ model LessonSeries {
 
   @@index([tenantId])
   @@index([schoolId])
+}
+
+/// Öğretmen dakika-başı ücreti. `branchId`/`instrument` null ise o alan
+/// için "tüm şubeler"/"tüm enstrümanlar" anlamına gelir. Aynı kapsamda
+/// (teacherId+branchId+instrument) tarihi çakışan iki kural uygulama
+/// katmanında engellenir (bkz. src/lib/teacher-payout.ts validateFeeRuleInput).
+model TeacherFeeRule {
+  id            String    @id
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacher       Teacher   @relation(fields: [teacherId], references: [id])
+  teacherId     String
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId      String
+  branch        Branch?   @relation(fields: [branchId], references: [id])
+  branchId      String?
+  instrument    String?
+  perMinuteRate Float
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([teacherId])
+}
+
+/// Bir dönem için öğretmene ödenecek/ödenen tutarın donmuş (snapshot)
+/// kaydı. totalMinutes/totalAmount oluşturma anında hesaplanır ve
+/// TeacherFeeRule sonradan değişse bile bir daha yeniden hesaplanmaz.
+/// Payment (öğrenci -> okul) ile ilişkisi yoktur, bilinçli olarak ayrıdır.
+model TeacherPayout {
+  id           String    @id
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacher      Teacher   @relation(fields: [teacherId], references: [id])
+  teacherId    String
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId     String
+  periodStart  DateTime
+  periodEnd    DateTime
+  totalMinutes Int
+  totalAmount  Float
+  status       String
+  paidAt       DateTime?
+  method       String?
+  generatedAt  DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([teacherId])
+  @@unique([teacherId, periodStart, periodEnd])
 }
 
 model Attendance {

@@ -4,11 +4,13 @@ import type {
   AppData,
   AttendanceStatus,
   Branch,
+  FeeRoundingMode,
   Instrument,
   MakeupSlot,
   Room,
   Student,
   Teacher,
+  TeacherFeeRule,
 } from "./types";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
@@ -16,6 +18,12 @@ import type { RoomImportRow } from "./import/rooms";
 import type { StudentImportRow } from "./import/students";
 import type { ImportCommitResult } from "./import/commit-result";
 import type { CreateSeriesResult, SeriesCancelResult, SeriesParams } from "./lesson-series";
+import type {
+  FeeRuleInput,
+  FeeRuleMutationResult,
+  CreateTeacherPayoutResult,
+  MarkPayoutPaidResult,
+} from "./teacher-payout";
 
 type StoreApi = {
   readData: () => Promise<AppData>;
@@ -63,6 +71,18 @@ type StoreApi = {
   ) => Promise<CreateSeriesResult>;
   cancelLessonSeriesFromLesson: (lessonId: string) => Promise<SeriesCancelResult>;
   cancelEntireLessonSeries: (seriesId: string) => Promise<SeriesCancelResult>;
+  addTeacherFeeRule: (input: FeeRuleInput) => Promise<FeeRuleMutationResult>;
+  updateTeacherFeeRule: (
+    ruleId: string,
+    patch: Partial<Omit<TeacherFeeRule, "id" | "createdAt">>
+  ) => Promise<FeeRuleMutationResult>;
+  createTeacherPayout: (
+    teacherId: string,
+    periodStart: string,
+    periodEnd: string
+  ) => Promise<CreateTeacherPayoutResult>;
+  markTeacherPayoutPaid: (payoutId: string, method?: string) => Promise<MarkPayoutPaidResult>;
+  updateFeeRoundingMode: (feeRoundingMode: FeeRoundingMode) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -240,6 +260,36 @@ export async function cancelLessonSeriesFromLesson(lessonId: string): Promise<Se
 
 export async function cancelEntireLessonSeries(seriesId: string): Promise<SeriesCancelResult> {
   return withTenantScope(() => store.cancelEntireLessonSeries(seriesId));
+}
+
+export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMutationResult> {
+  return withTenantScope(() => store.addTeacherFeeRule(input));
+}
+
+export async function updateTeacherFeeRule(
+  ruleId: string,
+  patch: Partial<Omit<TeacherFeeRule, "id" | "createdAt">>
+): Promise<FeeRuleMutationResult> {
+  return withTenantScope(() => store.updateTeacherFeeRule(ruleId, patch));
+}
+
+export async function createTeacherPayout(
+  teacherId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<CreateTeacherPayoutResult> {
+  return withTenantScope(() => store.createTeacherPayout(teacherId, periodStart, periodEnd));
+}
+
+export async function markTeacherPayoutPaid(
+  payoutId: string,
+  method?: string
+): Promise<MarkPayoutPaidResult> {
+  return withTenantScope(() => store.markTeacherPayoutPaid(payoutId, method));
+}
+
+export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
+  return withTenantScope(() => store.updateFeeRoundingMode(feeRoundingMode));
 }
 
 export function getDashboardStats(data: AppData) {

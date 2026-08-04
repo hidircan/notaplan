@@ -395,6 +395,19 @@ export function createSeedData(): AppData {
     { id: "p8", studentId: "s8", amount: 5800, paidAmount: 0, status: "pending" as const, dueDate: at(2, 0), description: "Temmuz 2026 — Piyano 8 ders (Erzene)" },
   ];
 
+  // Her mevcut demo öğretmen için taban dakika ücreti — teacherId-only kapsam
+  // (şube/enstrüman daraltması yok), 2020-01-01'den itibaren açık uçlu.
+  // Sabit geçmiş tarih kasıtlı: seed dersleri "bugüne göre" göreli üretilir
+  // (bkz. `at()`), bu yüzden gerçek takvim tarihinden bağımsız olarak her
+  // zaman tüm seed derslerinden önce kalır.
+  const teacherFeeRules = teachers.map((t) => ({
+    id: `fee_${t.id}`,
+    teacherId: t.id,
+    perMinuteRate: 11.5,
+    effectiveFrom: "2020-01-01",
+    createdAt: at(-90, 8),
+  }));
+
   return {
     settings: {
       tenantId: DEFAULT_TENANT_ID,
@@ -410,6 +423,7 @@ export function createSeedData(): AppData {
       workingHours: { start: "09:00", end: "21:00" },
       workingDays: [1, 2, 3, 4, 5, 6],
       currency: "TRY",
+      feeRoundingMode: "exact_minutes",
       branches,
     },
     teachers,
@@ -420,5 +434,7 @@ export function createSeedData(): AppData {
     attendances,
     makeupRequests,
     payments,
+    teacherFeeRules,
+    teacherPayouts: [],
   };
 }

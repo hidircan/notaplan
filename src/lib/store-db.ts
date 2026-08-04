@@ -6,12 +6,14 @@ import type {
   AppData,
   AttendanceStatus,
   BranchId,
+  FeeRoundingMode,
   Instrument,
   LessonSeriesStatus,
   MakeupSlot,
   Room,
   Student,
   Teacher,
+  TeacherFeeRule,
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
@@ -23,6 +25,16 @@ import {
   type CreateSeriesResult,
   type SeriesCancelResult,
 } from "./lesson-series";
+import {
+  createTeacherFeeRuleData,
+  updateTeacherFeeRuleData,
+  createTeacherPayoutSnapshot,
+  markTeacherPayoutPaidData,
+  type FeeRuleInput,
+  type FeeRuleMutationResult,
+  type CreateTeacherPayoutResult,
+  type MarkPayoutPaidResult,
+} from "./teacher-payout";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -49,6 +61,8 @@ type PrismaSchoolWithRelations = Prisma.SchoolGetPayload<{
     attendances: true;
     makeupRequests: true;
     payments: true;
+    teacherFeeRules: true;
+    teacherPayouts: true;
   };
 }>;
 
@@ -71,6 +85,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       },
       workingDays: school.workingDays as number[],
       currency: school.currency,
+      feeRoundingMode: school.feeRoundingMode as FeeRoundingMode,
       branches: school.branches.map((branch) => ({
         id: branch.id as BranchId,
         name: branch.name,
@@ -183,6 +198,28 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       description: payment.description,
       method: payment.method ?? undefined,
     })),
+    teacherFeeRules: school.teacherFeeRules.map((rule) => ({
+      id: rule.id,
+      teacherId: rule.teacherId,
+      branchId: (rule.branchId as BranchId) ?? undefined,
+      instrument: (rule.instrument as Instrument) ?? undefined,
+      perMinuteRate: rule.perMinuteRate,
+      effectiveFrom: rule.effectiveFrom.toISOString(),
+      effectiveTo: rule.effectiveTo?.toISOString() ?? undefined,
+      createdAt: rule.createdAt.toISOString(),
+    })),
+    teacherPayouts: school.teacherPayouts.map((payout) => ({
+      id: payout.id,
+      teacherId: payout.teacherId,
+      periodStart: payout.periodStart.toISOString(),
+      periodEnd: payout.periodEnd.toISOString(),
+      totalMinutes: payout.totalMinutes,
+      totalAmount: payout.totalAmount,
+      status: payout.status as "pending" | "paid",
+      paidAt: payout.paidAt?.toISOString() ?? undefined,
+      method: payout.method ?? undefined,
+      generatedAt: payout.generatedAt.toISOString(),
+    })),
   };
 }
 
@@ -220,6 +257,8 @@ async function seedDatabase(seed: AppData) {
 
   await prisma.$transaction([
     prisma.user.deleteMany({ where: { tenantId: tid } }),
+    prisma.teacherPayout.deleteMany({ where: { tenantId: tid } }),
+    prisma.teacherFeeRule.deleteMany({ where: { tenantId: tid } }),
     prisma.attendance.deleteMany({ where: { tenantId: tid } }),
     prisma.makeupRequest.deleteMany({ where: { tenantId: tid } }),
     prisma.payment.deleteMany({ where: { tenantId: tid } }),
@@ -259,6 +298,7 @@ async function seedDatabase(seed: AppData) {
       workingHoursEnd: seed.settings.workingHours.end,
       workingDays: seed.settings.workingDays,
       currency: seed.settings.currency,
+      feeRoundingMode: seed.settings.feeRoundingMode,
       branches: {
         create: seed.settings.branches.map((branch) => ({
           id: branch.id,
@@ -422,6 +462,46 @@ async function seedDatabase(seed: AppData) {
     )
   );
 
+  await Promise.all(
+    seed.teacherFeeRules.map((rule) =>
+      prisma.teacherFeeRule.create({
+        data: {
+          id: rule.id,
+          tenantId: tid,
+          teacherId: rule.teacherId,
+          schoolId: school.id,
+          branchId: rule.branchId,
+          instrument: rule.instrument,
+          perMinuteRate: rule.perMinuteRate,
+          effectiveFrom: new Date(rule.effectiveFrom),
+          effectiveTo: rule.effectiveTo ? new Date(rule.effectiveTo) : undefined,
+          createdAt: new Date(rule.createdAt),
+        },
+      })
+    )
+  );
+
+  await Promise.all(
+    seed.teacherPayouts.map((payout) =>
+      prisma.teacherPayout.create({
+        data: {
+          id: payout.id,
+          tenantId: tid,
+          teacherId: payout.teacherId,
+          schoolId: school.id,
+          periodStart: new Date(payout.periodStart),
+          periodEnd: new Date(payout.periodEnd),
+          totalMinutes: payout.totalMinutes,
+          totalAmount: payout.totalAmount,
+          status: payout.status,
+          paidAt: payout.paidAt ? new Date(payout.paidAt) : undefined,
+          method: payout.method,
+          generatedAt: new Date(payout.generatedAt),
+        },
+      })
+    )
+  );
+
   // Auth users for this tenant (bcrypt hashed)
   await prisma.user.createMany({
     data: getBootstrapUsersForSeed(tid).map((u) => ({
@@ -443,6 +523,8 @@ const schoolInclude = {
   attendances: true,
   makeupRequests: true,
   payments: true,
+  teacherFeeRules: true,
+  teacherPayouts: true,
 } as const;
 
 export async function readData(): Promise<AppData> {
@@ -1206,6 +1288,117 @@ export async function cancelEntireLessonSeries(seriesId: string): Promise<Series
   });
 
   return { ok: true, data: await readData(), cancelledLessonIds: result.cancelledLessonIds };
+}
+
+async function requireTeacherSchoolId(tid: string, teacherId: string): Promise<string> {
+  const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, tenantId: tid } });
+  if (!teacher) throw new Error("Öğretmen bulunamadı");
+  return teacher.schoolId;
+}
+
+export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMutationResult> {
+  logger.info("addTeacherFeeRule", input.teacherId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = createTeacherFeeRuleData(data, input);
+  if (!result.ok) return result;
+
+  const schoolId = await requireTeacherSchoolId(tid, input.teacherId);
+  await prisma.teacherFeeRule.create({
+    data: {
+      id: result.rule.id,
+      tenantId: tid,
+      teacherId: result.rule.teacherId,
+      schoolId,
+      branchId: result.rule.branchId,
+      instrument: result.rule.instrument,
+      perMinuteRate: result.rule.perMinuteRate,
+      effectiveFrom: new Date(result.rule.effectiveFrom),
+      effectiveTo: result.rule.effectiveTo ? new Date(result.rule.effectiveTo) : undefined,
+      createdAt: new Date(result.rule.createdAt),
+    },
+  });
+
+  return { ok: true, data: await readData(), rule: result.rule };
+}
+
+export async function updateTeacherFeeRule(
+  ruleId: string,
+  patch: Partial<Omit<TeacherFeeRule, "id" | "createdAt">>
+): Promise<FeeRuleMutationResult> {
+  logger.info("updateTeacherFeeRule", ruleId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = updateTeacherFeeRuleData(data, ruleId, patch);
+  if (!result.ok) return result;
+
+  await prisma.teacherFeeRule.updateMany({
+    where: { id: ruleId, tenantId: tid },
+    data: {
+      teacherId: result.rule.teacherId,
+      branchId: result.rule.branchId ?? null,
+      instrument: result.rule.instrument ?? null,
+      perMinuteRate: result.rule.perMinuteRate,
+      effectiveFrom: new Date(result.rule.effectiveFrom),
+      effectiveTo: result.rule.effectiveTo ? new Date(result.rule.effectiveTo) : null,
+    },
+  });
+
+  return { ok: true, data: await readData(), rule: result.rule };
+}
+
+export async function createTeacherPayout(
+  teacherId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<CreateTeacherPayoutResult> {
+  logger.info("createTeacherPayout", teacherId, periodStart, periodEnd);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = createTeacherPayoutSnapshot(data, teacherId, periodStart, periodEnd);
+  if (!result.ok) return result;
+
+  const schoolId = await requireTeacherSchoolId(tid, teacherId);
+  await prisma.teacherPayout.create({
+    data: {
+      id: result.payout.id,
+      tenantId: tid,
+      teacherId: result.payout.teacherId,
+      schoolId,
+      periodStart: new Date(result.payout.periodStart),
+      periodEnd: new Date(result.payout.periodEnd),
+      totalMinutes: result.payout.totalMinutes,
+      totalAmount: result.payout.totalAmount,
+      status: result.payout.status,
+      generatedAt: new Date(result.payout.generatedAt),
+    },
+  });
+
+  return { ok: true, data: await readData(), payout: result.payout };
+}
+
+export async function markTeacherPayoutPaid(
+  payoutId: string,
+  method?: string
+): Promise<MarkPayoutPaidResult> {
+  logger.info("markTeacherPayoutPaid", payoutId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = markTeacherPayoutPaidData(data, payoutId, method);
+  if (!result.ok) return result;
+
+  await prisma.teacherPayout.updateMany({
+    where: { id: payoutId, tenantId: tid },
+    data: { status: "paid", paidAt: new Date(result.payout.paidAt!), method },
+  });
+
+  return { ok: true, data: await readData(), payout: result.payout };
+}
+
+export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
+  const tid = requireTenantId();
+  await prisma.school.update({ where: { tenantId: tid }, data: { feeRoundingMode } });
+  return readData();
 }
 
 export async function addPayment(input: {

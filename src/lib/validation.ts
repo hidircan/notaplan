@@ -127,3 +127,37 @@ export const makeupSlotSchema = z.object({
   score: z.number(),
   reasons: z.array(z.string()),
 });
+
+const INSTRUMENT_ENUM = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
+
+export const createFeeRuleSchema = z.object({
+  teacherId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  instrument: z.enum(INSTRUMENT_ENUM).optional(),
+  perMinuteRate: z.coerce.number().positive(),
+  effectiveFrom: z.string().min(1),
+  effectiveTo: z.string().min(1).optional(),
+});
+
+export const updateFeeRuleSchema = z.object({
+  ruleId: z.string().min(1),
+  teacherId: z.string().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  instrument: z.enum(INSTRUMENT_ENUM).optional(),
+  perMinuteRate: z.coerce.number().positive().optional(),
+  effectiveFrom: z.string().min(1).optional(),
+  effectiveTo: z.string().min(1).optional(),
+});
+
+export const computeTeacherPayoutSchema = z.object({
+  teacherId: z.string().min(1),
+  periodStart: z.string().min(1),
+  periodEnd: z.string().min(1),
+});
+
+export const createTeacherPayoutSchema = computeTeacherPayoutSchema;
+
+export const markTeacherPayoutPaidSchema = z.object({
+  payoutId: z.string().min(1),
+  method: z.string().min(1).optional(),
+});

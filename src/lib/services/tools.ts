@@ -13,11 +13,13 @@ import {
   addRoom,
   addStudent,
   addTeacher,
+  addTeacherFeeRule,
   cancelEntireLessonSeries,
   cancelLesson,
   cancelLessonSeriesFromLesson,
   cancelMakeup,
   confirmSlot,
+  createTeacherPayout,
   generateSuggestions,
   importBranches,
   importRooms,
@@ -25,11 +27,14 @@ import {
   importTeachers,
   markAttendance,
   markPaymentPaid,
+  markTeacherPayoutPaid,
   readData,
   resetData,
   updateBranch,
   updateLessonSchedule,
+  updateTeacherFeeRule,
 } from "../store";
+import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import { suggestMakeupSlots } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
 import {
@@ -58,26 +63,31 @@ import {
   cancelEntireSeriesSchema,
   cancelLessonSchema,
   cancelSeriesFromLessonSchema,
+  computeTeacherPayoutSchema,
+  createFeeRuleSchema,
   createLessonSeriesSchema,
+  createTeacherPayoutSchema,
   lessonSchema,
   lessonSeriesParamsSchema,
   makeupSlotSchema,
+  markTeacherPayoutPaidSchema,
   paymentRecordSchema,
   roomSchema,
   studentSchema,
   suggestLessonSlotsSchema,
   teacherSchema,
   updateBranchSchema,
+  updateFeeRuleSchema,
   updateLessonScheduleSchema,
 } from "../validation";
-import type { BranchId, Instrument, MakeupSlot, Student, Teacher } from "../types";
+import type { BranchId, Instrument, MakeupSlot, Student, Teacher, TeacherFeeRule, TeacherPayout } from "../types";
 import {
   canAccessStudent,
   canAccessTeacher,
   requireRole,
   type ServiceContext,
 } from "./context";
-import { fail, fromZodError, ok, type ServiceResult } from "./result";
+import { fail, fromZodError, ok, type ServiceErrorCode, type ServiceResult } from "./result";
 import { recordAuditLog } from "../audit/log";
 
 /** Fire-and-forget critical-action audit write — never awaited, never blocks the tool's return. */
@@ -965,6 +975,147 @@ export async function createPaymentRecordTool(
     return ok({ paymentId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createPaymentRecord failed");
+  }
+}
+
+function mapFeeRuleErrorCode(
+  code: "INVALID_RATE" | "INVALID_DATE_RANGE" | "OVERLAPPING_RULE" | "NOT_FOUND"
+): ServiceErrorCode {
+  if (code === "NOT_FOUND") return "NOT_FOUND";
+  if (code === "OVERLAPPING_RULE") return "CONFLICT";
+  return "VALIDATION_ERROR";
+}
+
+/** Öğretmen için yeni bir dakika-başı ücret kuralı ekler. */
+export async function createFeeRuleTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ rule: TeacherFeeRule }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createFeeRuleSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await addTeacherFeeRule(v.data);
+    if (!result.ok) return fail(mapFeeRuleErrorCode(result.code), result.message);
+    audit(ctx, "teacher_fee.create", "TeacherFeeRule", result.rule.id, {
+      teacherId: result.rule.teacherId,
+      perMinuteRate: result.rule.perMinuteRate,
+    });
+    return ok({ rule: result.rule });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createFeeRule failed");
+  }
+}
+
+/**
+ * Mevcut bir ücret kuralını günceller. Geçmiş `TeacherPayout` snapshot'ları
+ * bu güncellemeden asla etkilenmez — onlar oluşturuldukları andaki tutarı
+ * kalıcı olarak korur.
+ */
+export async function updateFeeRuleTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ rule: TeacherFeeRule }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateFeeRuleSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const { ruleId, ...patch } = v.data;
+    const result = await updateTeacherFeeRule(ruleId, patch);
+    if (!result.ok) return fail(mapFeeRuleErrorCode(result.code), result.message);
+    audit(ctx, "teacher_fee.update", "TeacherFeeRule", result.rule.id, {
+      teacherId: result.rule.teacherId,
+      perMinuteRate: result.rule.perMinuteRate,
+    });
+    return ok({ rule: result.rule });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateFeeRule failed");
+  }
+}
+
+/**
+ * Bir öğretmenin verilen dönem için hakediş dökümünü hesaplar — hiçbir
+ * kayıt yazmaz (yalnızca önizleme). Yalnızca `lesson.teacherId` ile
+ * filtreler; `Teacher.branchId` ile ek filtre uygulamaz.
+ */
+export async function computeTeacherPayoutTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<TeacherEarningsResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(computeTeacherPayoutSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  if (!data.teachers.some((t) => t.id === v.data.teacherId)) {
+    return fail("NOT_FOUND", "Öğretmen bulunamadı.");
+  }
+
+  const result = computeTeacherEarningsForPeriod(
+    data,
+    v.data.teacherId,
+    v.data.periodStart,
+    v.data.periodEnd
+  );
+  return ok(result);
+}
+
+/**
+ * Bir dönem için hakediş snapshot'ı kalıcı olarak oluşturur. Eksik ücret
+ * kurallı ders varsa veya bu öğretmen+dönem için zaten bir kayıt varsa
+ * reddeder — sessizce 0 TL'lik veya yinelenen kayıt asla oluşturmaz.
+ */
+export async function createTeacherPayoutTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ payout: TeacherPayout }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createTeacherPayoutSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await createTeacherPayout(v.data.teacherId, v.data.periodStart, v.data.periodEnd);
+    if (!result.ok) {
+      const code = result.code === "MISSING_FEE_RULE" ? "VALIDATION_ERROR" : "CONFLICT";
+      const details = result.code === "MISSING_FEE_RULE" ? result.missingFeeRuleLessonIds : undefined;
+      return fail(code, result.message, details);
+    }
+    return ok({ payout: result.payout });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTeacherPayout failed");
+  }
+}
+
+/** Bekleyen bir hakedişi ödendi olarak işaretler. Tutarı asla değiştirmez. */
+export async function markTeacherPayoutPaidTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ payout: TeacherPayout }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(markTeacherPayoutPaidSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await markTeacherPayoutPaid(v.data.payoutId, v.data.method);
+    if (!result.ok) {
+      const code = result.code === "NOT_FOUND" ? "NOT_FOUND" : "CONFLICT";
+      return fail(code, result.message);
+    }
+    return ok({ payout: result.payout });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "markTeacherPayoutPaid failed");
   }
 }
 

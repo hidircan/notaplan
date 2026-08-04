@@ -10,6 +10,7 @@ import type {
   Attendance,
   AttendanceStatus,
   Branch,
+  FeeRoundingMode,
   Instrument,
   Lesson,
   MakeupRequest,
@@ -18,6 +19,7 @@ import type {
   Room,
   Student,
   Teacher,
+  TeacherFeeRule,
 } from "./types";
 import { suggestMakeupSlots, confirmMakeupSlot, validateLessonSlot } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
@@ -29,6 +31,16 @@ import {
   type CreateSeriesResult,
   type SeriesCancelResult,
 } from "./lesson-series";
+import {
+  createTeacherFeeRuleData,
+  updateTeacherFeeRuleData,
+  createTeacherPayoutSnapshot,
+  markTeacherPayoutPaidData,
+  type FeeRuleInput,
+  type FeeRuleMutationResult,
+  type CreateTeacherPayoutResult,
+  type MarkPayoutPaidResult,
+} from "./teacher-payout";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -333,6 +345,55 @@ export async function cancelEntireLessonSeries(seriesId: string): Promise<Series
   const result = cancelEntireSeries(data, seriesId);
   if (result.ok) save(result.data);
   return result;
+}
+
+function assertTeacherExists(data: AppData, teacherId: string) {
+  if (!data.teachers.some((t) => t.id === teacherId)) throw new Error("Öğretmen bulunamadı");
+}
+
+export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMutationResult> {
+  const data = load();
+  assertTeacherExists(data, input.teacherId);
+  const result = createTeacherFeeRuleData(data, input);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function updateTeacherFeeRule(
+  ruleId: string,
+  patch: Partial<Omit<TeacherFeeRule, "id" | "createdAt">>
+): Promise<FeeRuleMutationResult> {
+  const data = load();
+  const result = updateTeacherFeeRuleData(data, ruleId, patch);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function createTeacherPayout(
+  teacherId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<CreateTeacherPayoutResult> {
+  const data = load();
+  assertTeacherExists(data, teacherId);
+  const result = createTeacherPayoutSnapshot(data, teacherId, periodStart, periodEnd);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function markTeacherPayoutPaid(
+  payoutId: string,
+  method?: string
+): Promise<MarkPayoutPaidResult> {
+  const data = load();
+  const result = markTeacherPayoutPaidData(data, payoutId, method);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
+  const data = load();
+  return save({ ...data, settings: { ...data.settings, feeRoundingMode } });
 }
 
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];

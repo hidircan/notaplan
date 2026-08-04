@@ -34,6 +34,11 @@ import {
   cancelSeriesFromLessonTool,
   cancelEntireSeriesTool,
   createPaymentRecordTool,
+  createFeeRuleTool,
+  updateFeeRuleTool,
+  computeTeacherPayoutTool,
+  createTeacherPayoutTool,
+  markTeacherPayoutPaidTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   resetDemoTool,
@@ -44,6 +49,8 @@ import { readData } from "./store";
 import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./whatsapp-templates";
 import type { LessonSlotSuggestion } from "./lesson-scheduling";
 import type { SeriesOccurrenceCheck } from "./lesson-series";
+import type { TeacherEarningsResult } from "./teacher-payout";
+import type { TeacherFeeRule, TeacherPayout } from "./types";
 import type { ImportPreview } from "./import/types";
 import type { ImportCommitResult } from "./import/commit-result";
 import type { BranchImportRow } from "./import/branches";
@@ -634,6 +641,109 @@ export async function actionAddPayment(formData: FormData) {
     logger.error("actionAddPayment failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
+  }
+}
+
+export type CreateFeeRuleActionInput = {
+  teacherId: string;
+  branchId?: string;
+  instrument?: string;
+  perMinuteRate: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+};
+
+export type UpdateFeeRuleActionInput = {
+  ruleId: string;
+  teacherId?: string;
+  branchId?: string;
+  instrument?: string;
+  perMinuteRate?: number;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+};
+
+export type FeeRuleActionResult = { ok: true; rule: TeacherFeeRule } | { ok: false; message: string };
+
+export async function actionCreateFeeRule(input: CreateFeeRuleActionInput): Promise<FeeRuleActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => createFeeRuleTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, rule: result.data.rule };
+  } catch (error) {
+    logger.error("actionCreateFeeRule failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ücret kuralı oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionUpdateFeeRule(input: UpdateFeeRuleActionInput): Promise<FeeRuleActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => updateFeeRuleTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, rule: result.data.rule };
+  } catch (error) {
+    logger.error("actionUpdateFeeRule failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ücret kuralı güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type ComputeTeacherPayoutActionResult =
+  | ({ ok: true } & TeacherEarningsResult)
+  | { ok: false; message: string };
+
+/** Salt-okunur önizleme — hiçbir kayıt yazmaz. */
+export async function actionComputeTeacherPayout(input: {
+  teacherId: string;
+  periodStart: string;
+  periodEnd: string;
+}): Promise<ComputeTeacherPayoutActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => computeTeacherPayoutTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, ...result.data };
+  } catch (error) {
+    logger.error("actionComputeTeacherPayout failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Hakediş hesaplanırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type TeacherPayoutActionResult = { ok: true; payout: TeacherPayout } | { ok: false; message: string };
+
+export async function actionCreateTeacherPayout(input: {
+  teacherId: string;
+  periodStart: string;
+  periodEnd: string;
+}): Promise<TeacherPayoutActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => createTeacherPayoutTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, payout: result.data.payout };
+  } catch (error) {
+    logger.error("actionCreateTeacherPayout failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Hakediş kaydı oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionMarkTeacherPayoutPaid(input: {
+  payoutId: string;
+  method?: string;
+}): Promise<TeacherPayoutActionResult> {
+  try {
+    const result = await withAuthContext((ctx) => markTeacherPayoutPaidTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, payout: result.data.payout };
+  } catch (error) {
+    logger.error("actionMarkTeacherPayoutPaid failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Hakediş ödendi olarak işaretlenirken beklenmeyen bir hata oluştu." };
   }
 }
 

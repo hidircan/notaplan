@@ -1,0 +1,76 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { readData } from "@/lib/store";
+import { requireSessionContext } from "@/lib/auth/session";
+import { ownPayouts } from "@/lib/teacher-portal-scope";
+import { Badge, Card } from "@/components/ui";
+import { formatDate, formatMoney } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+/** Öğretmenin kendi geçmiş hakediş kayıtları — yalnızca session.teacherId ile kapsamlanır. */
+export default async function TeacherOwnPayoutsPage() {
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/ogretmen/hakedis");
+  }
+  if (session.role === "PARENT") redirect("/veli");
+
+  const data = await readData();
+  const teacherId = session.teacherId || "t2";
+  const teacher = data.teachers.find((t) => t.id === teacherId) ?? data.teachers[0];
+  if (!teacher) redirect("/login");
+
+  const payouts = ownPayouts(data.teacherPayouts, teacher.id).sort((a, b) =>
+    b.periodStart.localeCompare(a.periodStart)
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <ArrowLeft className="h-4 w-4" /> Geri
+          </Link>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geçmiş Hakedişlerim</p>
+          <span className="w-10" />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-3 px-4 py-6 pb-24">
+        {payouts.length === 0 ? (
+          <Card>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Henüz oluşturulmuş bir hakediş kaydınız yok.</p>
+          </Card>
+        ) : (
+          payouts.map((p) => (
+            <Link key={p.id} href={`/ogretmen/hakedis/${p.id}`}>
+              <Card className="transition hover:border-cyan-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-50">
+                      {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {p.totalMinutes} dk · {formatMoney(p.totalAmount)}
+                    </p>
+                    {p.status === "paid" && p.paidAt ? (
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        Ödendi: {formatDate(p.paidAt)}
+                        {p.method ? ` · ${p.method}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Badge status={p.status} />
+                </div>
+              </Card>
+            </Link>
+          ))
+        )}
+      </main>
+    </div>
+  );
+}
