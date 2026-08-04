@@ -27,6 +27,7 @@ import type {
   MarkPayoutPaidResult,
 } from "./teacher-payout";
 import type { MakeupDecision } from "./makeup-engine";
+import type { LessonTimeCorrection, LessonLiveUpdateResult } from "./lesson-live-status";
 
 type StoreApi = {
   readData: () => Promise<AppData>;
@@ -64,6 +65,12 @@ type StoreApi = {
     durationMinutes?: number;
   }) => Promise<AppData>;
   cancelLesson: (lessonId: string) => Promise<AppData>;
+  startLessonLive: (lessonId: string) => Promise<LessonLiveUpdateResult>;
+  endLessonLive: (lessonId: string) => Promise<LessonLiveUpdateResult>;
+  correctLessonTimesLive: (
+    lessonId: string,
+    correction: LessonTimeCorrection
+  ) => Promise<LessonLiveUpdateResult>;
   addBranch: (branch: Omit<Branch, "id">) => Promise<AppData>;
   updateBranch: (branchId: string, patch: Partial<Omit<Branch, "id">>) => Promise<AppData>;
   importBranches: (rows: BranchImportRow[]) => Promise<ImportCommitResult>;
@@ -239,6 +246,21 @@ export async function updateLessonSchedule(input: {
 
 export async function cancelLesson(lessonId: string): Promise<AppData> {
   return withTenantScope(() => store.cancelLesson(lessonId));
+}
+
+export async function startLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  return withTenantScope(() => store.startLessonLive(lessonId));
+}
+
+export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  return withTenantScope(() => store.endLessonLive(lessonId));
+}
+
+export async function correctLessonTimesLive(
+  lessonId: string,
+  correction: LessonTimeCorrection
+): Promise<LessonLiveUpdateResult> {
+  return withTenantScope(() => store.correctLessonTimesLive(lessonId, correction));
 }
 
 export async function addBranch(branch: Omit<Branch, "id">): Promise<AppData> {

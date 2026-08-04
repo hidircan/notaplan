@@ -9,6 +9,7 @@ import { NotificationList } from "@/components/notification-list";
 import { LogoutButton } from "@/components/logout-button";
 import { Badge, Card } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
+import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,10 @@ export default async function OgrenciPortalPage() {
 
   const upcoming = data.lessons
     .filter(
-      (l) => l.studentId === student.id && l.status === "scheduled" && new Date(l.startAt) >= new Date()
+      (l) =>
+        l.studentId === student.id &&
+        (l.status === "scheduled" || l.status === "in_progress") &&
+        new Date(l.startAt) >= new Date()
     )
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
     .slice(0, 5);
@@ -135,7 +139,7 @@ export default async function OgrenciPortalPage() {
                 <Card key={l.id} className="!p-4">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium text-slate-900">{formatDateTime(l.startAt)}</p>
-                    <Badge status={l.type === "makeup" ? "makeup" : l.status} />
+                    <Badge status={l.type === "makeup" ? "makeup" : computeLiveDisplayStatus(l)} />
                   </div>
                   <p className="text-sm text-slate-500">{l.instrument}</p>
                 </Card>

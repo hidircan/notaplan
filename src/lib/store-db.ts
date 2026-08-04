@@ -27,6 +27,13 @@ import {
 } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import {
+  applyStartLesson,
+  applyEndLesson,
+  applyCorrectLessonTimes,
+  type LessonTimeCorrection,
+  type LessonLiveUpdateResult,
+} from "./lesson-live-status";
+import {
   createLessonSeriesData,
   cancelSeriesFromLesson,
   cancelEntireSeries,
@@ -158,10 +165,16 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       startAt: lesson.startAt.toISOString(),
       endAt: lesson.endAt.toISOString(),
       type: lesson.type as import("./types").LessonType,
-      status: lesson.status as "scheduled" | "completed" | "cancelled" | "no_show",
+      status: lesson.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show",
       makeupRequestId: lesson.makeupRequestId ?? undefined,
       seriesId: lesson.seriesId ?? undefined,
       notes: lesson.notes ?? undefined,
+      actualStartAt: lesson.actualStartAt?.toISOString() ?? undefined,
+      actualEndAt: lesson.actualEndAt?.toISOString() ?? undefined,
+      startCorrectedBy: lesson.startCorrectedBy ?? undefined,
+      startCorrectionNote: lesson.startCorrectionNote ?? undefined,
+      endCorrectedBy: lesson.endCorrectedBy ?? undefined,
+      endCorrectionNote: lesson.endCorrectionNote ?? undefined,
     })),
     lessonSeries: school.lessonSeries.map((series) => ({
       id: series.id,
@@ -1242,6 +1255,70 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   });
   if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
   return readData();
+}
+
+async function reloadLessonLiveResult(lessonId: string): Promise<LessonLiveUpdateResult> {
+  const next = await readData();
+  const nextLesson = next.lessons.find((l) => l.id === lessonId);
+  if (!nextLesson) return { ok: false, message: "Ders bulunamadı." };
+  return { ok: true, data: next, lesson: nextLesson };
+}
+
+export async function startLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  logger.info("startLessonLive", lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const original = data.lessons.find((l) => l.id === lessonId);
+  const result = applyStartLesson(data, lessonId);
+  if (!result.ok) return result;
+
+  const updateResult = await prisma.lesson.updateMany({
+    where: { id: lessonId, tenantId: tid, status: original!.status },
+    data: { status: "in_progress", actualStartAt: new Date(result.lesson.actualStartAt!) },
+  });
+  if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
+  return reloadLessonLiveResult(lessonId);
+}
+
+export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  logger.info("endLessonLive", lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const original = data.lessons.find((l) => l.id === lessonId);
+  const result = applyEndLesson(data, lessonId);
+  if (!result.ok) return result;
+
+  const updateResult = await prisma.lesson.updateMany({
+    where: { id: lessonId, tenantId: tid, status: original!.status },
+    data: { status: "completed", actualEndAt: new Date(result.lesson.actualEndAt!) },
+  });
+  if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
+  return reloadLessonLiveResult(lessonId);
+}
+
+export async function correctLessonTimesLive(
+  lessonId: string,
+  correction: LessonTimeCorrection
+): Promise<LessonLiveUpdateResult> {
+  logger.info("correctLessonTimesLive", lessonId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = applyCorrectLessonTimes(data, lessonId, correction);
+  if (!result.ok) return result;
+
+  const updateResult = await prisma.lesson.updateMany({
+    where: { id: lessonId, tenantId: tid },
+    data: {
+      actualStartAt: result.lesson.actualStartAt ? new Date(result.lesson.actualStartAt) : undefined,
+      actualEndAt: result.lesson.actualEndAt ? new Date(result.lesson.actualEndAt) : undefined,
+      startCorrectedBy: result.lesson.startCorrectedBy,
+      startCorrectionNote: result.lesson.startCorrectionNote,
+      endCorrectedBy: result.lesson.endCorrectedBy,
+      endCorrectionNote: result.lesson.endCorrectionNote,
+    },
+  });
+  if (updateResult.count === 0) throw new Error("Ders bulunamadı.");
+  return reloadLessonLiveResult(lessonId);
 }
 
 /**

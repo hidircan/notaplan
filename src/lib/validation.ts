@@ -286,3 +286,23 @@ export const createAssessmentSchema = z.object({
   parentNoteVisibleToStudent: z.boolean().optional(),
   teacherSignedName: z.string().min(1),
 });
+
+export const startLessonSchema = z.object({
+  lessonId: z.string().min(1),
+});
+
+export const endLessonSchema = z.object({
+  lessonId: z.string().min(1),
+});
+
+/** EPIC 8 — düzeltme yalnızca admin + zorunlu notla; en az bir zaman alanı gerekir. */
+export const correctLessonTimesSchema = z
+  .object({
+    lessonId: z.string().min(1),
+    actualStartAt: z.string().min(1).optional(),
+    actualEndAt: z.string().min(1).optional(),
+    note: z.string().min(1, "Düzeltme notu zorunludur"),
+  })
+  .refine((d) => d.actualStartAt !== undefined || d.actualEndAt !== undefined, {
+    message: "actualStartAt veya actualEndAt gerekli",
+  });

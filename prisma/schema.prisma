@@ -231,11 +231,24 @@ model Lesson {
   startAt         DateTime
   endAt           DateTime
   type            String
+  /// EPIC 8 (IMPLEMENTATION_PLAN.md) — "scheduled"|"in_progress"|"completed"|
+  /// "cancelled"|"no_show". Canlı durum (gecikmiş vb.) SAKLANMAZ, her zaman
+  /// startAt/actualStartAt'tan TÜRETİLİR (bkz. src/lib/lesson-live-status.ts).
   status          String
   makeupRequestId String?
   series          LessonSeries? @relation(fields: [seriesId], references: [id])
   seriesId        String?
   notes           String?
+  /// EPIC 8 — öğretmenin "Dersi başlat"/"Dersi bitir" ile damgaladığı GERÇEK
+  /// zaman damgaları (planlanan startAt/endAt'tan bağımsız, nullable —
+  /// geçmiş dersler dolu olmayabilir). Düzeltme yalnızca admin tarafından ve
+  /// yalnızca zorunlu bir notla yapılabilir (bkz. correctLessonTimesTool).
+  actualStartAt       DateTime?
+  actualEndAt         DateTime?
+  startCorrectedBy    String?
+  startCorrectionNote String?
+  endCorrectedBy      String?
+  endCorrectionNote   String?
   attendances     Attendance[]
 
   @@index([tenantId])

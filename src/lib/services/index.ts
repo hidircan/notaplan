@@ -53,5 +53,8 @@ export {
   listAssessmentsForStudentTool,
   getAssessmentTool,
   getAssessmentReportTool,
+  startLessonTool,
+  endLessonTool,
+  correctLessonTimesTool,
   resetDemoTool,
 } from "./tools";

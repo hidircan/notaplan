@@ -20,6 +20,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { listNotificationsForUser } from "@/lib/notifications";
 import { NotificationList } from "@/components/notification-list";
 import { listAnnouncementsForUserTool } from "@/lib/services";
+import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 
 export const dynamic = "force-dynamic";
 
@@ -260,7 +261,7 @@ export default async function VeliPortalPage() {
                         {l.type === "makeup" ? " · Telafi" : ""}
                       </p>
                     </div>
-                    <Badge status={l.type === "makeup" ? "makeup" : l.status} />
+                    <Badge status={l.type === "makeup" ? "makeup" : computeLiveDisplayStatus(l)} />
                   </div>
                 </Card>
               ))}

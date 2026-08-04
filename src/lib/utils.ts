@@ -68,6 +68,8 @@ export function statusLabel(status: string) {
     group: "Grup",
     published: "Yayında",
     archived: "Arşivlendi",
+    in_progress: "Devam ediyor",
+    delayed: "Başlamadı",
   };
   return map[status] ?? status;
 }
@@ -93,6 +95,8 @@ export function statusColor(status: string) {
     makeup: "bg-violet-100 text-violet-800",
     published: "bg-emerald-100 text-emerald-800",
     archived: "bg-slate-200 text-slate-600",
+    in_progress: "bg-cyan-100 text-cyan-800",
+    delayed: "bg-orange-100 text-orange-800",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }

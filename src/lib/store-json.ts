@@ -31,6 +31,13 @@ import {
 } from "./makeup-engine";
 import { applyLessonScheduleUpdate, applyLessonCancel } from "./lesson-update";
 import {
+  applyStartLesson,
+  applyEndLesson,
+  applyCorrectLessonTimes,
+  type LessonTimeCorrection,
+  type LessonLiveUpdateResult,
+} from "./lesson-live-status";
+import {
   createLessonSeriesData,
   cancelSeriesFromLesson,
   cancelEntireSeries,
@@ -367,6 +374,30 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
   if (!result.ok) throw new Error(result.message);
   await writeData(result.data);
   return result.data;
+}
+
+export async function startLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  const data = await readData();
+  const result = applyStartLesson(data, lessonId);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
+  const data = await readData();
+  const result = applyEndLesson(data, lessonId);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function correctLessonTimesLive(
+  lessonId: string,
+  correction: LessonTimeCorrection
+): Promise<LessonLiveUpdateResult> {
+  const data = await readData();
+  const result = applyCorrectLessonTimes(data, lessonId, correction);
+  if (result.ok) await writeData(result.data);
+  return result;
 }
 
 function assertLessonSeriesRefsExist(data: AppData, params: SeriesParams) {

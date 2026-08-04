@@ -256,10 +256,21 @@ export interface Lesson {
   startAt: string;
   endAt: string;
   type: LessonType;
-  status: "scheduled" | "completed" | "cancelled" | "no_show";
+  status: "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show";
   makeupRequestId?: string;
   /** Bu ders bir tekrarlayan seriden üretildiyse ait olduğu LessonSeries.id */
   seriesId?: string;
+  /**
+   * EPIC 8 (IMPLEMENTATION_PLAN.md) — "Dersi başlat"/"Dersi bitir" ile
+   * damgalanan GERÇEK zaman damgaları (planlanan startAt/endAt'tan
+   * bağımsız). Düzeltme yalnızca admin + zorunlu notla yapılabilir.
+   */
+  actualStartAt?: string;
+  actualEndAt?: string;
+  startCorrectedBy?: string;
+  startCorrectionNote?: string;
+  endCorrectedBy?: string;
+  endCorrectionNote?: string;
   notes?: string;
 }
 

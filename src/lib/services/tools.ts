@@ -20,7 +20,9 @@ import {
   cancelLessonSeriesFromLesson,
   cancelMakeup,
   confirmSlot,
+  correctLessonTimesLive,
   createTeacherPayout,
+  endLessonLive,
   generateSuggestions,
   importBranches,
   importRooms,
@@ -31,6 +33,7 @@ import {
   markTeacherPayoutPaid,
   readData,
   resetData,
+  startLessonLive,
   updateBranch,
   updateCollectionsSettings,
   updateFeeRoundingMode,
@@ -100,11 +103,13 @@ import {
   cancelLessonSchema,
   cancelSeriesFromLessonSchema,
   computeTeacherPayoutSchema,
+  correctLessonTimesSchema,
   createAnnouncementSchema,
   createAssessmentSchema,
   createFeeRuleSchema,
   createLessonSeriesSchema,
   createTeacherPayoutSchema,
+  endLessonSchema,
   lessonSchema,
   lessonSeriesParamsSchema,
   makeupSlotSchema,
@@ -113,6 +118,7 @@ import {
   markTeacherPayoutPaidSchema,
   paymentRecordSchema,
   roomSchema,
+  startLessonSchema,
   studentSchema,
   suggestLessonSlotsSchema,
   teacherSchema,
@@ -1738,6 +1744,96 @@ export async function getAssessmentReportTool(
     });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getAssessmentReport failed");
+  }
+}
+
+/**
+ * EPIC 8 (IMPLEMENTATION_PLAN.md) — TEACHER yalnızca kendi dersini
+ * başlatabilir/bitirebilir. Erken/geç başlatma toleransı bilinçli: planlanan
+ * saatten ne kadar sapmış olursa olsun kabul edilir (bkz.
+ * lesson-live-status.ts) — yalnızca dersin MEVCUT durumu geçişi engeller.
+ */
+export async function startLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string; status: string }>> {
+  const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(startLessonSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+  if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+  if (ctx.role === "TEACHER" && lesson.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi dersinizi başlatabilirsiniz.");
+  }
+
+  try {
+    const result = await startLessonLive(v.data.lessonId);
+    if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+    audit(ctx, "lesson.start", "Lesson", v.data.lessonId, {});
+    return ok({ lessonId: v.data.lessonId, status: result.lesson.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "startLesson failed");
+  }
+}
+
+export async function endLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string; status: string }>> {
+  const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(endLessonSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+  if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+  if (ctx.role === "TEACHER" && lesson.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi dersinizi bitirebilirsiniz.");
+  }
+
+  try {
+    const result = await endLessonLive(v.data.lessonId);
+    if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+    audit(ctx, "lesson.end", "Lesson", v.data.lessonId, {});
+    return ok({ lessonId: v.data.lessonId, status: result.lesson.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "endLesson failed");
+  }
+}
+
+/** Yalnızca SCHOOL_ADMIN/SUPER_ADMIN — zorunlu not, audit'e yazılır (EPIC 0). */
+export async function correctLessonTimesTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(correctLessonTimesSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const result = await correctLessonTimesLive(v.data.lessonId, {
+      actualStartAt: v.data.actualStartAt,
+      actualEndAt: v.data.actualEndAt,
+      correctedBy: ctx.userId,
+      note: v.data.note,
+    });
+    if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+    audit(ctx, "lesson.time_correction", "Lesson", v.data.lessonId, {
+      actualStartAt: v.data.actualStartAt,
+      actualEndAt: v.data.actualEndAt,
+      note: v.data.note,
+    });
+    return ok({ lessonId: v.data.lessonId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "correctLessonTimes failed");
   }
 }
 
