@@ -408,7 +408,7 @@ EPIC 0 (audit log — ücret değişikliği kritik işlem listesinde).
 
 ## EPIC 4 — Öğrenci türü, kayıt dönemi, eğitim profili [P1]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟡 Kısmen tamamlandı (commit `aef30d5`) — bkz. "Tamamlanan (uygulama özeti)".
 
 ### Mevcut durum
 `Student` modelinde/`studentSchema`'da (`src/lib/validation.ts`) yalnızca temel
@@ -476,9 +476,33 @@ Prisma her zaman şema-taslaklı okuyor).
 Yok (EPIC 0 hariç, genel önkoşul). EPIC 6/7'nin içerik hedefleme mantığı bu
 epic'e bağımlı.
 
----
+### Tamamlanan (uygulama özeti — commit `aef30d5`)
+- **Şema/veri katmanı — TAM:** `Student.studentType/enrollmentStartDate/
+  enrollmentEndDate/level/targetExam/specialNotes` (hepsi nullable, additive).
+  `StudentType` sabit 5 değerlik union + `STUDENT_TYPES` sabiti
+  (`src/lib/types.ts`). Mode parity tam: `store.ts`/`store-json.ts`/
+  `store-memory.ts`/`store-db.ts` dördünde de `updateStudentProfile` uygulandı
+  (db modunda `mapSchoolToAppData` okuma + `addStudent`/`updateStudentProfile`
+  yazma dahil). `createStudentTool` yeni alanları opsiyonel kabul eder.
+- **Yeni uç — TAM:** `updateStudentProfileTool`/`actionUpdateStudentProfile` —
+  yalnızca SCHOOL_ADMIN/SUPER_ADMIN, audit log (`student.profile_update`),
+  öğrencinin diğer alanlarına (ad/paket/ücret) dokunmaz.
+  `src/lib/__tests__/student-profile.test.ts`: create round-trip, kısmi
+  update, TEACHER/PARENT FORBIDDEN, var olmayan öğrenci hatası.
+- **UI — KISMİ:** `students-table.tsx`'e tür/seviye/hedef rozeti + "kayıt sona
+  erdi" göstergesi eklendi ve commit'lendi. `/panel/ogrenciler` formuna yeni
+  alanlar ve `/ogretmen` sayfasına rozet **çalışma alanında eklendi ama bu
+  commit'e dahil edilmedi** — her iki dosya da bu epic'ten tamamen bağımsız,
+  henüz commit'lenmemiş üç ayrı özellikle (institution-scope kurum seçici,
+  AI devamsızlık-riski içgörü kartı, dark-mode stil geçişi) aynı satırlarda iç
+  içe geçmiş durumda; HEAD'e karşı güvenle izole edilemedi. Fonksiyonel etkisi
+  yok (yeni alanlar opsiyonel, `students-table.tsx` zaten "Belirtilmemiş"
+  gösteriyor) ama admin şu an yeni öğrenci eklerken tür/kayıt tarihi giremiyor
+  — bu iki dosya, o üç özellikten biri commit'lendiğinde birlikte tamamlanmalı.
+- **Seed:** 8 demo öğrencinin tümüne gerçekçi `studentType`/`enrollmentStartDate`
+  (+ bazılarına `level`/`targetExam`) atandı.
 
-## EPIC 10 — Telafi merkezi: sebep, AI, SLA, filtreleme [P0]
+
 
 **Durum:** 🔴 Planlandı (uygulanmadı — önerilen sırada EPIC 0/2/3/4'ten sonra)
 
