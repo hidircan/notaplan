@@ -78,6 +78,27 @@ import {
   type ServiceContext,
 } from "./context";
 import { fail, fromZodError, ok, type ServiceResult } from "./result";
+import { recordAuditLog } from "../audit/log";
+
+/** Fire-and-forget critical-action audit write — never awaited, never blocks the tool's return. */
+function audit(
+  ctx: ServiceContext,
+  action: string,
+  entityType: string,
+  entityId: string,
+  meta?: Record<string, unknown>
+) {
+  void recordAuditLog({
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.userId,
+    actorRole: ctx.role,
+    action,
+    entityType,
+    entityId,
+    outcome: "success",
+    meta,
+  });
+}
 
 // ─── helpers ───────────────────────────────────────────────
 
@@ -167,6 +188,9 @@ export async function confirmMakeupLessonTool(
     await confirmSlot(v.data.requestId, v.data.slot as MakeupSlot);
     const data = await readData();
     const req = data.makeupRequests.find((m) => m.id === v.data.requestId);
+    audit(ctx, "makeup.confirm", "MakeupRequest", v.data.requestId, {
+      lessonId: req?.confirmedLessonId,
+    });
     return ok({ requestId: v.data.requestId, lessonId: req?.confirmedLessonId });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "confirmMakeupLesson failed");
@@ -212,6 +236,7 @@ export async function cancelMakeupLessonTool(
 
   try {
     await cancelMakeup(v.data.requestId);
+    audit(ctx, "makeup.cancel", "MakeupRequest", v.data.requestId);
     return ok({ requestId: v.data.requestId });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "cancelMakeup failed");
@@ -348,6 +373,7 @@ export async function createPaymentTool(
 
   try {
     await markPaymentPaid(v.data.paymentId);
+    audit(ctx, "payment.mark_paid", "Payment", v.data.paymentId);
     return ok({ paymentId: v.data.paymentId, status: "paid" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createPayment failed");
@@ -463,6 +489,7 @@ export async function createStudentTool(
     });
     const after = await readData();
     const created = after.students.find((s) => !ids.has(s.id));
+    if (created) audit(ctx, "student.create", "Student", created.id);
     return ok({ studentId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createStudent failed");

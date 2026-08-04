@@ -1,9 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Circle, RefreshCcw, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, Download, RefreshCcw, Upload } from "lucide-react";
 import { actionResetDemo } from "@/lib/actions";
 import { readData } from "@/lib/store";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { computeSetupProgress, type SetupStepId } from "@/lib/setup-progress";
+import { EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-export";
+
+const EXPORT_LABELS: Record<ExportEntity, string> = {
+  students: "Öğrenciler",
+  teachers: "Öğretmenler",
+  lessons: "Dersler",
+  attendances: "Yoklamalar",
+  payments: "Ödemeler",
+  makeupRequests: "Telafi talepleri",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +147,31 @@ export default async function KurulumPage() {
           </Link>
         </Card>
       </div>
+
+      <Card className="mt-6 border-slate-200">
+        <div className="flex items-start gap-3">
+          <Download className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900">Veri &amp; Güvenlik</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Yalnızca oturum açtığınız kuruma ait kayıtları CSV olarak indirin. Diğer
+              kurumların hiçbir kaydı bu dışa aktarıma dahil edilmez. &quot;Tüm kurumlar&quot;
+              görünümündeyken dışa aktarım yapılamaz — önce tek bir kurum seçin.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {EXPORT_ENTITIES.map((entity) => (
+                <a
+                  key={entity}
+                  href={`/api/v1/export?entity=${entity}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Download className="h-3.5 w-3.5" /> {EXPORT_LABELS[entity]} (CSV)
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card className="mt-6 border-slate-200 bg-slate-50">
         <div className="flex items-start gap-3">

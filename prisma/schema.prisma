@@ -343,6 +343,29 @@ model WorkflowState {
   updatedAt   DateTime  @updatedAt
 }
 
+/// General-purpose critical-action audit trail (EPIC 0). Distinct from
+/// `AiAuditLog` (AI capability invocations only) — this covers human-triggered
+/// writes: payments, tahsilat messages, teacher fee changes, makeup decisions,
+/// student data writes, and (as those epics land) gelişim raporu/dosya/duyuru/
+/// ders start-end corrections. No `@relation` to `Tenant` — same rationale as
+/// `AiAuditLog`: the trail must stay queryable even if the tenant row is later
+/// removed. `meta` never carries raw personal content, only shape/amount/status.
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actorUserId String
+  actorRole   String
+  action      String
+  entityType  String
+  entityId    String
+  outcome     String
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, action, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
 /// One execution of an autonomous workflow (history)
 model WorkflowRun {
   id         String    @id

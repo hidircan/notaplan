@@ -16,7 +16,8 @@ export type Permission =
   | "messages:send"
   | "tools:catalog"
   | "demo:reset"
-  | "tenant:all";
+  | "tenant:all"
+  | "export:institution";
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -32,6 +33,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "tools:catalog",
     "demo:reset",
     "tenant:all",
+    "export:institution",
   ],
   SCHOOL_ADMIN: [
     "attendance:write",
@@ -45,6 +47,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "messages:send",
     "tools:catalog",
     "demo:reset",
+    "export:institution",
   ],
   TEACHER: [
     "attendance:write",
