@@ -633,7 +633,7 @@ neden-çıkarımı altyapısını paylaşır (aynı `capabilities.ts` deseni).
 
 ## EPIC 1 — Gecikmiş tahsilat WhatsApp + uygulama bildirimi [P0]
 
-**Durum:** 🔴 Planlandı (uygulanmadı)
+**Durum:** 🟡 Kısmen tamamlandı (commit `b1510a2`) — bkz. "Tamamlanan (uygulama özeti)".
 
 ### Mevcut durum
 Bkz. keşif bulgusu #5 — vaka/durum makinesi hazır, otomatik tarama ve bildirim
@@ -706,6 +706,73 @@ dosya revert.
 
 ### Bağımlılıklar
 EPIC 0 (audit + export), mevcut tahsilat altyapısı (zaten var).
+
+### Tamamlanan (uygulama özeti — commit `b1510a2`)
+- Şema: `Notification` modeli (tenant-scoped, `targetUserId`/`targetStudentId`,
+  `kind`, `title`, `body`, `readAt`, additive, `@relation` yok — audit-log
+  tarzı dayanıklılık), `School.collectionsSettings Json?`,
+  `Student.communicationOptOut Boolean @default(false)`. Mode parity:
+  `src/lib/notifications/index.ts` (json/memory dosya store + db, `cases.ts`
+  ile birebir aynı desen), `store.ts`/`store-json.ts`/`store-memory.ts`/
+  `store-db.ts`'de `updateCollectionsSettings` + `updateStudentProfile`
+  patch'ine `communicationOptOut` eklendi.
+- `payment_reminders` workflow'u **yeniden yazıldı**: artık sabit demo ID
+  listesi yerine yeni `scanOverduePaymentsTool` (agent tool, `checkMakeupSla`
+  ile aynı `{}` girdili tam-tenant tarama deseni) tüm `data.payments` içinde
+  `status === "overdue"` olanları tarar; `communicationOptOut` olan öğrenciyi
+  atlar; `collectionsSettings.frequencyLimitDays` (varsayılan 3 gün) dolmadan
+  aynı ödeme için tekrar işlem yapmaz; `upsertFollowUpCase` ile taslak/onaylı
+  vaka açar veya günceller (`autoSendEnabled` sadece "approved" durumuna
+  otomatik geçirir — "sent" durumunu ASLA otomatik üretmez, çünkü wa.me
+  linkine tıklamak her zaman bir insan eylemidir); veliye `Notification`
+  oluşturur.
+- `getCollectionRoi`/`mergeCollectionRoi` (`src/lib/tahsilat/cases.ts`)
+  additive olarak `sentThisMonth`/`respondedThisMonth` ile genişletildi.
+- Yeni servis tool'ları (`src/lib/services/tools.ts`):
+  `scanOverduePaymentsTool` (ADMIN/AI_AGENT, agent registry'de
+  `scanOverduePayments` olarak kayıtlı), `updateCommunicationPreferenceTool`
+  (PARENT kendi çocuğu / SCHOOL_ADMIN/SUPER_ADMIN herkes),
+  `updateCollectionsSettingsTool` (SCHOOL_ADMIN/SUPER_ADMIN),
+  `listNotificationsTool`/`markNotificationReadTool` (yalnızca hedeflenen
+  kullanıcı — cross-user erişim testte doğrulandı). `resetDemoTool` artık
+  `clearNotifications` de çağırıyor. Yeni RBAC izinleri:
+  `notifications:read` (tüm roller), `communication:write` (PARENT +
+  admin'ler) — `src/lib/auth/rbac.ts`.
+- Yeni API: `GET/POST /api/v1/notifications`, `PATCH
+  /api/v1/students/[studentId]/communication-preference`.
+- Yeni server action'lar (`src/lib/actions.ts`):
+  `actionUpdateCommunicationPreference`, `actionUpdateCollectionsSettings`,
+  `actionMarkNotificationRead`.
+- UI: `/veli` portalına bildirim zili (okunmamış sayaç rozeti, header'da) +
+  "Bildirimler" bölümü (`NotificationList` client component, okundu
+  işaretleme); `/panel/kurulum`'a "Tahsilat Otomasyonu" kartı
+  (`CollectionsSettingsForm` — sıklık limiti + otomatik onay toggle,
+  varsayılan KAPALI/admin onayı zorunlu, wa.me'nin her zaman insan eylemi
+  gerektirdiği açıkça belirtiliyor).
+- Testler: `payment-reminders-workflow.test.ts` (6 test — gerçek tarama,
+  opt-out atlama, sıklık limiti, `markPaymentPaid` sonrası tarama durur,
+  RBAC), `notifications.test.ts` (9 test — tenant izolasyonu, cross-user
+  okuma reddi, `updateCommunicationPreferenceTool` yetki matrisi),
+  `tahsilat-roi.test.ts`'e 5 yeni test (`sentThisMonth`/`respondedThisMonth`
+  + `mergeCollectionRoi`). Mevcut `tahsilat-roi.test.ts`,
+  `tahsilat-queue.test.ts`, `collections-ai-routes.test.ts` regresyonsuz
+  (596/596 test yeşil).
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi yeşil.
+
+**Ertelenen / bu turda yapılmayan (plan spec'inde vardı, kasıtlı olarak
+kapsam dışı bırakıldı):**
+- `TahsilatQueue`'ya opt-out göstergesi ve "yeni mesaj" butonunun devre dışı
+  bırakılması — `src/components/tahsilat-message-approval.tsx` (219 satır)
+  ve `src/app/panel/ai/tahsilat-agent/page.tsx` (290 satır) önceki
+  oturumlardan kalma kurum-kapsamı + AI-insight değişiklikleriyle o kadar iç
+  içe geçmiş ki satır bazında güvenli izolasyon pratik değildi (EPIC 10'daki
+  `/panel/page.tsx` kararıyla aynı gerekçe). Backend (opt-out alanı, API,
+  scan mantığı) tam çalışır durumda; yalnızca bu iki dosyadaki görsel
+  gösterge eksik.
+- Gerçek WhatsApp "delivered" durumu — plan zaten bunu bu turda kapsam dışı
+  tutuyordu (bulgu #6); kod hiçbir zaman uydurulmuş bir "delivered/read"
+  durumu üretmiyor, yalnızca ölçülebilir olanı (`draft`/`approved`/`sent`)
+  izliyor.
 
 ---
 
