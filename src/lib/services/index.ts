@@ -49,5 +49,9 @@ export {
   listAnnouncementsForUserTool,
   markAnnouncementReadTool,
   listAnnouncementReadersTool,
+  createAssessmentTool,
+  listAssessmentsForStudentTool,
+  getAssessmentTool,
+  getAssessmentReportTool,
   resetDemoTool,
 } from "./tools";

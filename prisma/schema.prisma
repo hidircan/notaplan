@@ -28,6 +28,7 @@ model Tenant {
   teacherPayouts  TeacherPayout[]
   notifications   Notification[]
   announcements   Announcement[]
+  lessonAssessments LessonAssessment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -485,6 +486,52 @@ model AnnouncementRead {
   readAt         DateTime @default(now())
 
   @@unique([announcementId, userId])
+}
+
+/// EPIC 7 (IMPLEMENTATION_PLAN.md) — öğretmen gelişim değerlendirme formu.
+/// A–E bölümlerinin her maddesi DÜZ SÜTUN (1–5, Int) — JSON değil, çünkü
+/// trend/rapor SQL agregasyonu gerektiriyor. lessonId/studentId/teacherId
+/// bilerek @relation ile bağlanmaz (Notification/Announcement ile aynı
+/// gerekçe — bu sprint yalnızca bu tabloyu ekliyor, başka model dokunulmuyor;
+/// erişim her zaman tenantId + studentId/teacherId ile kapsamlanır).
+model LessonAssessment {
+  id       String @id
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lessonId  String
+  studentId String
+  teacherId String
+  /// A. Teknik
+  teknikBecerisi Int
+  notaOkuma      Int
+  /// B. Müzikalite
+  muzikalite  Int
+  ritimDuyusu Int
+  /// C. Çalışma Disiplini
+  calismaDuzeni    Int
+  evOdeviTamamlama Int
+  /// D. Katılım
+  dersKatilimi Int
+  motivasyon   Int
+  /// E. Genel Gelişim
+  genelIlerleme Int
+  hedefeUlasma  Int
+  strengthNote    String
+  nextStepsNote   String
+  improvementNote String
+  /// Yalnızca veli/yönetici görür; öğrenciye gösterilmesi için öğretmen
+  /// açıkça parentNoteVisibleToStudent'ı true yapmalı (varsayılan false).
+  parentPrivateNote          String?
+  parentNoteVisibleToStudent Boolean  @default(false)
+  teacherSignedName          String
+  /// Sunucu saatiyle damgalanır — client'tan gelen tarihe güvenilmez.
+  teacherSignedAt            DateTime
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, teacherId])
+  @@index([lessonId])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

@@ -1,0 +1,60 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { readData } from "@/lib/store";
+import { requireSessionContext } from "@/lib/auth/session";
+import { Card, EmptyState } from "@/components/ui";
+
+export const dynamic = "force-dynamic";
+
+/** Öğretmenin gelişim değerlendirmesi oluşturabileceği kendi öğrencileri. */
+export default async function TeacherAssessmentStudentsPage() {
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/ogretmen/degerlendirme");
+  }
+  if (session.role === "PARENT") redirect("/veli");
+
+  const data = await readData();
+  const teacherId = session.teacherId || "t1";
+  const students = data.students.filter((s) => s.active && s.teacherId === teacherId);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            <ArrowLeft className="h-4 w-4" /> Geri
+          </Link>
+          <p className="text-sm font-semibold text-slate-900">Gelişim Değerlendirmesi</p>
+          <span className="w-10" />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-2 px-4 py-6 pb-24">
+        {students.length === 0 ? (
+          <EmptyState
+            title="Öğrenci bulunamadı"
+            description="Değerlendirme oluşturabileceğiniz aktif öğrenciniz yok."
+          />
+        ) : (
+          students.map((student) => (
+            <Link key={student.id} href={`/ogretmen/degerlendirme/${student.id}`}>
+              <Card className="!p-4 hover:border-violet-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-900">{student.name}</p>
+                    <p className="text-sm text-slate-500">{student.instruments.join(", ")}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                </div>
+              </Card>
+            </Link>
+          ))
+        )}
+      </main>
+    </div>
+  );
+}

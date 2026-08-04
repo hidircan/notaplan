@@ -201,6 +201,43 @@ export interface Announcement {
   updatedAt: string;
 }
 
+/**
+ * EPIC 7 (IMPLEMENTATION_PLAN.md) — öğretmen gelişim değerlendirme formu.
+ * Her madde 1–5 puan; bkz. src/lib/assessment/score.ts için bölüm/genel
+ * ortalama hesaplaması.
+ */
+export interface AssessmentScores {
+  teknikBecerisi: number;
+  notaOkuma: number;
+  muzikalite: number;
+  ritimDuyusu: number;
+  calismaDuzeni: number;
+  evOdeviTamamlama: number;
+  dersKatilimi: number;
+  motivasyon: number;
+  genelIlerleme: number;
+  hedefeUlasma: number;
+}
+
+export interface LessonAssessment extends AssessmentScores {
+  id: string;
+  lessonId: string;
+  studentId: string;
+  teacherId: string;
+  strengthNote: string;
+  nextStepsNote: string;
+  improvementNote: string;
+  /** Yalnızca veli/yönetici görür — bkz. parentNoteVisibleToStudent. */
+  parentPrivateNote?: string;
+  /** Varsayılan false: parentPrivateNote öğrenciye (EPIC 6A sonrası) gösterilmez. */
+  parentNoteVisibleToStudent: boolean;
+  teacherSignedName: string;
+  /** ISO tarih — sunucu saatiyle damgalanır, client'tan gelen tarihe güvenilmez. */
+  teacherSignedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Room {
   id: string;
   name: string;

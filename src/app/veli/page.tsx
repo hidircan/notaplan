@@ -7,6 +7,7 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
+  FileText,
   Home,
   Megaphone,
   MessageCircle,
@@ -185,13 +186,27 @@ export default async function VeliPortalPage() {
             <div className="space-y-2">
               {announcements.map((a) => (
                 <Card key={a.id} className={a.pinned ? "!p-4 border-violet-200 bg-violet-50/60" : "!p-4"}>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{a.title}</p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{a.body}</p>
+                  <p className="text-sm font-semibold text-slate-900">{a.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{a.body}</p>
                 </Card>
               ))}
             </div>
           </section>
         ) : null}
+
+        <Link href={`/degerlendirme/rapor/${student.id}`}>
+          <Card className="!p-4 hover:border-violet-200">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-violet-600" />
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                Gelişim raporunu görüntüle
+              </p>
+            </div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Öğretmenin hazırladığı değerlendirmeler ve puan trendi.
+            </p>
+          </Card>
+        </Link>
 
         {hasMakeupHighlight ? (
           <div className="space-y-2">

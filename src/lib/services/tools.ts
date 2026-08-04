@@ -68,6 +68,17 @@ import {
   updateAnnouncementStatus,
 } from "../announcements";
 import { isVisibleNow, matchesAudience } from "../announcements/audience";
+import {
+  clearAssessments,
+  createAssessment,
+  getAssessment,
+  listAssessmentsForStudent,
+} from "../assessment";
+import {
+  computeTrend,
+  stripPrivateNoteForRecipient,
+  type AssessmentTrendPoint,
+} from "../assessment/score";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
@@ -90,6 +101,7 @@ import {
   cancelSeriesFromLessonSchema,
   computeTeacherPayoutSchema,
   createAnnouncementSchema,
+  createAssessmentSchema,
   createFeeRuleSchema,
   createLessonSeriesSchema,
   createTeacherPayoutSchema,
@@ -122,6 +134,7 @@ import {
   type CollectionsSettings,
   type FeeRoundingMode,
   type Instrument,
+  type LessonAssessment,
   type MakeupSlot,
   type Notification,
   type Student,
@@ -1576,6 +1589,151 @@ export async function listAnnouncementReadersTool(
   }
 }
 
+/**
+ * EPIC 7 (IMPLEMENTATION_PLAN.md) — TEACHER yalnızca kendi öğrencisi için
+ * değerlendirme oluşturabilir (mevcut `canAccessStudent`'ın TEACHER için
+ * "true, filtrelenir" kuralını burada somut olarak uyguluyoruz).
+ * `teacherId` her zaman öğrencinin ATANMIŞ öğretmeninden alınır (istekten
+ * değil) — SCHOOL_ADMIN başka bir öğretmen adına oluştursa bile kayıt doğru
+ * öğretmene atfedilir.
+ */
+export async function createAssessmentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ assessmentId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createAssessmentSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+  if (!data.lessons.some((l) => l.id === v.data.lessonId)) {
+    return fail("NOT_FOUND", "Ders bulunamadı");
+  }
+  if (ctx.role === "TEACHER" && student.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi öğrenciniz için değerlendirme oluşturabilirsiniz.");
+  }
+
+  try {
+    const assessment = await createAssessment({
+      tenantId: ctx.tenantId,
+      lessonId: v.data.lessonId,
+      studentId: v.data.studentId,
+      teacherId: student.teacherId,
+      teknikBecerisi: v.data.teknikBecerisi,
+      notaOkuma: v.data.notaOkuma,
+      muzikalite: v.data.muzikalite,
+      ritimDuyusu: v.data.ritimDuyusu,
+      calismaDuzeni: v.data.calismaDuzeni,
+      evOdeviTamamlama: v.data.evOdeviTamamlama,
+      dersKatilimi: v.data.dersKatilimi,
+      motivasyon: v.data.motivasyon,
+      genelIlerleme: v.data.genelIlerleme,
+      hedefeUlasma: v.data.hedefeUlasma,
+      strengthNote: v.data.strengthNote,
+      nextStepsNote: v.data.nextStepsNote,
+      improvementNote: v.data.improvementNote,
+      parentPrivateNote: v.data.parentPrivateNote,
+      parentNoteVisibleToStudent: v.data.parentNoteVisibleToStudent,
+      teacherSignedName: v.data.teacherSignedName,
+    });
+    audit(ctx, "assessment.create", "LessonAssessment", assessment.id, {
+      studentId: v.data.studentId,
+      lessonId: v.data.lessonId,
+    });
+    return ok({ assessmentId: assessment.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createAssessment failed");
+  }
+}
+
+function assertTeacherOwnsStudent(
+  ctx: ServiceContext,
+  studentId: string,
+  students: Student[]
+): { ok: true } | { ok: false; message: string } {
+  if (ctx.role !== "TEACHER") return { ok: true };
+  const student = students.find((s) => s.id === studentId);
+  if (!student || student.teacherId !== ctx.teacherId) {
+    return { ok: false, message: "Yalnızca kendi öğrenciniz için değerlendirme görebilirsiniz." };
+  }
+  return { ok: true };
+}
+
+export async function listAssessmentsForStudentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ assessments: LessonAssessment[] }>> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (!canAccessStudent(ctx, v.data.studentId)) {
+    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+
+    const assessments = await listAssessmentsForStudent(ctx.tenantId, v.data.studentId);
+    return ok({ assessments: assessments.map((a) => stripPrivateNoteForRecipient(a, ctx.role)) });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listAssessmentsForStudent failed");
+  }
+}
+
+export async function getAssessmentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ assessment: LessonAssessment }>> {
+  const v = parseOrFail(z.object({ assessmentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  try {
+    const assessment = await getAssessment(ctx.tenantId, v.data.assessmentId);
+    if (!assessment) return fail("NOT_FOUND", "Değerlendirme bulunamadı");
+    if (!canAccessStudent(ctx, assessment.studentId)) return fail("FORBIDDEN", "Bu kayda erişiminiz yok");
+    if (ctx.role === "TEACHER" && assessment.teacherId !== ctx.teacherId) {
+      return fail("FORBIDDEN", "Bu kayda erişiminiz yok");
+    }
+    return ok({ assessment: stripPrivateNoteForRecipient(assessment, ctx.role) });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getAssessment failed");
+  }
+}
+
+/** 4 haftalık birleşik rapor: geçmiş değerlendirmeler + genel skor trendi. */
+export async function getAssessmentReportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ assessments: LessonAssessment[]; trend: AssessmentTrendPoint[] }>> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (!canAccessStudent(ctx, v.data.studentId)) {
+    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+
+    const assessments = await listAssessmentsForStudent(ctx.tenantId, v.data.studentId);
+    const trend = computeTrend(assessments, 4);
+    return ok({
+      assessments: assessments.map((a) => stripPrivateNoteForRecipient(a, ctx.role)),
+      trend,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getAssessmentReport failed");
+  }
+}
+
 export async function resetDemoTool(
   ctx: ServiceContext
 ): Promise<ServiceResult<{ reset: true }>> {
@@ -1589,6 +1747,7 @@ export async function resetDemoTool(
     await clearFollowUpCases(ctx.tenantId);
     await clearNotifications(ctx.tenantId);
     await clearAnnouncements(ctx.tenantId);
+    await clearAssessments(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");

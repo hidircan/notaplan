@@ -262,3 +262,27 @@ export const updateAnnouncementStatusSchema = z.object({
 export const markAnnouncementReadSchema = z.object({
   announcementId: z.string().min(1),
 });
+
+const scoreItem = () => z.number().int().min(1).max(5);
+
+/** EPIC 7 — A–E bölümlerinin her maddesi 1–5 puan; not alanları zorunlu (boş bırakılamaz). */
+export const createAssessmentSchema = z.object({
+  lessonId: z.string().min(1),
+  studentId: z.string().min(1),
+  teknikBecerisi: scoreItem(),
+  notaOkuma: scoreItem(),
+  muzikalite: scoreItem(),
+  ritimDuyusu: scoreItem(),
+  calismaDuzeni: scoreItem(),
+  evOdeviTamamlama: scoreItem(),
+  dersKatilimi: scoreItem(),
+  motivasyon: scoreItem(),
+  genelIlerleme: scoreItem(),
+  hedefeUlasma: scoreItem(),
+  strengthNote: z.string().min(1),
+  nextStepsNote: z.string().min(1),
+  improvementNote: z.string().min(1),
+  parentPrivateNote: z.string().optional(),
+  parentNoteVisibleToStudent: z.boolean().optional(),
+  teacherSignedName: z.string().min(1),
+});
