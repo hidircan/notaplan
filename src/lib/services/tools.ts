@@ -31,6 +31,7 @@ import {
   readData,
   resetData,
   updateBranch,
+  updateFeeRoundingMode,
   updateLessonSchedule,
   updateTeacherFeeRule,
 } from "../store";
@@ -77,10 +78,11 @@ import {
   suggestLessonSlotsSchema,
   teacherSchema,
   updateBranchSchema,
+  updateFeeRoundingModeSchema,
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
 } from "../validation";
-import type { BranchId, Instrument, MakeupSlot, Student, Teacher, TeacherFeeRule, TeacherPayout } from "../types";
+import type { BranchId, FeeRoundingMode, Instrument, MakeupSlot, Student, Teacher, TeacherFeeRule, TeacherPayout } from "../types";
 import {
   canAccessStudent,
   canAccessTeacher,
@@ -1116,6 +1118,32 @@ export async function markTeacherPayoutPaidTool(
     return ok({ payout: result.payout });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "markTeacherPayoutPaid failed");
+  }
+}
+
+/**
+ * Kurumun kesirli ders süresi → ödenecek dakika politikasını değiştirir
+ * (EPIC 3). Yalnızca ileri yönlü etkilidir: zaten oluşturulmuş `TeacherPayout`
+ * snapshot'larını asla yeniden hesaplamaz.
+ */
+export async function updateFeeRoundingModeTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feeRoundingMode: FeeRoundingMode }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateFeeRoundingModeSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const data = await updateFeeRoundingMode(v.data.feeRoundingMode);
+    audit(ctx, "school.fee_rounding_mode.update", "School", ctx.tenantId, {
+      feeRoundingMode: v.data.feeRoundingMode,
+    });
+    return ok({ feeRoundingMode: data.settings.feeRoundingMode });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateFeeRoundingMode failed");
   }
 }
 

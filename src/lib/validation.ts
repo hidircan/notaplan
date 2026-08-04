@@ -161,3 +161,7 @@ export const markTeacherPayoutPaidSchema = z.object({
   payoutId: z.string().min(1),
   method: z.string().min(1).optional(),
 });
+
+export const updateFeeRoundingModeSchema = z.object({
+  feeRoundingMode: z.enum(["exact_minutes", "round_30", "fixed_package"]),
+});

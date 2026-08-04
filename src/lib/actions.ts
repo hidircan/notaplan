@@ -39,6 +39,7 @@ import {
   computeTeacherPayoutTool,
   createTeacherPayoutTool,
   markTeacherPayoutPaidTool,
+  updateFeeRoundingModeTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   resetDemoTool,
@@ -50,7 +51,7 @@ import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./
 import type { LessonSlotSuggestion } from "./lesson-scheduling";
 import type { SeriesOccurrenceCheck } from "./lesson-series";
 import type { TeacherEarningsResult } from "./teacher-payout";
-import type { TeacherFeeRule, TeacherPayout } from "./types";
+import type { FeeRoundingMode, TeacherFeeRule, TeacherPayout } from "./types";
 import type { ImportPreview } from "./import/types";
 import type { ImportCommitResult } from "./import/commit-result";
 import type { BranchImportRow } from "./import/branches";
@@ -744,6 +745,27 @@ export async function actionMarkTeacherPayoutPaid(input: {
     logger.error("actionMarkTeacherPayoutPaid failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Hakediş ödendi olarak işaretlenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateFeeRoundingModeActionResult =
+  | { ok: true; feeRoundingMode: FeeRoundingMode }
+  | { ok: false; message: string };
+
+export async function actionUpdateFeeRoundingMode(
+  feeRoundingMode: FeeRoundingMode
+): Promise<UpdateFeeRoundingModeActionResult> {
+  try {
+    const result = await withAuthContext((ctx) =>
+      updateFeeRoundingModeTool(ctx, { feeRoundingMode })
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, feeRoundingMode: result.data.feeRoundingMode };
+  } catch (error) {
+    logger.error("actionUpdateFeeRoundingMode failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ücret yuvarlama politikası güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 
