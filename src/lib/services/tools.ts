@@ -40,6 +40,7 @@ import {
   updateLessonSchedule,
   updateMakeupSlaEscalation,
   updateStudentProfile,
+  updateTeacherAvailability,
   updateTeacherFeeRule,
 } from "../store";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
@@ -82,6 +83,13 @@ import {
   stripPrivateNoteForRecipient,
   type AssessmentTrendPoint,
 } from "../assessment/score";
+import {
+  clearAvailabilityRequests,
+  createAvailabilityRequest,
+  getAvailabilityRequest,
+  listAvailabilityRequestsForTeacher,
+  reviewAvailabilityRequest,
+} from "../teacher-availability";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
@@ -117,6 +125,8 @@ import {
   markNotificationReadSchema,
   markTeacherPayoutPaidSchema,
   paymentRecordSchema,
+  proposeTeacherAvailabilitySchema,
+  reviewTeacherAvailabilityRequestSchema,
   roomSchema,
   startLessonSchema,
   studentSchema,
@@ -145,6 +155,7 @@ import {
   type Notification,
   type Student,
   type Teacher,
+  type TeacherAvailabilityRequest,
   type TeacherFeeRule,
   type TeacherPayout,
 } from "../types";
@@ -1837,6 +1848,118 @@ export async function correctLessonTimesTool(
   }
 }
 
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — TEACHER kendi müsaitliği için bir öneri
+ * oluşturur; `Teacher.availability` bu çağrıyla DEĞİŞMEZ, yalnızca onay
+ * bekleyen bir kayıt eklenir (bkz. reviewTeacherAvailabilityRequestTool).
+ */
+export async function proposeTeacherAvailabilityTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ requestId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  const v = parseOrFail(proposeTeacherAvailabilitySchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const request = await createAvailabilityRequest({
+      tenantId: ctx.tenantId,
+      teacherId: ctx.teacherId,
+      proposedAvailability: v.data.proposedAvailability,
+      exceptions: v.data.exceptions,
+    });
+    audit(ctx, "teacher.availability_request.create", "TeacherAvailabilityRequest", request.id, {
+      teacherId: ctx.teacherId,
+    });
+    return ok({ requestId: request.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "proposeTeacherAvailability failed");
+  }
+}
+
+/**
+ * Bir öğretmenin geçmiş/bekleyen müsaitlik önerileri. TEACHER yalnızca
+ * kendi kayıtlarını görebilir; SCHOOL_ADMIN/SUPER_ADMIN herhangi birini
+ * (onay ekranı için).
+ */
+export async function listTeacherAvailabilityRequestsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ requests: TeacherAvailabilityRequest[] }>> {
+  const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ teacherId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (ctx.role === "TEACHER" && v.data.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi müsaitlik önerilerinizi görebilirsiniz.");
+  }
+
+  try {
+    const requests = await listAvailabilityRequestsForTeacher(ctx.tenantId, v.data.teacherId);
+    return ok({ requests });
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "listTeacherAvailabilityRequests failed"
+    );
+  }
+}
+
+/**
+ * Yalnızca SCHOOL_ADMIN/SUPER_ADMIN — onaylanan öneri hemen
+ * `Teacher.availability`'ye UYGULANIR (updateTeacherAvailability); reddedilen
+ * öneri yalnızca durumu değiştirir, öğretmenin canlı programına dokunmaz.
+ * Zaten incelenmiş (approved/rejected) bir öneriyi tekrar incelemek
+ * NOT_FOUND döner (idempotent hata, EPIC 8'in aynı deseni).
+ */
+export async function reviewTeacherAvailabilityRequestTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ requestId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(reviewTeacherAvailabilityRequestSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const existing = await getAvailabilityRequest(ctx.tenantId, v.data.requestId);
+    if (!existing) return fail("NOT_FOUND", "Müsaitlik önerisi bulunamadı.");
+
+    const reviewed = await reviewAvailabilityRequest(ctx.tenantId, v.data.requestId, {
+      status: v.data.decision,
+      reviewNote: v.data.reviewNote,
+      reviewedBy: ctx.userId,
+    });
+    if (!reviewed) {
+      return fail("VALIDATION_ERROR", "Bu öneri zaten incelenmiş.");
+    }
+
+    if (reviewed.status === "approved") {
+      await updateTeacherAvailability(reviewed.teacherId, reviewed.proposedAvailability);
+    }
+
+    audit(
+      ctx,
+      "teacher.availability_request.review",
+      "TeacherAvailabilityRequest",
+      reviewed.id,
+      { decision: v.data.decision, reviewNote: v.data.reviewNote, teacherId: reviewed.teacherId }
+    );
+    return ok({ requestId: reviewed.id, status: reviewed.status });
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "reviewTeacherAvailabilityRequest failed"
+    );
+  }
+}
+
 export async function resetDemoTool(
   ctx: ServiceContext
 ): Promise<ServiceResult<{ reset: true }>> {
@@ -1851,6 +1974,7 @@ export async function resetDemoTool(
     await clearNotifications(ctx.tenantId);
     await clearAnnouncements(ctx.tenantId);
     await clearAssessments(ctx.tenantId);
+    await clearAvailabilityRequests(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");

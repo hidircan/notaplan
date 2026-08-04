@@ -44,6 +44,10 @@ type StoreApi = {
   addStudent: (student: Omit<Student, "id" | "createdAt" | "active">) => Promise<AppData>;
   updateStudentProfile: (studentId: string, patch: StudentProfilePatch) => Promise<AppData>;
   addTeacher: (teacher: Omit<Teacher, "id" | "active" | "color">) => Promise<AppData>;
+  updateTeacherAvailability: (
+    teacherId: string,
+    availability: Teacher["availability"]
+  ) => Promise<Teacher | null>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
   addLesson: (input: {
@@ -207,6 +211,13 @@ export async function addTeacher(
   teacher: Omit<Teacher, "id" | "active" | "color">
 ): Promise<AppData> {
   return withTenantScope(() => store.addTeacher(teacher));
+}
+
+export async function updateTeacherAvailability(
+  teacherId: string,
+  availability: Teacher["availability"]
+): Promise<Teacher | null> {
+  return withTenantScope(() => store.updateTeacherAvailability(teacherId, availability));
 }
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {

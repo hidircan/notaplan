@@ -29,6 +29,7 @@ model Tenant {
   notifications   Notification[]
   announcements   Announcement[]
   lessonAssessments LessonAssessment[]
+  teacherAvailabilityRequests TeacherAvailabilityRequest[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -545,6 +546,31 @@ model LessonAssessment {
   @@index([tenantId, studentId])
   @@index([tenantId, teacherId])
   @@index([lessonId])
+}
+
+/// EPIC 9 (IMPLEMENTATION_PLAN.md) — öğretmenin müsaitlik değişikliği önerisi.
+/// `Teacher.availability` bu tablo ÜZERİNDEN değişir: TEACHER yalnızca öneri
+/// oluşturur (status="pending"), SCHOOL_ADMIN/SUPER_ADMIN onaylayınca öneri
+/// `Teacher.availability`'ye UYGULANIR (src/lib/teacher-availability.ts +
+/// tool katmanındaki reviewTeacherAvailabilityRequestTool). İlk öğretmen
+/// kaydındaki müsaitlik (createTeacherTool) bu akışın DIŞINDADIR — yalnızca
+/// öğretmenin KENDİ yaptığı sonraki değişiklikler onaya girer.
+model TeacherAvailabilityRequest {
+  id                   String    @id
+  tenantId             String
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacherId            String
+  proposedAvailability Json
+  exceptions           Json?
+  /// "pending" | "approved" | "rejected"
+  status               String    @default("pending")
+  reviewNote           String?
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([tenantId, teacherId, status])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

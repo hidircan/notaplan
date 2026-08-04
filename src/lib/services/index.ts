@@ -56,5 +56,8 @@ export {
   startLessonTool,
   endLessonTool,
   correctLessonTimesTool,
+  proposeTeacherAvailabilityTool,
+  listTeacherAvailabilityRequestsTool,
+  reviewTeacherAvailabilityRequestTool,
   resetDemoTool,
 } from "./tools";

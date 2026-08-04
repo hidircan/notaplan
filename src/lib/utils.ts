@@ -70,6 +70,7 @@ export function statusLabel(status: string) {
     archived: "Arşivlendi",
     in_progress: "Devam ediyor",
     delayed: "Başlamadı",
+    rejected: "Reddedildi",
   };
   return map[status] ?? status;
 }
@@ -97,6 +98,7 @@ export function statusColor(status: string) {
     archived: "bg-slate-200 text-slate-600",
     in_progress: "bg-cyan-100 text-cyan-800",
     delayed: "bg-orange-100 text-orange-800",
+    rejected: "bg-rose-100 text-rose-800",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }

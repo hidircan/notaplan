@@ -876,6 +876,27 @@ export async function addTeacher(
   return readData();
 }
 
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — yalnızca onaylanmış bir
+ * TeacherAvailabilityRequest uygulanırken çağrılır; doğrudan bir yazma
+ * yolu değildir (bkz. reviewTeacherAvailabilityRequestTool).
+ */
+export async function updateTeacherAvailability(
+  teacherId: string,
+  availability: Teacher["availability"]
+): Promise<Teacher | null> {
+  logger.info("updateTeacherAvailability", teacherId);
+  const tid = requireTenantId();
+  const result = await prisma.teacher.updateMany({
+    where: { id: teacherId, tenantId: tid },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: { availability: availability as any },
+  });
+  if (result.count === 0) return null;
+  const data = await readData();
+  return data.teachers.find((t) => t.id === teacherId) ?? null;
+}
+
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   logger.info("markPaymentPaid", paymentId);
   const tid = requireTenantId();

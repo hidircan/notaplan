@@ -1,0 +1,129 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireSessionContext } from "@/lib/auth/session";
+import { readData } from "@/lib/store";
+import { listTeacherAvailabilityRequestsTool } from "@/lib/services";
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
+import { TeacherAvailabilityReview } from "@/components/teacher-availability-review";
+import { dayName, formatDateTime } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Onay bekliyor",
+  approved: "Onaylandı",
+  rejected: "Reddedildi",
+};
+
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — yönetici müsaitlik önerilerini onaylar/
+ * reddeder. Onaylanan öneri hemen Teacher.availability'ye uygulanır.
+ */
+export default async function TeacherAvailabilityReviewPage({
+  params,
+}: {
+  params: Promise<{ teacherId: string }>;
+}) {
+  const { teacherId } = await params;
+
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect(`/login?next=/panel/ogretmenler/${teacherId}/musaitlik`);
+  }
+  if (session.role !== "SCHOOL_ADMIN" && session.role !== "SUPER_ADMIN") {
+    redirect("/panel");
+  }
+
+  const data = await readData();
+  const teacher = data.teachers.find((t) => t.id === teacherId);
+
+  if (!teacher) {
+    return (
+      <div>
+        <PageHeader title="Müsaitlik" description="Öğretmen bulunamadı." />
+        <EmptyState
+          title="Öğretmen bulunamadı"
+          description="Bu öğretmen kurumunuza kayıtlı değil veya kaldırılmış olabilir."
+        />
+        <Link
+          href="/panel/ogretmenler"
+          className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+        >
+          Öğretmenlere dön
+        </Link>
+      </div>
+    );
+  }
+
+  const requestsResult = await listTeacherAvailabilityRequestsTool(session, { teacherId });
+  const requests = requestsResult.ok ? requestsResult.data.requests : [];
+  const pending = requests.filter((r) => r.status === "pending");
+  const reviewed = requests.filter((r) => r.status !== "pending");
+
+  return (
+    <div>
+      <PageHeader
+        title={`${teacher.name} — Müsaitlik`}
+        description="Öğretmenin müsaitlik değişikliği önerilerini onaylayın veya reddedin."
+      />
+
+      <Card className="mb-4">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-violet-600">
+          Şu anki müsaitlik
+        </p>
+        {teacher.availability.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Kayıtlı müsaitlik yok.</p>
+        ) : (
+          <div className="space-y-1">
+            {teacher.availability
+              .slice()
+              .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+              .map((w) => (
+                <p key={w.dayOfWeek} className="text-sm text-slate-700 dark:text-slate-300">
+                  {dayName(w.dayOfWeek)}: {w.start}–{w.end}
+                </p>
+              ))}
+          </div>
+        )}
+      </Card>
+
+      <section className="mb-4">
+        <p className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          Onay bekleyen öneriler
+        </p>
+        {pending.length === 0 ? (
+          <EmptyState title="Bekleyen öneri yok" />
+        ) : (
+          <div className="space-y-3">
+            {pending.map((r) => (
+              <TeacherAvailabilityReview key={r.id} request={r} currentAvailability={teacher.availability} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {reviewed.length > 0 ? (
+        <section>
+          <p className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Geçmiş öneriler
+          </p>
+          <div className="space-y-2">
+            {reviewed.map((r) => (
+              <Card key={r.id} className="!p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(r.createdAt)}</p>
+                  <Badge status={r.status}>{STATUS_LABEL[r.status] ?? r.status}</Badge>
+                </div>
+                {r.reviewNote ? (
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Not: {r.reviewNote}</p>
+                ) : null}
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}

@@ -279,6 +279,20 @@ export async function addTeacher(
   return save({ ...data, teachers: [...data.teachers, t] });
 }
 
+export async function updateTeacherAvailability(
+  teacherId: string,
+  availability: Teacher["availability"]
+): Promise<Teacher | null> {
+  const data = load();
+  const idx = data.teachers.findIndex((t) => t.id === teacherId);
+  if (idx === -1) return null;
+  const updated: Teacher = { ...data.teachers[idx], availability };
+  const teachers = [...data.teachers];
+  teachers[idx] = updated;
+  save({ ...data, teachers });
+  return updated;
+}
+
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   const data = load();
   const payments: Payment[] = data.payments.map((p) =>

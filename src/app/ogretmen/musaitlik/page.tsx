@@ -1,0 +1,108 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { readData } from "@/lib/store";
+import { requireSessionContext } from "@/lib/auth/session";
+import { listTeacherAvailabilityRequestsTool } from "@/lib/services";
+import { Badge, Card } from "@/components/ui";
+import { TeacherAvailabilityForm } from "@/components/teacher-availability-form";
+import { dayName, formatDateTime } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Onay bekliyor",
+  approved: "Onaylandı",
+  rejected: "Reddedildi",
+};
+
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — öğretmen kendi müsaitliğini DOĞRUDAN
+ * değiştiremez, yalnızca öneri gönderir (bkz. proposeTeacherAvailabilityTool).
+ */
+export default async function TeacherAvailabilityPage() {
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/ogretmen/musaitlik");
+  }
+  if (session.role === "PARENT") redirect("/veli");
+
+  const data = await readData();
+  const teacherId = session.teacherId || "t2";
+  const teacher = data.teachers.find((t) => t.id === teacherId) ?? data.teachers[0];
+  if (!teacher) redirect("/login");
+
+  const requestsResult = await listTeacherAvailabilityRequestsTool(session, { teacherId: teacher.id });
+  const requests = requestsResult.ok ? requestsResult.data.requests : [];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <ArrowLeft className="h-4 w-4" /> Geri
+          </Link>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Müsaitliğim</p>
+          <span className="w-10" />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
+        <Card>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-cyan-600">Şu anki müsaitlik</p>
+          {teacher.availability.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Kayıtlı müsaitlik yok.</p>
+          ) : (
+            <div className="space-y-1">
+              {teacher.availability
+                .slice()
+                .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+                .map((w) => (
+                  <p key={w.dayOfWeek} className="text-sm text-slate-700 dark:text-slate-300">
+                    {dayName(w.dayOfWeek)}: {w.start}–{w.end}
+                  </p>
+                ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-slate-400">
+            Değişiklik için aşağıdan öneri gönderin — yönetici onayı sonrası uygulanır.
+          </p>
+        </Card>
+
+        <Card>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-cyan-600">
+            Yeni müsaitlik önerisi
+          </p>
+          <TeacherAvailabilityForm current={teacher.availability} />
+        </Card>
+
+        {requests.length > 0 ? (
+          <section>
+            <p className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Geçmiş önerilerim
+            </p>
+            <div className="space-y-2">
+              {requests.map((r) => (
+                <Card key={r.id} className="!p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {formatDateTime(r.createdAt)}
+                    </p>
+                    <Badge status={r.status}>{STATUS_LABEL[r.status] ?? r.status}</Badge>
+                  </div>
+                  {r.reviewNote ? (
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Yönetici notu: {r.reviewNote}
+                    </p>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </main>
+    </div>
+  );
+}

@@ -306,3 +306,24 @@ export const correctLessonTimesSchema = z
   .refine((d) => d.actualStartAt !== undefined || d.actualEndAt !== undefined, {
     message: "actualStartAt veya actualEndAt gerekli",
   });
+
+const availabilityWindowSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+    end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+  })
+  .refine((w) => w.start < w.end, { message: "Bitiş saati başlangıçtan sonra olmalı" });
+
+/** EPIC 9 — TEACHER kendi müsaitliği için öneri oluşturur, doğrudan yazmaz. */
+export const proposeTeacherAvailabilitySchema = z.object({
+  proposedAvailability: z.array(availabilityWindowSchema),
+  exceptions: z.unknown().optional(),
+});
+
+/** EPIC 9 — yalnızca SCHOOL_ADMIN/SUPER_ADMIN; not opsiyonel. */
+export const reviewTeacherAvailabilityRequestSchema = z.object({
+  requestId: z.string().min(1),
+  decision: z.enum(["approved", "rejected"]),
+  reviewNote: z.string().optional(),
+});

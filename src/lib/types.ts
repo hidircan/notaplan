@@ -51,6 +51,9 @@ export type MakeupStatus =
 export type PaymentStatus = "paid" | "pending" | "overdue" | "partial";
 export type LessonType = "regular" | "makeup" | "trial" | "group";
 
+/** Haftalık müsaitlik penceresi: 0=Pazar ... 6=Cumartesi */
+export type AvailabilityWindow = { dayOfWeek: number; start: string; end: string };
+
 export interface Teacher {
   id: string;
   name: string;
@@ -58,11 +61,29 @@ export interface Teacher {
   phone: string;
   branchId: BranchId;
   instruments: Instrument[];
-  /** Haftalık müsaitlik: 0=Pazar ... 6=Cumartesi */
-  availability: { dayOfWeek: number; start: string; end: string }[];
+  availability: AvailabilityWindow[];
   maxDailyLessons: number;
   active: boolean;
   color: string;
+}
+
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — öğretmenin müsaitlik değişikliği önerisi.
+ * `Teacher.availability` DOĞRUDAN değişmez; bu kayıt onaylanınca uygulanır.
+ */
+export type TeacherAvailabilityRequestStatus = "pending" | "approved" | "rejected";
+
+export interface TeacherAvailabilityRequest {
+  id: string;
+  teacherId: string;
+  proposedAvailability: AvailabilityWindow[];
+  exceptions?: unknown;
+  status: TeacherAvailabilityRequestStatus;
+  reviewNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
