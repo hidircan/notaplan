@@ -31,24 +31,26 @@ export function matchesAudience(
     case "teachers":
       return recipient.role === "TEACHER";
     case "parents":
-    case "students":
-      // EPIC 6A'da ayrı bir STUDENT rolü eklenene kadar "students" hedefi
-      // "parents" ile aynı alıcı kümesine eşlenir (aile tek oturum birimi).
       return recipient.role === "PARENT";
+    case "students":
+      // EPIC 6A — artık ayrı bir STUDENT rolü var; bu hedef yalnızca ona ulaşır
+      // (veli "parents" hedefiyle ayrıca kapsanır).
+      return recipient.role === "STUDENT";
     case "branch": {
       const ref = announcement.audienceRef as { branchId?: string } | undefined;
       if (!ref?.branchId) return false;
       if (recipient.role === "TEACHER") {
         return context.teachers.find((t) => t.id === recipient.teacherId)?.branchId === ref.branchId;
       }
-      if (recipient.role === "PARENT") {
+      if (recipient.role === "PARENT" || recipient.role === "STUDENT") {
         return context.students.find((s) => s.id === recipient.studentId)?.branchId === ref.branchId;
       }
       return false;
     }
     case "studentType": {
       const ref = announcement.audienceRef as { studentType?: string } | undefined;
-      if (!ref?.studentType || recipient.role !== "PARENT") return false;
+      if (!ref?.studentType) return false;
+      if (recipient.role !== "PARENT" && recipient.role !== "STUDENT") return false;
       return (
         context.students.find((s) => s.id === recipient.studentId)?.studentType === ref.studentType
       );

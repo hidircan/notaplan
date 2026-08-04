@@ -39,6 +39,19 @@ const BOOTSTRAP: BootstrapUser[] = [
     studentId: "s1",
   },
   {
+    /**
+     * EPIC 6A (IMPLEMENTATION_PLAN.md) — öğrencinin kendi hesabıyla giriş
+     * yapabildiği ilk demo kimliği. Aynı öğrenciyi (s1) veli hesabının
+     * YANINDA temsil eder — biri diğerinin yerini almaz.
+     */
+    userId: "user_student_s1",
+    email: "ogrenci@email.com",
+    password: process.env.AUTH_STUDENT_PASSWORD || "demo-student",
+    role: "STUDENT",
+    tenantId: DEFAULT_TENANT_ID,
+    studentId: "s1",
+  },
+  {
     /** Demo persona: gecikmiş ödeme + açık telafi talebi (s5) */
     userId: "user_parent_s5",
     email: "deniz@email.com",

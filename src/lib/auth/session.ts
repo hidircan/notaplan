@@ -104,6 +104,8 @@ export function homePathForRole(role: AppRole): string {
       return "/ogretmen";
     case "PARENT":
       return "/veli";
+    case "STUDENT":
+      return "/ogrenci";
     case "AI_AGENT":
     case "SCHOOL_ADMIN":
     case "SUPER_ADMIN":

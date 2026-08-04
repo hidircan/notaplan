@@ -5,6 +5,7 @@ export const APP_ROLES = [
   "SCHOOL_ADMIN",
   "TEACHER",
   "PARENT",
+  "STUDENT",
   "AI_AGENT",
 ] as const;
 

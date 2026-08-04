@@ -88,6 +88,18 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "announcements:read",
     "assessments:read",
   ],
+  /**
+   * EPIC 6A (IMPLEMENTATION_PLAN.md) — bilinçli olarak dar bir izin seti:
+   * yalnızca kendi verisini OKUR (canAccessStudent ile kapsamlanır),
+   * hiçbir şey YAZAMAZ (opt-out/mesajlaşma/ödeme veli veya admin kararıdır).
+   */
+  STUDENT: [
+    "students:read",
+    "tools:catalog",
+    "notifications:read",
+    "announcements:read",
+    "assessments:read",
+  ],
   AI_AGENT: [
     "attendance:write",
     "makeup:read",

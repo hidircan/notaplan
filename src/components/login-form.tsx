@@ -31,6 +31,12 @@ const DEMO_PERSONAS: DemoPersona[] = [
     password: "demo-parent",
   },
   {
+    label: "Öğrenci — Zeynep (kendi hesabı)",
+    hint: "EPIC 6A — yalnızca kendi verisini görür",
+    email: "ogrenci@email.com",
+    password: "demo-student",
+  },
+  {
     label: "Veli — Lara'nın velisi",
     hint: "Gecikmiş ödeme + açık telafi",
     email: "deniz@email.com",
@@ -77,6 +83,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       if (!nextPath) {
         if (role === "TEACHER") dest = "/ogretmen";
         else if (role === "PARENT") dest = "/veli";
+        else if (role === "STUDENT") dest = "/ogrenci";
         else dest = "/panel";
       }
       router.replace(dest);

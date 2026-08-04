@@ -58,6 +58,9 @@ const CONTEXT = { students: STUDENTS, teachers: TEACHERS };
 function parent(studentId: string, userId = `parent-of-${studentId}`): AnnouncementRecipient {
   return { role: "PARENT", userId, studentId };
 }
+function studentRecipient(studentId: string, userId = `student-${studentId}`): AnnouncementRecipient {
+  return { role: "STUDENT", userId, studentId };
+}
 function teacherRecipient(teacherId: string, userId = `user-${teacherId}`): AnnouncementRecipient {
   return { role: "TEACHER", userId, teacherId };
 }
@@ -85,12 +88,14 @@ describe("EPIC 5 — matchesAudience: her audienceType için hedefte olan görü
     expect(matchesAudience(a, teacherRecipient("t-erzene"), CONTEXT)).toBe(false);
   });
 
-  it("branch: yalnızca o şubedeki öğretmen/veli görür, başka şube görmez", () => {
+  it("branch: yalnızca o şubedeki öğretmen/veli/öğrenci görür, başka şube görmez", () => {
     const a = announcement({ audienceType: "branch", audienceRef: { branchId: "erzene" } });
     expect(matchesAudience(a, teacherRecipient("t-erzene"), CONTEXT)).toBe(true);
     expect(matchesAudience(a, teacherRecipient("t-alsancak"), CONTEXT)).toBe(false);
     expect(matchesAudience(a, parent("s-erzene-hobi"), CONTEXT)).toBe(true);
     expect(matchesAudience(a, parent("s-alsancak-meb"), CONTEXT)).toBe(false);
+    expect(matchesAudience(a, studentRecipient("s-erzene-hobi"), CONTEXT)).toBe(true);
+    expect(matchesAudience(a, studentRecipient("s-alsancak-meb"), CONTEXT)).toBe(false);
   });
 
   it("branch: audienceRef eksikse kimse görmez (fail-closed)", () => {
@@ -98,10 +103,12 @@ describe("EPIC 5 — matchesAudience: her audienceType için hedefte olan görü
     expect(matchesAudience(a, teacherRecipient("t-erzene"), CONTEXT)).toBe(false);
   });
 
-  it("studentType: yalnızca o türdeki öğrencinin velisi görür, diğer türler görmez", () => {
+  it("studentType: yalnızca o türdeki öğrencinin velisi/kendisi görür, diğer türler görmez", () => {
     const a = announcement({ audienceType: "studentType", audienceRef: { studentType: "Hobi" } });
     expect(matchesAudience(a, parent("s-erzene-hobi"), CONTEXT)).toBe(true);
     expect(matchesAudience(a, parent("s-alsancak-meb"), CONTEXT)).toBe(false);
+    expect(matchesAudience(a, studentRecipient("s-erzene-hobi"), CONTEXT)).toBe(true);
+    expect(matchesAudience(a, studentRecipient("s-alsancak-meb"), CONTEXT)).toBe(false);
   });
 
   it("studentType: TEACHER rolü asla görmez (yalnızca veli hedeflemesi)", () => {
@@ -120,9 +127,10 @@ describe("EPIC 5 — matchesAudience: her audienceType için hedefte olan görü
     expect(matchesAudience(a, parent("s1", "user-x"), CONTEXT)).toBe(false);
   });
 
-  it("students: EPIC 6A'ya kadar parents ile aynı alıcı kümesi — TEACHER görmez", () => {
+  it("students: EPIC 6A sonrası yalnızca STUDENT rolü görür — PARENT/TEACHER görmez", () => {
     const a = announcement({ audienceType: "students" });
-    expect(matchesAudience(a, parent("s-erzene-hobi"), CONTEXT)).toBe(true);
+    expect(matchesAudience(a, studentRecipient("s-erzene-hobi"), CONTEXT)).toBe(true);
+    expect(matchesAudience(a, parent("s-erzene-hobi"), CONTEXT)).toBe(false);
     expect(matchesAudience(a, teacherRecipient("t-erzene"), CONTEXT)).toBe(false);
   });
 });

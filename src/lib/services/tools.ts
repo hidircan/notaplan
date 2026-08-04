@@ -421,7 +421,14 @@ export async function getStudentScheduleTool(
   ctx: ServiceContext,
   input: unknown
 ): Promise<ServiceResult<{ studentId: string; lessons: unknown[] }>> {
-  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "PARENT", "AI_AGENT", "SUPER_ADMIN"]);
+  const auth = requireRole(ctx, [
+    "SCHOOL_ADMIN",
+    "TEACHER",
+    "PARENT",
+    "STUDENT",
+    "AI_AGENT",
+    "SUPER_ADMIN",
+  ]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);

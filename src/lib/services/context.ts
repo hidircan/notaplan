@@ -53,7 +53,7 @@ export function canAccessStudent(ctx: ServiceContext, studentId: string): boolea
   if (ctx.role === "SUPER_ADMIN" || ctx.role === "SCHOOL_ADMIN" || ctx.role === "AI_AGENT") {
     return true;
   }
-  if (ctx.role === "PARENT") return ctx.studentId === studentId;
+  if (ctx.role === "PARENT" || ctx.role === "STUDENT") return ctx.studentId === studentId;
   if (ctx.role === "TEACHER") return true; // filtered by schedule ownership in tools where needed
   return false;
 }

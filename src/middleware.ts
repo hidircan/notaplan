@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { ACCESS_COOKIE, REFRESH_COOKIE } from "@/lib/auth/cookies";
 
-const PROTECTED = ["/panel", "/veli", "/ogretmen"];
+const PROTECTED = ["/panel", "/veli", "/ogretmen", "/ogrenci"];
 
 function getSecret() {
   const secret =
@@ -55,5 +55,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/panel/:path*", "/veli/:path*", "/ogretmen/:path*", "/panel", "/veli", "/ogretmen"],
+  matcher: [
+    "/panel/:path*",
+    "/veli/:path*",
+    "/ogretmen/:path*",
+    "/ogrenci/:path*",
+    "/panel",
+    "/veli",
+    "/ogretmen",
+    "/ogrenci",
+  ],
 };

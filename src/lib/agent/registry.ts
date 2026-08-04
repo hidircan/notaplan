@@ -47,6 +47,7 @@ const ALL: AppRole[] = [
   "SCHOOL_ADMIN",
   "TEACHER",
   "PARENT",
+  "STUDENT",
   "AI_AGENT",
 ];
 
