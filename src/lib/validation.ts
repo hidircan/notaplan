@@ -195,3 +195,19 @@ export const markTeacherPayoutPaidSchema = z.object({
 export const updateFeeRoundingModeSchema = z.object({
   feeRoundingMode: z.enum(["exact_minutes", "round_30", "fixed_package"]),
 });
+
+/** EPIC 1 — veli kendi çocuğu için, admin herkes için değiştirebilir (bkz. updateCommunicationPreferenceTool). */
+export const updateCommunicationPreferenceSchema = z.object({
+  studentId: z.string().min(1),
+  communicationOptOut: z.boolean(),
+});
+
+/** EPIC 1 — okulun gecikmiş tahsilat otomasyon ayarları. */
+export const updateCollectionsSettingsSchema = z.object({
+  frequencyLimitDays: z.number().int().min(1).max(30),
+  autoSendEnabled: z.boolean(),
+});
+
+export const markNotificationReadSchema = z.object({
+  notificationId: z.string().min(1),
+});

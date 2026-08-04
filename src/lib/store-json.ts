@@ -9,6 +9,7 @@ import type {
   Attendance,
   AttendanceStatus,
   Branch,
+  CollectionsSettings,
   FeeRoundingMode,
   Instrument,
   Lesson,
@@ -453,6 +454,15 @@ export async function markTeacherPayoutPaid(
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   const data = await readData();
   const next = { ...data, settings: { ...data.settings, feeRoundingMode } };
+  await writeData(next);
+  return next;
+}
+
+export async function updateCollectionsSettings(
+  collectionsSettings: CollectionsSettings
+): Promise<AppData> {
+  const data = await readData();
+  const next = { ...data, settings: { ...data.settings, collectionsSettings } };
   await writeData(next);
   return next;
 }

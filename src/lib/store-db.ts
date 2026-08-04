@@ -6,6 +6,7 @@ import type {
   AppData,
   AttendanceStatus,
   BranchId,
+  CollectionsSettings,
   FeeRoundingMode,
   Instrument,
   LessonSeriesStatus,
@@ -94,6 +95,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       workingDays: school.workingDays as number[],
       currency: school.currency,
       feeRoundingMode: school.feeRoundingMode as FeeRoundingMode,
+      collectionsSettings: (school.collectionsSettings as CollectionsSettings | null) ?? undefined,
       branches: school.branches.map((branch) => ({
         id: branch.id as BranchId,
         name: branch.name,
@@ -137,6 +139,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       level: student.level ?? undefined,
       targetExam: student.targetExam ?? undefined,
       specialNotes: student.specialNotes ?? undefined,
+      communicationOptOut: student.communicationOptOut,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -828,6 +831,7 @@ export async function updateStudentProfile(
       level: patch.level,
       targetExam: patch.targetExam,
       specialNotes: patch.specialNotes,
+      communicationOptOut: patch.communicationOptOut,
     },
   });
   if (result.count === 0) throw new Error("Öğrenci bulunamadı");
@@ -1475,6 +1479,17 @@ export async function markTeacherPayoutPaid(
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   const tid = requireTenantId();
   await prisma.school.update({ where: { tenantId: tid }, data: { feeRoundingMode } });
+  return readData();
+}
+
+export async function updateCollectionsSettings(
+  collectionsSettings: CollectionsSettings
+): Promise<AppData> {
+  const tid = requireTenantId();
+  await prisma.school.update({
+    where: { tenantId: tid },
+    data: { collectionsSettings: collectionsSettings as unknown as Prisma.InputJsonValue },
+  });
   return readData();
 }
 

@@ -19,6 +19,7 @@ export type AgentToolName =
   | "createMakeupLesson"
   | "cancelMakeupLesson"
   | "checkMakeupSla"
+  | "scanOverduePayments"
   | "findAvailableTeachers"
   | "getStudentSchedule"
   | "getTeacherSchedule"

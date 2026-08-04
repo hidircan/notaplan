@@ -26,6 +26,7 @@ model Tenant {
   followUpCases PaymentFollowUpCase[]
   teacherFeeRules TeacherFeeRule[]
   teacherPayouts  TeacherPayout[]
+  notifications   Notification[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -72,6 +73,10 @@ model School {
   /// changes a TeacherPayout snapshot already generated — only affects
   /// future computations.
   feeRoundingMode       String    @default("exact_minutes")
+  /// EPIC 1 (IMPLEMENTATION_PLAN.md) — gecikmiş tahsilat otomasyon ayarları:
+  /// { frequencyLimitDays: number; autoSendEnabled: boolean }. null ise
+  /// uygulama katmanı varsayılanları (3 gün, autoSendEnabled: false) uygular.
+  collectionsSettings   Json?
   branches              Branch[]
   teachers              Teacher[]
   students              Student[]
@@ -174,6 +179,11 @@ model Student {
   level                String?
   targetExam           String?
   specialNotes         String?
+  /// EPIC 1 (IMPLEMENTATION_PLAN.md) — true ise veli otomatik tahsilat
+  /// hatırlatma mesajlarından çıkmıştır; payment_reminders workflow'u ve
+  /// scanOverduePaymentsTool bu öğrenciyi atlar. Manuel/idari mesajlaşmayı
+  /// engellemez.
+  communicationOptOut Boolean   @default(false)
   lessons           Lesson[]
   lessonSeries      LessonSeries[]
   attendances       Attendance[]
@@ -413,6 +423,27 @@ model PaymentFollowUpCase {
 
   @@index([tenantId, status])
   @@index([paymentId])
+}
+
+/// EPIC 1 (IMPLEMENTATION_PLAN.md) — uygulama içi bildirim (veli portalı vb).
+/// `targetUserId`/`targetStudentId` bilerek `@relation` ile bağlanmaz: bir
+/// bildirim hedef kayıt silinse bile okunabilir kalmalı (audit-log benzeri
+/// dayanıklılık). Erişim her zaman tenantId + (targetUserId veya
+/// targetStudentId) ile kapsamlanır — bkz. src/lib/notifications.
+model Notification {
+  id              String    @id
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  targetUserId    String?
+  targetStudentId String?
+  kind            String
+  title           String
+  body            String
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId, targetUserId])
+  @@index([tenantId, targetStudentId])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

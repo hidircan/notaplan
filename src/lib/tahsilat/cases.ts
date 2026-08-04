@@ -237,11 +237,17 @@ export async function clearFollowUpCases(tenantId: string): Promise<void> {
 }
 
 /** Satış demosunun kalbi: agent'ın bu ay tahsilata kattığı tutar. */
-export async function getCollectionRoi(tenantId: string): Promise<{
+export type CollectionRoi = {
   activeCases: number;
   resolvedThisMonth: number;
   attributedThisMonth: number;
-}> {
+  lostThisMonth: number;
+  closedThisMonth: number;
+  successRate: number | null;
+};
+
+/** Bu ayki tahsilat performansi. */
+export async function getCollectionRoi(tenantId: string): Promise<CollectionRoi> {
   const cases = await listFollowUpCases(tenantId);
   const monthStart = new Date();
   monthStart.setDate(1);
@@ -249,9 +255,33 @@ export async function getCollectionRoi(tenantId: string): Promise<{
   const resolved = cases.filter(
     (c) => c.status === "paid" && c.resolvedAt && new Date(c.resolvedAt) >= monthStart
   );
+  const lost = cases.filter(
+    (c) => c.status === "lost" && c.resolvedAt && new Date(c.resolvedAt) >= monthStart
+  );
+  const closedThisMonth = resolved.length + lost.length;
   return {
     activeCases: cases.filter((c) => c.status !== "paid" && c.status !== "lost").length,
     resolvedThisMonth: resolved.length,
     attributedThisMonth: resolved.reduce((s, c) => s + c.attributedAmount, 0),
+    lostThisMonth: lost.length,
+    closedThisMonth,
+    successRate: closedThisMonth > 0 ? resolved.length / closedThisMonth : null,
+  };
+}
+
+/** "Tüm kurumlar" görünümü için birden fazla kurumun ROI'sini toplar. */
+export function mergeCollectionRoi(parts: CollectionRoi[]): CollectionRoi {
+  const activeCases = parts.reduce((s, p) => s + p.activeCases, 0);
+  const resolvedThisMonth = parts.reduce((s, p) => s + p.resolvedThisMonth, 0);
+  const attributedThisMonth = parts.reduce((s, p) => s + p.attributedThisMonth, 0);
+  const lostThisMonth = parts.reduce((s, p) => s + p.lostThisMonth, 0);
+  const closedThisMonth = parts.reduce((s, p) => s + p.closedThisMonth, 0);
+  return {
+    activeCases,
+    resolvedThisMonth,
+    attributedThisMonth,
+    lostThisMonth,
+    closedThisMonth,
+    successRate: closedThisMonth > 0 ? resolvedThisMonth / closedThisMonth : null,
   };
 }

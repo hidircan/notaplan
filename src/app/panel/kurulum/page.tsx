@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Circle, Download, RefreshCcw, Upload } from "lucide-react";
+import { ArrowRight, BellRing, CheckCircle2, Circle, Download, RefreshCcw, Upload } from "lucide-react";
 import { actionResetDemo } from "@/lib/actions";
 import { readData } from "@/lib/store";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { computeSetupProgress, type SetupStepId } from "@/lib/setup-progress";
 import { EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-export";
+import { DEFAULT_COLLECTIONS_SETTINGS } from "@/lib/types";
+import { CollectionsSettingsForm } from "@/components/collections-settings-form";
 
 const EXPORT_LABELS: Record<ExportEntity, string> = {
   students: "Öğrenciler",
@@ -169,6 +171,29 @@ export default async function KurulumPage() {
                 </a>
               ))}
             </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mt-6 border-slate-200">
+        <div className="flex items-start gap-3">
+          <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900 dark:text-slate-50">Tahsilat Otomasyonu</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Gecikmiş ödemeler için taslak mesaj ve veli bildirimi ne sıklıkla hazırlansın?
+              Veliler kendi iletişim tercihlerini veli portalından değiştirebilir.
+            </p>
+            <CollectionsSettingsForm
+              frequencyLimitDays={
+                data.settings.collectionsSettings?.frequencyLimitDays ??
+                DEFAULT_COLLECTIONS_SETTINGS.frequencyLimitDays
+              }
+              autoSendEnabled={
+                data.settings.collectionsSettings?.autoSendEnabled ??
+                DEFAULT_COLLECTIONS_SETTINGS.autoSendEnabled
+              }
+            />
           </div>
         </div>
       </Card>

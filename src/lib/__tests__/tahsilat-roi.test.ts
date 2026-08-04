@@ -5,6 +5,7 @@ import {
   listFollowUpCases,
   upsertFollowUpCase,
   getCollectionRoi,
+  mergeCollectionRoi,
   markPaymentCasesPaid,
   clearFollowUpCases,
   FOLLOW_UP_CASES_FILE,
@@ -219,5 +220,100 @@ describe("tahsilat vaka takibi · Lara & Ali demo senaryoları", () => {
 
     const roi = await getCollectionRoi(tenantId);
     expect(roi.activeCases).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("EPIC 1 — getCollectionRoi genişletilmiş metrikler (sentThisMonth/respondedThisMonth)", () => {
+  it("sentAt bu ay içindeyse sentThisMonth'a girer", async () => {
+    const now = new Date().toISOString();
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "sent",
+      messageDraft: "",
+      attributedAmount: 0,
+      sentAt: now,
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.sentThisMonth).toBe(1);
+  });
+
+  it("geçen ay gönderilen vaka bu ayın sentThisMonth'una girmez", async () => {
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "sent",
+      messageDraft: "",
+      attributedAmount: 0,
+      sentAt: lastMonth.toISOString(),
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.sentThisMonth).toBe(0);
+  });
+
+  it("replied/paid/lost durumuna bu ay geçen vaka respondedThisMonth'a girer", async () => {
+    const c = await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "sent",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+    await upsertFollowUpCase({
+      id: c.id,
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "replied",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.respondedThisMonth).toBe(1);
+  });
+
+  it("hâlâ draft/approved/sent durumundaki vaka respondedThisMonth'a girmez", async () => {
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "sent",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.respondedThisMonth).toBe(0);
+  });
+
+  it("mergeCollectionRoi sentThisMonth/respondedThisMonth alanlarını doğru toplar", () => {
+    const merged = mergeCollectionRoi([
+      {
+        activeCases: 1,
+        resolvedThisMonth: 1,
+        attributedThisMonth: 100,
+        lostThisMonth: 0,
+        closedThisMonth: 1,
+        successRate: 1,
+        sentThisMonth: 2,
+        respondedThisMonth: 1,
+      },
+      {
+        activeCases: 0,
+        resolvedThisMonth: 0,
+        attributedThisMonth: 0,
+        lostThisMonth: 1,
+        closedThisMonth: 1,
+        successRate: 0,
+        sentThisMonth: 3,
+        respondedThisMonth: 2,
+      },
+    ]);
+    expect(merged.sentThisMonth).toBe(5);
+    expect(merged.respondedThisMonth).toBe(3);
   });
 });

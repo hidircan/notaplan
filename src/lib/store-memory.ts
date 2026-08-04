@@ -10,6 +10,7 @@ import type {
   Attendance,
   AttendanceStatus,
   Branch,
+  CollectionsSettings,
   FeeRoundingMode,
   Instrument,
   Lesson,
@@ -421,6 +422,13 @@ export async function markTeacherPayoutPaid(
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   const data = load();
   return save({ ...data, settings: { ...data.settings, feeRoundingMode } });
+}
+
+export async function updateCollectionsSettings(
+  collectionsSettings: CollectionsSettings
+): Promise<AppData> {
+  const data = load();
+  return save({ ...data, settings: { ...data.settings, collectionsSettings } });
 }
 
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];

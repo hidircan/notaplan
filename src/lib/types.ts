@@ -111,12 +111,53 @@ export interface Student {
   /** Hedef sınav / performans dönemi — serbest metin */
   targetExam?: string;
   specialNotes?: string;
+  /** EPIC 1 — true ise veli otomatik tahsilat hatırlatmalarından çıkmıştır. */
+  communicationOptOut?: boolean;
 }
 
 /** EPIC 4 — öğrenci eğitim profili alanları, tek bir yerden güncellenir. */
 export type StudentProfilePatch = Partial<
-  Pick<Student, "studentType" | "enrollmentStartDate" | "enrollmentEndDate" | "level" | "targetExam" | "specialNotes">
+  Pick<
+    Student,
+    | "studentType"
+    | "enrollmentStartDate"
+    | "enrollmentEndDate"
+    | "level"
+    | "targetExam"
+    | "specialNotes"
+    | "communicationOptOut"
+  >
 >;
+
+/**
+ * EPIC 1 (IMPLEMENTATION_PLAN.md) — okulun gecikmiş tahsilat otomasyon
+ * ayarları. `frequencyLimitDays`: aynı ödeme için iki hatırlatma arasında
+ * geçmesi gereken en az gün sayısı. `autoSendEnabled`: true olsa bile
+ * wa.me üzerinden GERÇEK gönderim her zaman bir insanın linke tıklamasını
+ * gerektirir — bu ayar yalnızca taslağın "approved" durumuna otomatik
+ * geçip geçmeyeceğini belirler (varsayılan: false, admin onayı zorunlu).
+ */
+export interface CollectionsSettings {
+  frequencyLimitDays: number;
+  autoSendEnabled: boolean;
+}
+
+export const DEFAULT_COLLECTIONS_SETTINGS: CollectionsSettings = {
+  frequencyLimitDays: 3,
+  autoSendEnabled: false,
+};
+
+/** EPIC 1 — uygulama içi bildirim (veli portalı, admin panel bildirim çanı). */
+export interface Notification {
+  id: string;
+  targetUserId?: string;
+  targetStudentId?: string;
+  kind: string;
+  title: string;
+  body: string;
+  readAt?: string;
+  createdAt: string;
+}
 
 export interface Room {
   id: string;
@@ -259,6 +300,8 @@ export interface SchoolSettings {
   currency: string;
   branches: Branch[];
   feeRoundingMode: FeeRoundingMode;
+  /** EPIC 1 — boşsa DEFAULT_COLLECTIONS_SETTINGS uygulanır. */
+  collectionsSettings?: CollectionsSettings;
 }
 
 /**

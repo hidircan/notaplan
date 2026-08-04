@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import {
   addBranch,
   addLesson,
@@ -31,6 +32,7 @@ import {
   readData,
   resetData,
   updateBranch,
+  updateCollectionsSettings,
   updateFeeRoundingMode,
   updateLessonSchedule,
   updateMakeupSlaEscalation,
@@ -50,7 +52,14 @@ import {
   computeSeriesOccurrences,
   type SeriesOccurrenceCheck,
 } from "../lesson-series";
-import { clearFollowUpCases } from "../tahsilat/cases";
+import { clearFollowUpCases, listFollowUpCases, upsertFollowUpCase } from "../tahsilat/cases";
+import {
+  clearNotifications,
+  createNotification,
+  listNotificationsForUser,
+  markNotificationRead,
+} from "../notifications";
+import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
 import { validateTeacherRows, type TeacherImportRow } from "../import/teachers";
@@ -77,6 +86,7 @@ import {
   lessonSchema,
   lessonSeriesParamsSchema,
   makeupSlotSchema,
+  markNotificationReadSchema,
   markTeacherPayoutPaidSchema,
   paymentRecordSchema,
   roomSchema,
@@ -84,12 +94,26 @@ import {
   suggestLessonSlotsSchema,
   teacherSchema,
   updateBranchSchema,
+  updateCollectionsSettingsSchema,
+  updateCommunicationPreferenceSchema,
   updateFeeRoundingModeSchema,
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
   updateStudentProfileSchema,
 } from "../validation";
-import type { BranchId, FeeRoundingMode, Instrument, MakeupSlot, Student, Teacher, TeacherFeeRule, TeacherPayout } from "../types";
+import {
+  DEFAULT_COLLECTIONS_SETTINGS,
+  type BranchId,
+  type CollectionsSettings,
+  type FeeRoundingMode,
+  type Instrument,
+  type MakeupSlot,
+  type Notification,
+  type Student,
+  type Teacher,
+  type TeacherFeeRule,
+  type TeacherPayout,
+} from "../types";
 import {
   canAccessStudent,
   canAccessTeacher,
@@ -1242,6 +1266,175 @@ export async function updateFeeRoundingModeTool(
   }
 }
 
+/**
+ * EPIC 1 (IMPLEMENTATION_PLAN.md) — gecikmiş ödemeler için GERÇEK tenant
+ * taraması: `findAvailableTeachers`'ın `{}` girdili tarama deseniyle aynı
+ * (bkz. checkMakeupSlaTool). Sabit demo ID listesi TARAMAZ. Her gecikmiş
+ * ödeme için: veli communicationOptOut ise atlar; sıklık limiti
+ * (collectionsSettings.frequencyLimitDays, varsayılan 3 gün) henüz dolmadıysa
+ * atlar; aksi halde upsertFollowUpCase ile taslak/onaylı vaka açar/günceller
+ * ve veliye uygulama içi bildirim oluşturur. autoSendEnabled=true olsa bile
+ * wa.me linkine tıklamak hâlâ bir insan eylemidir — bu ayar yalnızca
+ * taslağın "approved" durumuna otomatik geçmesini sağlar, "sent" durumunu
+ * ASLA otomatik üretmez (gerçek gönderim/okundu bilgisi olmadan uydurulmaz).
+ */
+export async function scanOverduePaymentsTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ scanned: number; casesUpserted: number; notificationsCreated: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "AI_AGENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  try {
+    const data = await readData();
+    const settings = data.settings.collectionsSettings ?? DEFAULT_COLLECTIONS_SETTINGS;
+    const existingCases = await listFollowUpCases(ctx.tenantId);
+    const now = new Date();
+
+    let scanned = 0;
+    let casesUpserted = 0;
+    let notificationsCreated = 0;
+
+    for (const payment of data.payments) {
+      if (payment.status !== "overdue") continue;
+      scanned++;
+
+      const student = data.students.find((s) => s.id === payment.studentId);
+      if (!student || student.communicationOptOut) continue;
+
+      const openCase = existingCases.find(
+        (c) => c.paymentId === payment.id && c.status !== "paid" && c.status !== "lost"
+      );
+      const lastContactAt = openCase?.sentAt ?? openCase?.updatedAt;
+      if (lastContactAt) {
+        const daysSinceContact = differenceInCalendarDays(now, parseISO(lastContactAt));
+        if (daysSinceContact < settings.frequencyLimitDays) continue;
+      }
+
+      const remaining = Math.max(Number(payment.amount) - Number(payment.paidAmount), 0);
+      const messageDraft = `Merhaba, ${student.name} için ${formatMoney(remaining)} tutarında gecikmiş ödeme kaydı bulunmaktadır. Size uygun ödeme planı için bizimle iletişime geçebilirsiniz.`;
+
+      const nextCase = await upsertFollowUpCase({
+        id: openCase?.id,
+        tenantId: ctx.tenantId,
+        paymentId: payment.id,
+        studentId: student.id,
+        status: settings.autoSendEnabled ? "approved" : "draft",
+        messageDraft,
+        attributedAmount: remaining,
+        approvedBy: settings.autoSendEnabled ? ctx.userId : openCase?.approvedBy,
+        approvedAt: settings.autoSendEnabled ? now.toISOString() : openCase?.approvedAt,
+      });
+      casesUpserted++;
+
+      await createNotification({
+        tenantId: ctx.tenantId,
+        targetStudentId: student.id,
+        kind: "payment_overdue",
+        title: "Gecikmiş ödeme hatırlatması",
+        body: `${payment.description} için ${formatMoney(remaining)} tutarında ödemeniz gecikmiştir.`,
+      });
+      notificationsCreated++;
+
+      audit(ctx, "collections.reminder_scan", "PaymentFollowUpCase", nextCase.id, {
+        paymentId: payment.id,
+        studentId: student.id,
+        autoSendEnabled: settings.autoSendEnabled,
+      });
+    }
+
+    return ok({ scanned, casesUpserted, notificationsCreated });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "scanOverduePayments failed");
+  }
+}
+
+/** EPIC 1 — veli kendi çocuğu için, admin/AI_AGENT herkes için değiştirebilir. */
+export async function updateCommunicationPreferenceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string; communicationOptOut: boolean }>> {
+  const v = parseOrFail(updateCommunicationPreferenceSchema, input);
+  if (!v.ok) return v;
+
+  const isOwnChild = ctx.role === "PARENT" && canAccessStudent(ctx, v.data.studentId);
+  if (!isOwnChild) {
+    const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "AI_AGENT"]);
+    if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  }
+
+  try {
+    await updateStudentProfile(v.data.studentId, {
+      communicationOptOut: v.data.communicationOptOut,
+    });
+    audit(ctx, "student.communication_preference_update", "Student", v.data.studentId, {
+      communicationOptOut: v.data.communicationOptOut,
+    });
+    return ok(v.data);
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "updateCommunicationPreference failed"
+    );
+  }
+}
+
+export async function updateCollectionsSettingsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ collectionsSettings: CollectionsSettings }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateCollectionsSettingsSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    await updateCollectionsSettings(v.data);
+    audit(ctx, "school.collections_settings_update", "School", ctx.tenantId, v.data);
+    return ok({ collectionsSettings: v.data });
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "updateCollectionsSettings failed"
+    );
+  }
+}
+
+/** Yalnızca çağıranın kendi bildirimleri (userId veya kendi studentId'si) — cross-user sızıntı yok. */
+export async function listNotificationsTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ notifications: Notification[] }>> {
+  try {
+    const notifications = await listNotificationsForUser({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      studentId: ctx.studentId,
+    });
+    return ok({ notifications });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listNotifications failed");
+  }
+}
+
+export async function markNotificationReadTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ notificationId: string }>> {
+  const v = parseOrFail(markNotificationReadSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const updated = await markNotificationRead(
+      { tenantId: ctx.tenantId, userId: ctx.userId, studentId: ctx.studentId },
+      v.data.notificationId
+    );
+    if (!updated) return fail("NOT_FOUND", "Bildirim bulunamadı");
+    return ok({ notificationId: v.data.notificationId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "markNotificationRead failed");
+  }
+}
+
 export async function resetDemoTool(
   ctx: ServiceContext
 ): Promise<ServiceResult<{ reset: true }>> {
@@ -1249,9 +1442,11 @@ export async function resetDemoTool(
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
   try {
     await resetData();
-    // Tahsilat takip vakaları AppData'nın dışında ayrı bir store'da tutulur;
-    // demo sıfırlamasının tekrarlanabilir olması için onları da temizle.
+    // Tahsilat takip vakaları ve bildirimler AppData'nın dışında ayrı
+    // store'larda tutulur; demo sıfırlamasının tekrarlanabilir olması için
+    // onları da temizle.
     await clearFollowUpCases(ctx.tenantId);
+    await clearNotifications(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");

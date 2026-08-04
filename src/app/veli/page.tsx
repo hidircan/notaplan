@@ -4,6 +4,7 @@ import { readData } from "@/lib/store";
 import { Badge, Card } from "@/components/ui";
 import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import {
+  Bell,
   CalendarDays,
   CheckCircle2,
   Home,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
+import { listNotificationsForUser } from "@/lib/notifications";
+import { NotificationList } from "@/components/notification-list";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +60,13 @@ export default async function VeliPortalPage() {
 
   const makeups = data.makeupRequests.filter((m) => m.studentId === student.id);
   const payments = data.payments.filter((p) => p.studentId === student.id);
+
+  const notifications = await listNotificationsForUser({
+    tenantId: data.settings.tenantId,
+    userId: session.userId,
+    studentId: student.id,
+  });
+  const unreadCount = notifications.filter((n) => !n.readAt).length;
 
   const confirmedUpcomingMakeups = [];
   for (const m of makeups) {
@@ -122,6 +132,14 @@ export default async function VeliPortalPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a href="#bildirimler" className="relative text-slate-500 dark:text-slate-400">
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </a>
             <LogoutButton className="!text-xs text-slate-500" />
             <Link href="/" className="text-xs text-violet-600">
               <Home className="h-4 w-4" />
@@ -144,6 +162,14 @@ export default async function VeliPortalPage() {
             Bu sayfa demo görünümüdür. Gerçekte veli kendi hesabıyla giriş yapar ve telafi / ödeme bilgilerini görür.
           </p>
         </Card>
+
+        <section id="bildirimler">
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <Bell className="h-4 w-4 text-violet-600" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Bildirimler</h2>
+          </div>
+          <NotificationList notifications={notifications} />
+        </section>
 
         {hasMakeupHighlight ? (
           <div className="space-y-2">

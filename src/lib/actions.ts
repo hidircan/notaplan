@@ -43,6 +43,9 @@ import {
   updateFeeRoundingModeTool,
   findAvailableSlotsTool,
   markAttendanceTool,
+  updateCommunicationPreferenceTool,
+  updateCollectionsSettingsTool,
+  markNotificationReadTool,
   resetDemoTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
@@ -253,6 +256,70 @@ export async function actionUpdateStudentProfile(input: {
     logger.error("actionUpdateStudentProfile failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Öğrenci profili güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateCommunicationPreferenceActionResult = { ok: true } | { ok: false; message: string };
+
+/** EPIC 1 — veli kendi çocuğu için, admin herkes için çağırabilir (tool katmanı RBAC'ı uygular). */
+export async function actionUpdateCommunicationPreference(input: {
+  studentId: string;
+  communicationOptOut: boolean;
+}): Promise<UpdateCommunicationPreferenceActionResult> {
+  try {
+    const result = await withAuthContext((ctx) =>
+      updateCommunicationPreferenceTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateCommunicationPreference failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "İletişim tercihi güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateCollectionsSettingsActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionUpdateCollectionsSettings(input: {
+  frequencyLimitDays: number;
+  autoSendEnabled: boolean;
+}): Promise<UpdateCollectionsSettingsActionResult> {
+  try {
+    const result = await withAuthContext((ctx) =>
+      updateCollectionsSettingsTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateCollectionsSettings failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return {
+      ok: false,
+      message: "Tahsilat otomasyon ayarları güncellenirken beklenmeyen bir hata oluştu.",
+    };
+  }
+}
+
+export type MarkNotificationReadActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionMarkNotificationRead(
+  notificationId: string
+): Promise<MarkNotificationReadActionResult> {
+  try {
+    const result = await withAuthContext((ctx) =>
+      markNotificationReadTool(ctx, { notificationId })
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidatePath("/veli");
+    revalidatePath("/panel/bildirimler");
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionMarkNotificationRead failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Bildirim okundu işaretlenirken beklenmeyen bir hata oluştu." };
   }
 }
 

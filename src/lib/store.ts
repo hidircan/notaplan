@@ -4,6 +4,7 @@ import type {
   AppData,
   AttendanceStatus,
   Branch,
+  CollectionsSettings,
   FeeRoundingMode,
   Instrument,
   MakeupSlot,
@@ -87,6 +88,7 @@ type StoreApi = {
   ) => Promise<CreateTeacherPayoutResult>;
   markTeacherPayoutPaid: (payoutId: string, method?: string) => Promise<MarkPayoutPaidResult>;
   updateFeeRoundingMode: (feeRoundingMode: FeeRoundingMode) => Promise<AppData>;
+  updateCollectionsSettings: (collectionsSettings: CollectionsSettings) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
 };
 
@@ -309,6 +311,12 @@ export async function markTeacherPayoutPaid(
 
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   return withTenantScope(() => store.updateFeeRoundingMode(feeRoundingMode));
+}
+
+export async function updateCollectionsSettings(
+  collectionsSettings: CollectionsSettings
+): Promise<AppData> {
+  return withTenantScope(() => store.updateCollectionsSettings(collectionsSettings));
 }
 
 export function getDashboardStats(data: AppData) {

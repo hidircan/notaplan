@@ -6,38 +6,29 @@
 import type { WorkflowDefinition, WorkflowId } from "./types";
 import { runWorkflowTool } from "./runtime";
 
-/** Known demo student/teacher IDs from seed (no direct DB) */
-const STUDENTS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"];
+/** Known demo teacher/lesson IDs from seed (no direct DB) */
 const TEACHERS = ["t1", "t2", "t3", "t4", "t5"];
 const MAKEUP_REQUESTS = ["m1", "m2", "m3"];
 const LESSONS = ["l8", "l9", "l10", "l11"];
 
 export const WORKFLOW_REGISTRY: Record<WorkflowId, WorkflowDefinition> = {
+  /**
+   * EPIC 1 (IMPLEMENTATION_PLAN.md) — sabit demo ID listesi TARAMAZ;
+   * `scanOverduePaymentsTool` kendi içinde tenant'ın TÜM gecikmiş
+   * ödemelerini `readData()` ile okur (checkMakeupSla/makeup_sla_check ile
+   * aynı desen). communicationOptOut ve sıklık limiti (collectionsSettings)
+   * bu tool'un içinde uygulanır — bkz. src/lib/services/tools.ts.
+   */
   payment_reminders: {
     id: "payment_reminders",
     name: "Ödeme hatırlatmaları",
-    description: "Öğrenci bakiyelerini kontrol eder; gecikenler için veli mesajı hazırlar.",
+    description:
+      "Gecikmiş ödemeleri tarar; her biri için takip vakası açar/günceller ve veliye " +
+      "uygulama içi bildirim oluşturur (opt-out ve sıklık limitine uyar).",
     intervalMinutes: 60 * 24,
     defaultEnabled: true,
     async run(ctx) {
-      const steps = [];
-      for (const studentId of STUDENTS.slice(0, 4)) {
-        const bal = await runWorkflowTool(ctx, "getParentBalance", { studentId });
-        steps.push(bal);
-        const outstanding =
-          bal.ok && bal.data && typeof bal.data === "object" && "outstanding" in bal.data
-            ? Number((bal.data as { outstanding: number }).outstanding)
-            : 0;
-        if (outstanding > 0) {
-          steps.push(
-            await runWorkflowTool(ctx, "sendParentMessage", {
-              studentId,
-              kind: "makeup_created",
-            })
-          );
-        }
-      }
-      return steps;
+      return [await runWorkflowTool(ctx, "scanOverduePayments", {})];
     },
   },
 

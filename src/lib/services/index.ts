@@ -38,5 +38,10 @@ export {
   cancelSeriesFromLessonTool,
   cancelEntireSeriesTool,
   createPaymentRecordTool,
+  scanOverduePaymentsTool,
+  updateCommunicationPreferenceTool,
+  updateCollectionsSettingsTool,
+  listNotificationsTool,
+  markNotificationReadTool,
   resetDemoTool,
 } from "./tools";

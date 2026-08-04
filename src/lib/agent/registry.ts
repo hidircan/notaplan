@@ -26,6 +26,7 @@ import {
   getTeacherScheduleTool,
   markAttendanceTool,
   resetDemoTool,
+  scanOverduePaymentsTool,
   sendParentMessageTool,
   sendTeacherMessageTool,
 } from "../services/tools";
@@ -120,6 +121,26 @@ export const TOOL_REGISTRY: Record<AgentToolName, ToolDefinition<any, any>> = {
     outputSchema: z.object({ checked: z.number(), escalated: z.array(z.unknown()) }),
     requiredRoles: ADMIN,
     execute: (ctx) => checkMakeupSlaTool(ctx),
+  },
+  /**
+   * EPIC 1 (IMPLEMENTATION_PLAN.md) — sabit demo ID listesi TARAMAZ;
+   * `scanOverduePaymentsTool` kendi içinde tenant'ın TÜM gecikmiş
+   * ödemelerini `readData()` ile okur (checkMakeupSla ile aynı desen).
+   */
+  scanOverduePayments: {
+    name: "scanOverduePayments",
+    description:
+      "Scan all overdue payments for the tenant; open/update a follow-up case and an in-app " +
+      "parent notification for each (skipping opted-out students and payments contacted " +
+      "within the frequency limit). Never marks a case as actually sent/delivered.",
+    inputSchema: emptyOrRecord,
+    outputSchema: z.object({
+      scanned: z.number(),
+      casesUpserted: z.number(),
+      notificationsCreated: z.number(),
+    }),
+    requiredRoles: ADMIN,
+    execute: (ctx) => scanOverduePaymentsTool(ctx),
   },
   findAvailableTeachers: {
     name: "findAvailableTeachers",
