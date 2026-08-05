@@ -5,6 +5,7 @@ import { actionAddPayment } from "@/lib/actions";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, StatCard } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
+import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default async function StudentPaymentProfilePage({
 
   return (
     <div>
+      <AssistantPageContext entity={{ kind: "student", id: student.id, label: student.name }} />
       <PageHeader
         title={student.name}
         description={
@@ -59,11 +61,11 @@ export default async function StudentPaymentProfilePage({
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Toplam tahakkuk" value={formatMoney(summary.totalBilled)} accent="violet" />
-        <StatCard label="Toplam tahsil edilen" value={formatMoney(summary.totalCollected)} accent="emerald" />
-        <StatCard label="Kalan borç" value={formatMoney(summary.remaining)} accent="amber" />
-        <StatCard label="Gecikmiş kalan" value={formatMoney(summary.overdueRemaining)} accent="rose" />
-        <StatCard label="Açık ödeme kaydı" value={summary.openCount} accent="sky" />
+        <StatCard label="Toplam tahakkuk" value={formatMoney(summary.totalBilled)} accent="primary" />
+        <StatCard label="Toplam tahsil edilen" value={formatMoney(summary.totalCollected)} accent="success" />
+        <StatCard label="Kalan borç" value={formatMoney(summary.remaining)} accent="warning" />
+        <StatCard label="Gecikmiş kalan" value={formatMoney(summary.overdueRemaining)} accent="danger" />
+        <StatCard label="Açık ödeme kaydı" value={summary.openCount} accent="info" />
       </div>
 
       {hasOpenPayment ? (
@@ -84,7 +86,7 @@ export default async function StudentPaymentProfilePage({
       ) : null}
 
       <details className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium text-slate-700">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
           Yeni ödeme kaydı ekle
         </summary>
         <form action={actionAddPayment} className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -107,7 +109,7 @@ export default async function StudentPaymentProfilePage({
         </form>
       </details>
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900">Ödeme geçmişi</h2>
+      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Ödeme geçmişi</h2>
       {payments.length === 0 ? (
         <EmptyState
           title="Ödeme kaydı yok"
@@ -116,7 +118,7 @@ export default async function StudentPaymentProfilePage({
       ) : (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Dönem / açıklama</th>
                 <th className="px-4 py-3">Vade</th>
@@ -130,15 +132,15 @@ export default async function StudentPaymentProfilePage({
             </thead>
             <tbody>
               {payments.map((p) => (
-                <tr key={p.id} className="border-b border-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{p.description}</td>
-                  <td className="px-4 py-3 text-slate-600">{formatDate(p.dueDate)}</td>
+                <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{p.description}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">{formatMoney(p.amount)}</td>
                   <td className="px-4 py-3">{formatMoney(p.paidAmount)}</td>
                   <td className="px-4 py-3 font-medium">
                     {formatMoney(Math.max(p.amount - p.paidAmount, 0))}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{p.method ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{p.method ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge status={p.status} />
                   </td>

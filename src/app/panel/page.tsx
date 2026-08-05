@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { isSameDay, parseISO } from "date-fns";
+import { redirect } from "next/navigation";
+import { isSameDay, parseISO, startOfMonth, endOfMonth, format } from "date-fns";
 import {
   AlertTriangle,
   CalendarDays,
@@ -8,13 +9,18 @@ import {
   Users,
   GraduationCap,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 import { Badge, Button, Card, PageHeader, StatCard } from "@/components/ui";
-import { getDashboardStats, readData } from "@/lib/store";
+import { getDashboardStats } from "@/lib/store";
 import { actionResetDemo } from "@/lib/actions";
 import { formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { buildDemoMessages } from "@/lib/whatsapp-templates";
 import { computeSetupProgress } from "@/lib/setup-progress";
+import { computeTeacherPayoutOverview } from "@/lib/teacher-payout-overview";
+import { requireSessionContext } from "@/lib/auth/session";
+import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
+import { KurumScopeNote } from "@/components/kurum-scope-note";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +36,14 @@ const TONE_CLASSES: Record<ActionTone, string> = {
 };
 
 export default async function DashboardPage() {
-  const data = await readData();
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/panel");
+  }
+  const kurum = await getInstitutionContext(session);
+  const data = await readScopedData(kurum.scope);
   const stats = getDashboardStats(data);
   const setupProgress = computeSetupProgress(data);
   const today = new Date().toISOString().slice(0, 10);
@@ -39,7 +52,7 @@ export default async function DashboardPage() {
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
   const openMakeupRequests = data.makeupRequests.filter(
-    (m) => m.status === "pending" || m.status === "suggested"
+    (m) => m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"
   );
   const openMakeups = openMakeupRequests.slice(0, 5);
 
@@ -66,6 +79,10 @@ export default async function DashboardPage() {
   );
 
   const pendingMessageCount = buildDemoMessages(data).length;
+
+  const monthPeriodStart = format(startOfMonth(now), "yyyy-MM-dd");
+  const monthPeriodEnd = format(endOfMonth(now), "yyyy-MM-dd");
+  const payoutOverview = computeTeacherPayoutOverview(data, monthPeriodStart, monthPeriodEnd);
 
   const actionCards: { key: string; href: string; label: string; detail: string; tone: ActionTone }[] = [];
 
@@ -111,6 +128,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
+      <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="Günlük özet"
         description={`${data.settings.name} demo paneli — Erzene & Evka 3 için günlük ders programı, açık telafiler ve tahsilat uyarılarını gösterir.`}
@@ -141,7 +159,7 @@ export default async function DashboardPage() {
       )}
 
       <div className="mb-6">
-        <h2 className="mb-3 text-sm font-semibold text-slate-600">Bugünün aksiyonları</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Bugünün aksiyonları</h2>
         {actionCards.length === 0 ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
             Bugün için bekleyen aksiyon bulunmuyor.
@@ -163,28 +181,28 @@ export default async function DashboardPage() {
           label="Bugünkü dersler"
           value={stats.todayLessonCount}
           hint="Planlanan seanslar"
-          accent="violet"
+          accent="primary"
           icon={<CalendarDays className="h-5 w-5" />}
         />
         <StatCard
           label="Açık telafi"
           value={stats.pendingMakeup}
           hint={`${stats.confirmedMakeup} onaylı telafi`}
-          accent="amber"
+          accent="warning"
           icon={<RefreshCcw className="h-5 w-5" />}
         />
         <StatCard
           label="Aktif öğrenci"
           value={stats.activeStudents}
           hint={`${stats.activeTeachers} öğretmen`}
-          accent="sky"
+          accent="info"
           icon={<GraduationCap className="h-5 w-5" />}
         />
         <StatCard
           label="Tahsil edilen"
           value={formatMoney(stats.revenuePaid)}
           hint={`${formatMoney(stats.revenueDue)} bekleyen`}
-          accent="emerald"
+          accent="success"
           icon={<CreditCard className="h-5 w-5" />}
         />
       </div>
@@ -192,13 +210,13 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">Bugünün programı</h2>
+            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bugünün programı</h2>
             <Link href="/panel/program" className="text-sm font-medium text-violet-600 hover:text-violet-700">
               Tüm program →
             </Link>
           </div>
           {todayLessons.length === 0 ? (
-            <p className="text-sm text-slate-500">Bugün planlanmış ders yok.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Bugün planlanmış ders yok.</p>
           ) : (
             <div className="space-y-3">
               {todayLessons.map((lesson) => {
@@ -217,10 +235,10 @@ export default async function DashboardPage() {
                         style={{ background: teacher?.color ?? "#7c3aed" }}
                       />
                       <div>
-                        <p className="font-medium text-slate-900">
+                        <p className="font-medium text-slate-900 dark:text-slate-50">
                           {formatTime(lesson.startAt)}–{formatTime(lesson.endAt)} · {lesson.instrument}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                           {student?.name} · {teacher?.name} · {branch?.shortName} · {room?.name}
                         </p>
                       </div>
@@ -237,10 +255,10 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <RefreshCcw className="h-4 w-4 text-amber-600" />
-              <h2 className="font-semibold text-slate-900">Bekleyen telafiler</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bekleyen telafiler</h2>
             </div>
             {openMakeups.length === 0 ? (
-              <p className="text-sm text-slate-500">Açık telafi yok — harika!</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Açık telafi yok — harika!</p>
             ) : (
               <ul className="space-y-3">
                 {openMakeups.map((m) => {
@@ -249,8 +267,8 @@ export default async function DashboardPage() {
                     <li key={m.id} className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{student?.name}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{student?.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             {m.instrument} · {m.reason}
                           </p>
                         </div>
@@ -275,17 +293,17 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-rose-600" />
-              <h2 className="font-semibold text-slate-900">Tahsilat uyarısı</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Tahsilat uyarısı</h2>
             </div>
             {urgentPayments.length === 0 ? (
-              <p className="text-sm text-slate-500">Geciken ödeme yok.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Geciken ödeme yok.</p>
             ) : (
               <ul className="space-y-2">
                 {urgentPayments.map((p) => {
                   const student = data.students.find((s) => s.id === p.studentId);
                   return (
                     <li key={p.id} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">{student?.name}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{student?.name}</span>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{formatMoney(p.amount - p.paidAmount)}</span>
                         <Badge status={p.status} />
@@ -295,6 +313,39 @@ export default async function DashboardPage() {
                 })}
               </ul>
             )}
+          </Card>
+
+          <Card>
+            <div className="mb-3 flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-violet-600" />
+              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Öğretmen Hakedişleri</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="rounded-xl bg-amber-50 p-3">
+                <p className="text-lg font-semibold text-amber-700">
+                  {formatMoney(payoutOverview.pendingTotal)}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Bu ay bekleyen</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-3">
+                <p className="text-lg font-semibold text-emerald-700">
+                  {formatMoney(payoutOverview.paidTotal)}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Bu ay ödenen</p>
+              </div>
+            </div>
+            {payoutOverview.missingFeeRuleLessonCount > 0 ? (
+              <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                {payoutOverview.missingFeeRuleLessonCount} tamamlanmış derste ücret kuralı eksik —
+                hakediş eksiksiz hesaplanamıyor.
+              </p>
+            ) : null}
+            <Link
+              href="/panel/ogretmenler"
+              className="mt-3 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              Hakedişleri görüntüle →
+            </Link>
           </Card>
         </div>
       </div>
@@ -306,8 +357,8 @@ export default async function DashboardPage() {
               <Users className="h-5 w-5 text-violet-600" />
             </div>
             <div>
-              <p className="font-semibold text-slate-900">Satış demo senaryosu</p>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              <p className="font-semibold text-slate-900 dark:text-slate-50">Satış demo senaryosu</p>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
                 1) Yoklamada devamsızlık işaretle → 2) Telafi hakkı oluşsun → 3) Otomatik slot öner → 4)
                 Onayla ve programa yaz. Bu akış müzik okulu müdürünün günlük işini destekler.
               </p>
