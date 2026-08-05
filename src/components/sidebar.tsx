@@ -64,11 +64,26 @@ export function Sidebar({
   schoolName,
   userLabel,
   roleLabel,
+  // Optional props used by dirty multi-kurum/theme layout — accepted for
+  // type compatibility; full UI remains out of this commit scope.
+  kurumlar: _kurumlar,
+  kurumSelection: _kurumSelection,
+  canSeeAllKurumlar: _canSeeAllKurumlar,
+  themePreference: _themePreference,
 }: {
-  schoolName: string;
+  schoolName?: string;
   userLabel?: string;
   roleLabel?: string;
+  kurumlar?: unknown;
+  kurumSelection?: string;
+  canSeeAllKurumlar?: boolean;
+  themePreference?: string;
 }) {
+  const schoolNameSafe = schoolName ?? "NotaPlan";
+  void _kurumlar;
+  void _kurumSelection;
+  void _canSeeAllKurumlar;
+  void _themePreference;
   const pathname = usePathname();
 
   return (
@@ -84,7 +99,7 @@ export function Sidebar({
           </div>
         </div>
         <div className="mt-4 rounded-xl bg-white/5 px-3 py-2">
-          <p className="truncate text-xs font-medium text-violet-200">{schoolName}</p>
+          <p className="truncate text-xs font-medium text-violet-200">{schoolNameSafe}</p>
           <p className="text-[10px] text-slate-500">
             {roleLabel || "Oturum"} · {userLabel || "—"}
           </p>
