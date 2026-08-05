@@ -16,12 +16,12 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0612] px-4">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-violet-900/30">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4">
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-[var(--shadow-md)]">
         <div className="mb-6 text-center">
-          <p className="text-sm font-medium text-violet-300">NotaPlan</p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">Giriş yap</h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="text-sm font-medium text-[var(--color-primary)]">NotaPlan</p>
+          <h1 className="mt-1 text-2xl font-semibold text-[var(--color-text)]">Giriş yap</h1>
+          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
             Okul yönetimi, öğretmen ve veli portalları için oturum açın.
           </p>
         </div>

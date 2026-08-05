@@ -72,15 +72,15 @@ export default async function TeacherAssessmentFormPage({
           <div className="space-y-2">
             {past.map((a) => (
               <Link key={a.id} href={`/degerlendirme/${a.id}`}>
-                <Card className="!p-4 hover:border-violet-200">
+                <Card className="!p-4 hover:border-amber-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-violet-500" />
+                      <FileText className="h-4 w-4 text-amber-500" />
                       <p className="text-sm font-medium text-slate-900">
                         {formatDate(a.createdAt, "d MMMM yyyy")}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-violet-700">
+                    <p className="text-sm font-semibold text-amber-700">
                       {computeOverallScore(a).toFixed(1)} / 5
                     </p>
                   </div>

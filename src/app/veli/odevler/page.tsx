@@ -40,8 +40,8 @@ export default async function ParentHomeworkPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 to-slate-50">
-      <header className="border-b border-violet-100 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
+      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
             <ArrowLeft className="h-4 w-4" /> Geri
@@ -71,7 +71,7 @@ export default async function ParentHomeworkPage() {
                 <div key={s.id} className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs dark:border-slate-800 dark:bg-slate-900">
                   <p className="text-slate-500 dark:text-slate-400">Teslim: {formatDateTime(s.submittedAt)}</p>
                   {s.teacherFeedback ? (
-                    <p className="mt-1 rounded-md bg-violet-50 p-1.5 text-violet-800 dark:bg-violet-950/30 dark:text-violet-300">
+                    <p className="mt-1 rounded-md bg-amber-50 p-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                       Öğretmen geri bildirimi: {s.teacherFeedback}
                     </p>
                   ) : null}

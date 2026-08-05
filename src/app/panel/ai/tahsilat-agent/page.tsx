@@ -48,23 +48,23 @@ export default async function TahsilatAgentPage({
         title="Tahsilat"
         description="Riskteki ödemeleri önceliklendirir, veliye gönderilecek mesaj taslağını hazırlar; hiçbir mesaj insan onayı olmadan gönderilmez."
         actions={
-          <Link href="/panel/odemeler" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-700">
+          <Link href="/panel/odemeler" className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-amber-700">
             Ödemeleri yönet <ArrowRight className="h-4 w-4" />
           </Link>
         }
       />
 
       {studentFilter ? (
-        <Card className="mb-6 border-violet-200 bg-violet-50/60">
+        <Card className="mb-6 border-amber-200 bg-amber-50/60">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-violet-900">
+            <p className="text-sm text-amber-900">
               {filteredStudent
                 ? `${filteredStudent.name} için filtrelendi.`
                 : "Bu öğrenci için kayıt bulunamadı — filtre boş sonuç veriyor."}
             </p>
             <Link
               href="/panel/ai/tahsilat-agent"
-              className="text-sm font-medium text-violet-700 hover:text-violet-900"
+              className="text-sm font-medium text-amber-700 hover:text-amber-900"
             >
               Tümünü göster ×
             </Link>
@@ -131,7 +131,7 @@ export default async function TahsilatAgentPage({
                         ? "bg-sky-500"
                         : st === "sent"
                           ? "bg-indigo-500"
-                          : "bg-violet-500"
+                          : "bg-amber-500"
                   }`}
                 />
                 {followUpCases.filter((c) => c.status === st).length} ·{" "}
@@ -151,7 +151,7 @@ export default async function TahsilatAgentPage({
       </div>
 
       {session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN" ? (
-        <Card className="mt-6 border-violet-200 bg-violet-50/30">
+        <Card className="mt-6 border-amber-200 bg-amber-50/30">
           <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
             İşletme sahibi analizi
           </p>

@@ -154,7 +154,7 @@ export function FeeRuleManager({
             </thead>
             <tbody>
               {sortedRules.map((r) => (
-                <tr key={r.id} className={`border-b border-slate-50 ${editingRuleId === r.id ? "bg-violet-50/50" : ""}`}>
+                <tr key={r.id} className={`border-b border-slate-50 ${editingRuleId === r.id ? "bg-amber-50/50" : ""}`}>
                   <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{teacherName(r.teacherId)}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{branchName(r.branchId)}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">

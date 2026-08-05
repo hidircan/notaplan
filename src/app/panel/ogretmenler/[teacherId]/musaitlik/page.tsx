@@ -49,7 +49,7 @@ export default async function TeacherAvailabilityReviewPage({
         />
         <Link
           href="/panel/ogretmenler"
-          className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="mt-4 inline-block text-sm font-medium text-amber-600 hover:text-amber-700"
         >
           Öğretmenlere dön
         </Link>
@@ -70,7 +70,7 @@ export default async function TeacherAvailabilityReviewPage({
       />
 
       <Card className="mb-4">
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-violet-600">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">
           Şu anki müsaitlik
         </p>
         {teacher.availability.length === 0 ? (

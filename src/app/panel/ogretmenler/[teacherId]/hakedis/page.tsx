@@ -43,7 +43,7 @@ export default async function TeacherPayoutPage({
         />
         <Link
           href="/panel/ogretmenler"
-          className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="mt-4 inline-block text-sm font-medium text-amber-600 hover:text-amber-700"
         >
           Öğretmenlere dön
         </Link>

@@ -63,7 +63,7 @@ export function TeacherAvailabilityReview({
         onChange={(e) => setReviewNote(e.target.value)}
         placeholder="İnceleme notu (opsiyonel)"
         rows={2}
-        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-violet-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-amber-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
 
       {error ? <p className="mt-1 text-xs font-medium text-rose-600">{error}</p> : null}

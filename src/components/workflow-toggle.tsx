@@ -55,7 +55,7 @@ export function WorkflowToggle({
           type="button"
           disabled={busy}
           onClick={() => patch({ runNow: true })}
-          className="rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           Şimdi çalıştır
         </button>

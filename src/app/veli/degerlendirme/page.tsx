@@ -29,8 +29,8 @@ export default async function ParentTeacherFeedbackPage() {
   const teacher = data.teachers.find((t) => t.id === student.teacherId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 to-slate-50">
-      <header className="border-b border-violet-100 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
+      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
             <ArrowLeft className="h-4 w-4" /> Geri
@@ -42,7 +42,7 @@ export default async function ParentTeacherFeedbackPage() {
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-violet-600">
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-600">
             {teacher?.name ?? "Öğretmen"} hakkında
           </p>
           <p className="mt-1 text-xs text-slate-400">

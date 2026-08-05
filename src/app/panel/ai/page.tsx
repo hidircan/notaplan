@@ -31,7 +31,7 @@ export default async function AiDashboardPage() {
         actions={
           <Link
             href="/panel/ai/logs"
-            className="rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
             AI Logları
           </Link>

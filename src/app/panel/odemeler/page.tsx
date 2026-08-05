@@ -49,7 +49,7 @@ export default async function OdemelerPage() {
         actions={
           <Link
             href="/panel/ai/tahsilat-agent"
-            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
             Tahsilat takibini aç <ArrowRight className="h-4 w-4" />
           </Link>

@@ -116,7 +116,7 @@ export function TeacherPayoutDashboard({
           </Button>
           <Link
             href={`/panel/ogretmenler/${teacherId}/odemeler`}
-            className="ml-auto text-sm font-medium text-violet-600 hover:text-violet-700"
+            className="ml-auto text-sm font-medium text-amber-600 hover:text-amber-700"
           >
             Ödeme geçmişini gör →
           </Link>

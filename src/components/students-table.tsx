@@ -55,7 +55,7 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Öğrenci adına göre ara..."
           aria-label="Öğrenci adına göre ara"
-          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 sm:w-auto"
+          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 sm:w-auto"
         />
 
         <div className="flex flex-wrap gap-1.5">
@@ -75,14 +75,14 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           ))}
         </div>
 
-        <span className="ml-auto text-xs font-medium text-slate-500">
+        <span className="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400">
           {filtered.length} sonuç
         </span>
       </div>
 
       <Card className="overflow-hidden p-0">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
             <tr>
               <th className="px-4 py-3">Öğrenci</th>
               <th className="px-4 py-3">Tür / Hedef</th>
@@ -95,7 +95,7 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                   Bu filtreye uyan öğrenci bulunamadı.
                 </td>
               </tr>
@@ -103,18 +103,18 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
               filtered.map((s) => {
                 const enrollmentEnded = s.enrollmentEndDate ? new Date(s.enrollmentEndDate) < new Date() : false;
                 return (
-                <tr key={s.id} className="border-b border-slate-50 align-top">
+                <tr key={s.id} className="border-b border-slate-50 align-top dark:border-slate-800">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{s.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-medium text-slate-900 dark:text-slate-50">{s.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Veli: {s.parentName} · {s.parentPhone} · {s.branchName}
                     </p>
-                    {s.notes ? <p className="mt-1 text-xs text-violet-600">{s.notes}</p> : null}
+                    {s.notes ? <p className="mt-1 text-xs text-amber-600">{s.notes}</p> : null}
                   </td>
                   <td className="px-4 py-3">
                     {s.studentType ? <Badge>{s.studentType}</Badge> : <span className="text-xs text-slate-400">Belirtilmemiş</span>}
-                    {s.level ? <p className="mt-1 text-xs text-slate-500">Seviye: {s.level}</p> : null}
-                    {s.targetExam ? <p className="text-xs text-slate-500">{s.targetExam}</p> : null}
+                    {s.level ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Seviye: {s.level}</p> : null}
+                    {s.targetExam ? <p className="text-xs text-slate-500 dark:text-slate-400">{s.targetExam}</p> : null}
                     {enrollmentEnded ? (
                       <p className="mt-1 text-xs font-medium text-rose-600">Kayıt sona erdi</p>
                     ) : null}
@@ -124,8 +124,8 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
                       <Badge key={i}>{i}</Badge>
                     ))}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{s.teacherName}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{s.teacherName}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                     <p>{s.packageName}</p>
                     <p className="text-xs text-slate-400">{s.weeklyLessonCount} ders/hafta</p>
                   </td>

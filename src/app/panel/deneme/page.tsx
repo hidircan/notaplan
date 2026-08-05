@@ -33,7 +33,7 @@ export default async function TrialLessonsPage() {
         description="Aday öğrenciler için deneme planı, durum takibi ve kayda dönüştürme."
       />
       <Card>
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-violet-600">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-600">
           Deneme dersi planla
         </p>
         <TrialLessonCreateForm teachers={teachers} branches={branches} />
@@ -60,7 +60,7 @@ export default async function TrialLessonsPage() {
           </div>
         )}
       </section>
-      <Link href="/panel/program" className="text-sm font-medium text-violet-700">
+      <Link href="/panel/program" className="text-sm font-medium text-amber-700">
         ← Ders programı
       </Link>
     </div>

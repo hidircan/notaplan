@@ -57,11 +57,11 @@ export default async function DuyurularPage() {
       ) : (
         <div className="space-y-3">
           {announcements.map((a) => (
-            <Card key={a.id} className={a.pinned ? "border-violet-200" : undefined}>
+            <Card key={a.id} className={a.pinned ? "border-amber-200" : undefined}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {a.pinned ? <Pin className="h-3.5 w-3.5 text-violet-600" /> : null}
+                    {a.pinned ? <Pin className="h-3.5 w-3.5 text-amber-600" /> : null}
                     <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">{a.title}</h3>
                     <Badge status={a.status} />
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">

@@ -24,15 +24,14 @@ import { KurumScopeNote } from "@/components/kurum-scope-note";
 
 export const dynamic = "force-dynamic";
 
-type ActionTone = "rose" | "amber" | "violet" | "sky";
+type ActionTone = "rose" | "amber" | "gold" | "sky";
 
 const TONE_CLASSES: Record<ActionTone, string> = {
-  rose: "block rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-900 transition hover:bg-rose-100",
+  rose: "block rounded-lg border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-900 transition hover:bg-rose-100",
   amber:
-    "block rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-amber-900 transition hover:bg-amber-100",
-  violet:
-    "block rounded-2xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-violet-900 transition hover:bg-violet-100",
-  sky: "block rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sky-900 transition hover:bg-sky-100",
+    "block rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3 text-amber-900 transition hover:bg-amber-100",
+  gold: "block rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)] px-4 py-3 text-[var(--color-primary-soft-text)] transition hover:bg-[var(--color-primary-soft)]/70",
+  sky: "block rounded-lg border border-sky-200 bg-sky-50/70 px-4 py-3 text-sky-900 transition hover:bg-sky-100",
 };
 
 export default async function DashboardPage() {
@@ -112,7 +111,7 @@ export default async function DashboardPage() {
       href: "/panel/yoklama",
       label: "Yoklama bekliyor",
       detail: `${pendingAttendanceLessons.length} ders`,
-      tone: "violet",
+      tone: "gold",
     });
   }
 
@@ -152,16 +151,16 @@ export default async function DashboardPage() {
       {!setupProgress.isReady && (
         <Link
           href="/panel/kurulum"
-          className="mb-6 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="mb-6 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
         >
           Okul kurulumunu tamamla ({setupProgress.completedCount}/{setupProgress.totalCount}) →
         </Link>
       )}
 
       <div className="mb-6">
-        <h2 className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Bugünün aksiyonları</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-600">Bugünün aksiyonları</h2>
         {actionCards.length === 0 ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
             Bugün için bekleyen aksiyon bulunmuyor.
           </div>
         ) : (
@@ -210,13 +209,13 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bugünün programı</h2>
-            <Link href="/panel/program" className="text-sm font-medium text-violet-600 hover:text-violet-700">
+            <h2 className="font-semibold text-slate-900">Bugünün programı</h2>
+            <Link href="/panel/program" className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
               Tüm program →
             </Link>
           </div>
           {todayLessons.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Bugün planlanmış ders yok.</p>
+            <p className="text-sm text-slate-500">Bugün planlanmış ders yok.</p>
           ) : (
             <div className="space-y-3">
               {todayLessons.map((lesson) => {
@@ -235,10 +234,10 @@ export default async function DashboardPage() {
                         style={{ background: teacher?.color ?? "#7c3aed" }}
                       />
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-slate-50">
+                        <p className="font-medium text-slate-900">
                           {formatTime(lesson.startAt)}–{formatTime(lesson.endAt)} · {lesson.instrument}
                         </p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-slate-500">
                           {student?.name} · {teacher?.name} · {branch?.shortName} · {room?.name}
                         </p>
                       </div>
@@ -255,10 +254,10 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <RefreshCcw className="h-4 w-4 text-amber-600" />
-              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bekleyen telafiler</h2>
+              <h2 className="font-semibold text-slate-900">Bekleyen telafiler</h2>
             </div>
             {openMakeups.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Açık telafi yok — harika!</p>
+              <p className="text-sm text-slate-500">Açık telafi yok — harika!</p>
             ) : (
               <ul className="space-y-3">
                 {openMakeups.map((m) => {
@@ -267,8 +266,8 @@ export default async function DashboardPage() {
                     <li key={m.id} className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{student?.name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <p className="text-sm font-medium text-slate-900">{student?.name}</p>
+                          <p className="text-xs text-slate-500">
                             {m.instrument} · {m.reason}
                           </p>
                         </div>
@@ -284,7 +283,7 @@ export default async function DashboardPage() {
             )}
             <Link
               href="/panel/telafi"
-              className="mt-4 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+              className="mt-4 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
             >
               Telafi merkezine git →
             </Link>
@@ -293,17 +292,17 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-rose-600" />
-              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Tahsilat uyarısı</h2>
+              <h2 className="font-semibold text-slate-900">Tahsilat uyarısı</h2>
             </div>
             {urgentPayments.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Geciken ödeme yok.</p>
+              <p className="text-sm text-slate-500">Geciken ödeme yok.</p>
             ) : (
               <ul className="space-y-2">
                 {urgentPayments.map((p) => {
                   const student = data.students.find((s) => s.id === p.studentId);
                   return (
                     <li key={p.id} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700 dark:text-slate-300">{student?.name}</span>
+                      <span className="text-slate-700">{student?.name}</span>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{formatMoney(p.amount - p.paidAmount)}</span>
                         <Badge status={p.status} />
@@ -317,21 +316,21 @@ export default async function DashboardPage() {
 
           <Card>
             <div className="mb-3 flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-violet-600" />
-              <h2 className="font-semibold text-slate-900 dark:text-slate-50">Öğretmen Hakedişleri</h2>
+              <Wallet className="h-4 w-4 text-[var(--color-primary)]" />
+              <h2 className="font-semibold text-slate-900">Öğretmen Hakedişleri</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="rounded-xl bg-amber-50 p-3">
                 <p className="text-lg font-semibold text-amber-700">
                   {formatMoney(payoutOverview.pendingTotal)}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Bu ay bekleyen</p>
+                <p className="text-[11px] text-slate-500">Bu ay bekleyen</p>
               </div>
               <div className="rounded-xl bg-emerald-50 p-3">
                 <p className="text-lg font-semibold text-emerald-700">
                   {formatMoney(payoutOverview.paidTotal)}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Bu ay ödenen</p>
+                <p className="text-[11px] text-slate-500">Bu ay ödenen</p>
               </div>
             </div>
             {payoutOverview.missingFeeRuleLessonCount > 0 ? (
@@ -342,7 +341,7 @@ export default async function DashboardPage() {
             ) : null}
             <Link
               href="/panel/ogretmenler"
-              className="mt-3 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+              className="mt-3 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
             >
               Hakedişleri görüntüle →
             </Link>
@@ -350,15 +349,15 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <Card className="mt-6 border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50">
+      <Card className="mt-6 border-[var(--color-primary)]/20 bg-[var(--color-primary-soft)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-white p-2 shadow-sm">
-              <Users className="h-5 w-5 text-violet-600" />
+              <Users className="h-5 w-5 text-[var(--color-primary)]" />
             </div>
             <div>
-              <p className="font-semibold text-slate-900 dark:text-slate-50">Satış demo senaryosu</p>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+              <p className="font-semibold text-slate-900">Satış demo senaryosu</p>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
                 1) Yoklamada devamsızlık işaretle → 2) Telafi hakkı oluşsun → 3) Otomatik slot öner → 4)
                 Onayla ve programa yaz. Bu akış müzik okulu müdürünün günlük işini destekler.
               </p>

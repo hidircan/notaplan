@@ -85,7 +85,7 @@ export default async function KurulumPage() {
             ? "Temel kurulum tamamlandı"
             : `${progress.completedCount}/${progress.totalCount} temel adım tamamlandı`}
         </p>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           {progress.isReady
             ? "Okulunuz günlük operasyona hazır. İhtiyaç halinde aşağıdaki ekranlardan yeni kayıt ekleyebilirsiniz."
             : "Aşağıdaki eksik adımları tamamlayarak okulunuzu operasyona hazır hale getirin."}
@@ -94,7 +94,7 @@ export default async function KurulumPage() {
 
       <Link
         href="/panel/veri-aktar"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
       >
         <Upload className="h-4 w-4" /> Verilerinizi topluca aktarın (CSV)
       </Link>
@@ -112,8 +112,8 @@ export default async function KurulumPage() {
                     <Circle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
                   )}
                   <div>
-                    <p className="font-semibold text-slate-900">{step.label}</p>
-                    <p className="mt-1 text-sm text-slate-500">{step.description}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-50">{step.label}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{step.description}</p>
                   </div>
                 </div>
                 <Badge status={step.done ? "paid" : "pending"}>
@@ -122,7 +122,7 @@ export default async function KurulumPage() {
               </div>
               <Link
                 href={link.href}
-                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
               >
                 {step.done ? link.doneLabel : link.missingLabel} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -139,8 +139,8 @@ export default async function KurulumPage() {
                 <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
               )}
               <div>
-                <p className="font-semibold text-slate-900">İlk ödeme (isteğe bağlı)</p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="font-semibold text-slate-900 dark:text-slate-50">İlk ödeme (isteğe bağlı)</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Tahsilat takibini başlatmak için ilk ödeme kaydını ekleyin. Kurulumun
                   tamamlanması için zorunlu değildir.
                 </p>
@@ -152,7 +152,7 @@ export default async function KurulumPage() {
           </div>
           <Link
             href="/panel/odemeler"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
           >
             İlk tahsilatı ekle <ArrowRight className="h-4 w-4" />
           </Link>
@@ -161,10 +161,10 @@ export default async function KurulumPage() {
 
       <Card className="mt-6 border-slate-200">
         <div className="flex items-start gap-3">
-          <Download className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <Download className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900">Veri &amp; Güvenlik</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="font-semibold text-slate-900 dark:text-slate-50">Veri &amp; Güvenlik</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Yalnızca oturum açtığınız kuruma ait kayıtları CSV olarak indirin. Diğer
               kurumların hiçbir kaydı bu dışa aktarıma dahil edilmez. &quot;Tüm kurumlar&quot;
               görünümündeyken dışa aktarım yapılamaz — önce tek bir kurum seçin.
@@ -174,7 +174,7 @@ export default async function KurulumPage() {
                 <a
                   key={entity}
                   href={`/api/v1/export?entity=${entity}`}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <Download className="h-3.5 w-3.5" /> {EXPORT_LABELS[entity]} (CSV)
                 </a>
@@ -209,10 +209,10 @@ export default async function KurulumPage() {
 
       <Card className="mt-6 border-slate-200 bg-slate-50">
         <div className="flex items-start gap-3">
-          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900">Demo ortamı</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="font-semibold text-slate-900 dark:text-slate-50">Demo ortamı</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Demo verisini sıfırlamak mevcut demo değişikliklerini geri alır. Bu işlem yalnızca
               yönetici yetkisiyle yapılabilir.
             </p>

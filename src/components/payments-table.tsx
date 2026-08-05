@@ -30,7 +30,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "paid", label: "Ödendi" },
 ];
 
-export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
+export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [actionOnly, setActionOnly] = useState(false);
@@ -47,6 +47,12 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
 
   return (
     <>
+      {!canWrite ? (
+        <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          &quot;Tüm kurumlar&quot; görünümündesiniz — ödeme işaretlemek için üstteki kurum seçiciden tek
+          bir kurum seçin.
+        </p>
+      ) : null}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="text"
@@ -54,7 +60,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Öğrenci adına göre ara..."
           aria-label="Öğrenci adına göre ara"
-          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 sm:w-auto"
+          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 sm:w-auto"
         />
 
         <div className="flex flex-wrap gap-1.5">
@@ -88,14 +94,14 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           </button>
         </div>
 
-        <span className="ml-auto text-xs font-medium text-slate-500">
+        <span className="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400">
           {filtered.length} sonuç
         </span>
       </div>
 
       <Card className="overflow-hidden p-0">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
             <tr>
               <th className="px-4 py-3">Öğrenci</th>
               <th className="px-4 py-3">Açıklama</th>
@@ -108,28 +114,28 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                   Bu filtreye uyan ödeme bulunamadı.
                 </td>
               </tr>
             ) : (
               filtered.map((p) => (
-                <tr key={p.id} className="border-b border-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
                     <Link
                       href={`/panel/odemeler/${p.studentId}`}
-                      className="hover:text-violet-600 hover:underline"
+                      className="hover:text-amber-600 hover:underline"
                     >
                       {p.studentName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                     {p.description}
                     {p.method ? (
                       <span className="block text-xs text-slate-400">{p.method}</span>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{formatDate(p.dueDate)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">
                     <span className="font-medium">{formatMoney(p.amount)}</span>
                     {p.paidAmount > 0 && p.paidAmount < p.amount ? (
@@ -143,12 +149,18 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                   </td>
                   <td className="px-4 py-3">
                     {p.status !== "paid" ? (
-                      <form action={actionMarkPaymentPaid}>
-                        <input type="hidden" name="paymentId" value={p.id} />
-                        <Button type="submit" variant="secondary" className="!py-1.5 text-xs">
+                      canWrite ? (
+                        <form action={actionMarkPaymentPaid}>
+                          <input type="hidden" name="paymentId" value={p.id} />
+                          <Button type="submit" variant="secondary" className="!py-1.5 text-xs">
+                            Ödendi işaretle
+                          </Button>
+                        </form>
+                      ) : (
+                        <Button type="button" variant="secondary" className="!py-1.5 text-xs" disabled>
                           Ödendi işaretle
                         </Button>
-                      </form>
+                      )
                     ) : (
                       <Link
                         href={`/makbuz/${p.id}`}

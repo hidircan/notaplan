@@ -49,7 +49,7 @@ export function CollectionsSettingsForm({
           max={30}
           value={days}
           onChange={(event) => setDays(Number(event.target.value))}
-          className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
       <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">

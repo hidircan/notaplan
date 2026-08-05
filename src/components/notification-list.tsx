@@ -32,11 +32,11 @@ export function NotificationList({ notifications }: { notifications: Notificatio
       {notifications.map((n) => (
         <Card
           key={n.id}
-          className={`!p-4 ${n.readAt ? "" : "border-violet-200 bg-violet-50/60 dark:border-violet-800 dark:bg-violet-950/30"}`}
+          className={`!p-4 ${n.readAt ? "" : "border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30"}`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2">
-              <Bell className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+              <Bell className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{n.title}</p>
                 <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{n.body}</p>

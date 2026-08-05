@@ -130,14 +130,14 @@ export function CsvImportSection<T,>({
     <Card>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-900">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
           <p className="mt-1 text-xs text-slate-400">Sütunlar: {columns.join(", ")}</p>
         </div>
         <a
           href={downloadHref}
           download={sampleFileName}
-          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
         >
           <Download className="h-4 w-4" /> Örnek CSV indir
         </a>
@@ -150,7 +150,7 @@ export function CsvImportSection<T,>({
         className={cn(
           "relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition",
           dragActive
-            ? "border-violet-400 bg-violet-50"
+            ? "border-amber-400 bg-amber-50"
             : fileName
               ? "border-emerald-300 bg-emerald-50/40"
               : "border-slate-300 bg-slate-50/60"
@@ -159,13 +159,13 @@ export function CsvImportSection<T,>({
         {fileName ? (
           <>
             <FileText className="h-6 w-6 text-emerald-600" />
-            <p className="text-sm font-medium text-slate-800">{fileName}</p>
-            <span className="pointer-events-none text-xs font-medium text-violet-600">Değiştir</span>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{fileName}</p>
+            <span className="pointer-events-none text-xs font-medium text-amber-600">Değiştir</span>
           </>
         ) : (
           <>
             <UploadCloud className="h-6 w-6 text-slate-400" />
-            <p className="text-sm text-slate-600">CSV dosyanızı buraya sürükleyin veya seçin</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">CSV dosyanızı buraya sürükleyin veya seçin</p>
             <span className="pointer-events-none inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200">
               Dosya seç
             </span>
@@ -200,7 +200,7 @@ export function CsvImportSection<T,>({
           <button
             type="button"
             onClick={handleResetFile}
-            className="text-xs font-medium text-slate-400 hover:text-slate-600"
+            className="text-xs font-medium text-slate-400 hover:text-slate-600 dark:text-slate-400"
           >
             Dosyayı kaldır
           </button>
@@ -216,16 +216,16 @@ export function CsvImportSection<T,>({
               Dosyadan yalnızca 1 kayıt okunabildi. CSV ayıracı ve satır formatını kontrol edin.
             </p>
           ) : null}
-          <p className="text-sm font-medium text-slate-700">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Toplam {preview.totalRows} satır · Geçerli {preview.validCount} · Hatalı {preview.errorCount}
           </p>
 
           {preview.readRows.length > 0 ? (
             <div className="mt-2">
-              <p className="text-xs font-medium text-slate-500">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 Okunan kayıtlar {preview.totalRows > preview.readRows.length ? `(ilk ${preview.readRows.length})` : ""}
               </p>
-              <div className="mt-1 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-700">
+              <div className="mt-1 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-700 dark:text-slate-300">
                 {preview.readRows.map((r) => (
                   <p key={r.row}>
                     Satır {r.row} — {r.summary}

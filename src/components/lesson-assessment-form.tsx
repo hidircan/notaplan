@@ -107,7 +107,7 @@ export function LessonAssessmentForm({
         <select
           value={lessonId}
           onChange={(event) => setLessonId(event.target.value)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         >
           {lessons.length === 0 ? <option value="">Ders bulunamadı</option> : null}
           {lessons.map((l) => (
@@ -128,7 +128,7 @@ export function LessonAssessmentForm({
               <div key={item}>
                 <label className="mb-1 flex items-center justify-between text-xs text-slate-600">
                   <span>{ASSESSMENT_ITEM_LABELS[item]}</span>
-                  <span className="font-semibold text-violet-700">{scores[item]}</span>
+                  <span className="font-semibold text-amber-700">{scores[item]}</span>
                 </label>
                 <input
                   type="range"
@@ -151,7 +151,7 @@ export function LessonAssessmentForm({
           value={strengthNote}
           onChange={(event) => setStrengthNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
@@ -160,7 +160,7 @@ export function LessonAssessmentForm({
           value={improvementNote}
           onChange={(event) => setImprovementNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
@@ -169,7 +169,7 @@ export function LessonAssessmentForm({
           value={nextStepsNote}
           onChange={(event) => setNextStepsNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
@@ -180,7 +180,7 @@ export function LessonAssessmentForm({
           value={parentPrivateNote}
           onChange={(event) => setParentPrivateNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
         <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
           <input
@@ -197,7 +197,7 @@ export function LessonAssessmentForm({
         <input
           value={teacherSignedName}
           onChange={(event) => setTeacherSignedName(event.target.value)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
       </div>
 

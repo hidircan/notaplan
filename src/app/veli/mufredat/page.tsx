@@ -30,8 +30,8 @@ export default async function ParentCurriculumPage() {
     : "Müfredat yüklenemedi.";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 to-slate-50">
-      <header className="border-b border-violet-100 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
+      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Link
             href="/veli"

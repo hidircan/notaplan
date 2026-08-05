@@ -319,7 +319,7 @@ function FormModal({ title, onClose, children }: { title: string; onClose: () =>
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/40"
+        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/40"
       >
         <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-4 dark:border-slate-800">
           <h3 className="font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
@@ -990,14 +990,14 @@ export function ProgramStudio({
                     key={`${s.startAt}-${s.teacherId}-${s.roomId}`}
                     type="button"
                     onClick={() => applySuggestion(s)}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-violet-300 hover:bg-violet-50"
+                    className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-amber-300 hover:bg-amber-50"
                   >
                     <p className="font-semibold text-slate-900 dark:text-slate-50">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
                     <p className="text-slate-600 dark:text-slate-400">{format(parseISO(s.startAt), "HH:mm")}</p>
                     <p className="mt-1 text-slate-500 dark:text-slate-400">
                       {teacher?.name} · {room?.name}
                     </p>
-                    <p className="mt-1 text-[11px] text-violet-600">{s.reasons.join(" · ")}</p>
+                    <p className="mt-1 text-[11px] text-amber-600">{s.reasons.join(" · ")}</p>
                   </button>
                 );
               })}
@@ -1009,7 +1009,7 @@ export function ProgramStudio({
               setSuggestLimit((n) => n + 8);
               void handleFindSlots();
             }}
-            className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700"
+            className="mt-3 text-xs font-medium text-amber-600 hover:text-amber-700"
           >
             Daha fazla göster
           </button>
@@ -1285,7 +1285,7 @@ export function ProgramStudio({
               onClick={() => setCalendarView("day")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 calendarView === "day"
-                  ? "bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300"
+                  ? "bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
@@ -1297,7 +1297,7 @@ export function ProgramStudio({
               onClick={() => setCalendarView("week")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 calendarView === "week"
-                  ? "bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300"
+                  ? "bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
@@ -1405,7 +1405,7 @@ export function ProgramStudio({
               <div
                 key={dayIso}
                 className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold dark:border-slate-800 ${
-                  today ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" : "text-slate-600 dark:text-slate-400"
+                  today ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "text-slate-600 dark:text-slate-400"
                 }`}
               >
                 {format(day, "EEEE", { locale: tr })}
@@ -1438,7 +1438,7 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`relative flex-1 border-l border-slate-100 dark:border-slate-800 ${today ? "bg-violet-50/20 dark:bg-violet-950/20" : ""}`}
+                className={`relative flex-1 border-l border-slate-100 dark:border-slate-800 ${today ? "bg-amber-50/20 dark:bg-amber-950/20" : ""}`}
                 style={{ height: totalHeight }}
               >
                 {slots.map((min, i) => {
@@ -1458,8 +1458,8 @@ export function ProgramStudio({
                         e.preventDefault();
                         handleDrop(dayIso, min);
                       }}
-                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-violet-300 hover:text-violet-500 ${
-                        isDragOver ? "border-violet-400 bg-violet-100/60" : "border-slate-50"
+                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-amber-300 hover:text-amber-500 ${
+                        isDragOver ? "border-amber-400 bg-amber-100/60" : "border-slate-50"
                       }`}
                       style={{ top: i * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
                       aria-label={`${format(day, "d MMM", { locale: tr })} ${formatMinutes(min)} — ders planla`}
@@ -1519,7 +1519,7 @@ export function ProgramStudio({
                           draggable={false}
                           onMouseDown={(e) => startResize(e, lesson)}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-200/0 hover:bg-violet-300/70"
+                          className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-slate-200/0 hover:bg-amber-300/70"
                           aria-label="Süreyi değiştir"
                         />
                       ) : null}
@@ -1543,7 +1543,7 @@ export function ProgramStudio({
               .filter((l) => isSameDay(parseISO(l.startAt), day))
               .sort((a, b) => a.startAt.localeCompare(b.startAt));
             return (
-              <Card key={dayIso} className={today ? "border-violet-200 bg-violet-50/30" : undefined}>
+              <Card key={dayIso} className={today ? "border-amber-200 bg-amber-50/30" : undefined}>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{format(day, "EEEE d MMM", { locale: tr })}</p>
                   {today ? <Badge status="scheduled">Bugün</Badge> : null}
@@ -1560,7 +1560,7 @@ export function ProgramStudio({
                           key={lesson.id}
                           type="button"
                           onClick={() => openDetail(lesson)}
-                          className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-violet-200"
+                          className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-amber-200"
                           style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
                         >
                           <LessonCardBody
@@ -1670,7 +1670,7 @@ function DetailPanel({
       </div>
 
       {isSeriesMember ? (
-        <p className="mb-3 text-xs font-medium text-violet-600">
+        <p className="mb-3 text-xs font-medium text-amber-600">
           Bu ders tekrarlayan bir serinin parçası. Buradaki değişiklik yalnızca bu dersi etkiler.
         </p>
       ) : null}

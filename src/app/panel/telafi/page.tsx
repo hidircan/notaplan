@@ -1,22 +1,34 @@
+import { redirect } from "next/navigation";
 import {
   actionCancelMakeup,
   actionConfirmSlot,
   actionGenerateSuggestions,
 } from "@/lib/actions";
-import { readData } from "@/lib/store";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
 import { MakeupDecisionForm } from "@/components/makeup-decision-form";
 import { ManualMakeupPlanForm } from "@/components/manual-makeup-plan-form";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { CheckCircle2, Download, Sparkles, X } from "lucide-react";
+import { requireSessionContext } from "@/lib/auth/session";
+import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
+import { KurumScopeNote } from "@/components/kurum-scope-note";
+import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
+import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 
 const MORE_SUGGESTIONS_COUNT = 18;
 
 export const dynamic = "force-dynamic";
 
 export default async function TelafiPage() {
-  const data = await readData();
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/panel/telafi");
+  }
+  const kurum = await getInstitutionContext(session);
+  const data = await readScopedData(kurum.scope);
   const requests = [...data.makeupRequests].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt)
   );
@@ -24,9 +36,13 @@ export default async function TelafiPage() {
   const OPEN_STATUSES = ["pending", "suggested", "awaiting_info"];
   const open = requests.filter((r) => OPEN_STATUSES.includes(r.status));
   const done = requests.filter((r) => !OPEN_STATUSES.includes(r.status));
+  const canWrite = kurum.scope.mode === "single";
+  const nowMs = new Date().getTime();
 
   return (
     <div>
+      <KurumScopeNote scope={kurum.scope} />
+      <AssistantPageContext entity={{ kind: "page", label: "Telafi Merkezi" }} />
       <PageHeader
         title="Telafi Merkezi"
         description="Açık telafi taleplerini listeleyin, şube / öğretmen / oda çakışmalarını tarayın ve en iyi slotu onaylayarak dersi programa alın."
@@ -43,15 +59,48 @@ export default async function TelafiPage() {
             {requests.filter((r) => r.status === "confirmed").length}
           </p>
         </Card>
-        <Card className="bg-violet-50 border-violet-100">
-          <p className="text-sm text-violet-800">Politika penceresi</p>
-          <p className="mt-1 text-3xl font-semibold text-violet-950">
+        <Card className="bg-amber-50 border-amber-100">
+          <p className="text-sm text-amber-800">Politika penceresi</p>
+          <p className="mt-1 text-3xl font-semibold text-amber-950">
             {data.settings.makeupWindowDays} gün
           </p>
         </Card>
       </div>
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900">Aksiyon bekleyenler</h2>
+      {!canWrite ? (
+        <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          &quot;Tüm kurumlar&quot; görünümündesiniz — telafi onayı/iptali/planlaması için üstteki kurum
+          seçiciden tek bir kurum seçin.
+        </p>
+      ) : null}
+
+      {open.length > 0 ? (
+        <Card className="mb-6">
+          <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+            {open.length} açık talep — hangisine önce bakmalısınız?
+          </p>
+          <AiInsightTrigger
+            capabilityId="makeupSlotSuggestion"
+            label="AI ile öncelik özeti"
+            payload={{
+              openCount: open.length,
+              oldestRequestAt: open.reduce(
+                (min, r) => (r.createdAt < min ? r.createdAt : min),
+                open[0].createdAt
+              ),
+              byInstrument: open.reduce<Record<string, number>>((acc, r) => {
+                acc[r.instrument] = (acc[r.instrument] || 0) + 1;
+                return acc;
+              }, {}),
+              expiringSoon: open.filter(
+                (r) => new Date(r.expiresAt).getTime() - nowMs < 3 * 24 * 60 * 60 * 1000
+              ).length,
+            }}
+          />
+        </Card>
+      ) : null}
+
+      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Aksiyon bekleyenler</h2>
       {open.length === 0 ? (
         <EmptyState
           title="Açık telafi talebi yok"
@@ -63,15 +112,15 @@ export default async function TelafiPage() {
             const student = data.students.find((s) => s.id === req.studentId);
             const teacher = data.teachers.find((t) => t.id === req.teacherId);
             return (
-              <Card key={req.id} className="border-violet-100">
+              <Card key={req.id} className="border-amber-100">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-slate-900">{student?.name}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{student?.name}</h3>
                       <Badge status={req.status} />
                       <Badge status="makeup">{req.instrument}</Badge>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                       Tercih öğretmen: <span className="font-medium">{teacher?.name}</span> ·{" "}
                       {data.settings.branches.find((b) => b.id === req.branchId)?.shortName} ·{" "}
                       {req.reason}
@@ -80,7 +129,7 @@ export default async function TelafiPage() {
                       Oluşturulma: {formatDateTime(req.createdAt)} · Son kullanım:{" "}
                       {formatDateTime(req.expiresAt)}
                     </p>
-                    <p className="mt-2 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                    <p className="mt-2 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:text-slate-400">
                       {req.policyNote}
                     </p>
                   </div>
@@ -88,7 +137,7 @@ export default async function TelafiPage() {
                   <div className="flex flex-wrap gap-2">
                     <form action={actionGenerateSuggestions}>
                       <input type="hidden" name="requestId" value={req.id} />
-                      <TelafiSubmitButton pendingLabel="Aranıyor...">
+                      <TelafiSubmitButton pendingLabel="Aranıyor..." disabled={!canWrite}>
                         <Sparkles className="h-4 w-4" />
                         {req.suggestedSlots.length ? "Saatleri yenile" : "En uygun saatleri bul"}
                       </TelafiSubmitButton>
@@ -98,6 +147,7 @@ export default async function TelafiPage() {
                       hiddenFields={{ requestId: req.id }}
                       pendingLabel="İptal ediliyor..."
                       variant="ghost"
+                      disabled={!canWrite}
                       placeholder="İptal/ret gerekçesi (zorunlu)…"
                     >
                       <X className="h-4 w-4" />
@@ -108,10 +158,10 @@ export default async function TelafiPage() {
 
                 {req.suggestedSlots.length > 0 ? (
                   <div className="mt-5 border-t border-slate-100 pt-4">
-                    <p className="text-sm font-medium text-slate-800">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                       Önerilen slotlar (skora göre sıralı)
                     </p>
-                    <p className="mb-3 mt-1 text-xs text-slate-500">
+                    <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Bunlar en yüksek puanlı uygun seçeneklerdir; başka bir saat da
                       planlayabilirsiniz.
                     </p>
@@ -127,24 +177,24 @@ export default async function TelafiPage() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className="font-semibold text-slate-900">
+                                <p className="font-semibold text-slate-900 dark:text-slate-50">
                                   {formatDateTime(slot.startAt)}
                                 </p>
-                                <p className="text-sm text-slate-600">
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
                                   {formatTime(slot.startAt)}–{formatTime(slot.endAt)} ·{" "}
                                   {slotTeacher?.name}
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                   {branch?.shortName} · {room?.name}
                                 </p>
                               </div>
-                              <span className="rounded-lg bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
+                              <span className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
                                 Skor {slot.score}
                               </span>
                             </div>
                             <ul className="mt-2 space-y-0.5">
                               {slot.reasons.map((r) => (
-                                <li key={r} className="text-[11px] text-slate-500">
+                                <li key={r} className="text-[11px] text-slate-500 dark:text-slate-400">
                                   · {r}
                                 </li>
                               ))}
@@ -155,6 +205,7 @@ export default async function TelafiPage() {
                                 hiddenFields={{ requestId: req.id, slot: JSON.stringify(slot) }}
                                 pendingLabel="Onaylanıyor..."
                                 variant="success"
+                                disabled={!canWrite}
                                 placeholder="Onay notu (zorunlu)…"
                               >
                                 <CheckCircle2 className="h-4 w-4" />
@@ -168,13 +219,13 @@ export default async function TelafiPage() {
                     <form action={actionGenerateSuggestions} className="mt-3">
                       <input type="hidden" name="requestId" value={req.id} />
                       <input type="hidden" name="maxSlots" value={MORE_SUGGESTIONS_COUNT} />
-                      <TelafiSubmitButton variant="secondary" pendingLabel="Aranıyor...">
+                      <TelafiSubmitButton variant="secondary" pendingLabel="Aranıyor..." disabled={!canWrite}>
                         Daha fazla uygun saat göster
                       </TelafiSubmitButton>
                     </form>
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-slate-500">
+                  <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
                     Henüz saat önerilmedi. “En uygun saatleri bul” ile öğretmen müsaitliği, oda ve
                     çakışmaları tarayın.
                   </p>
@@ -197,6 +248,7 @@ export default async function TelafiPage() {
                         lessonDurationMinutes={data.settings.lessonDurationMinutes}
                         teachers={teachers}
                         rooms={rooms}
+                        canWrite={canWrite}
                       />
                     </div>
                   );
@@ -208,10 +260,10 @@ export default async function TelafiPage() {
       )}
 
       <div className="mb-3 mt-10 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Geçmiş / tamamlanan</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Geçmiş / tamamlanan</h2>
         <a
           href="/api/v1/export?entity=makeupRequests"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <Download className="h-3.5 w-3.5" /> Tüm talepleri CSV indir
         </a>
@@ -219,7 +271,7 @@ export default async function TelafiPage() {
       {done.length > 0 ? (
           <Card className="overflow-hidden p-0">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Öğrenci</th>
                   <th className="px-4 py-3">Enstrüman</th>
@@ -235,25 +287,25 @@ export default async function TelafiPage() {
                   const student = data.students.find((s) => s.id === req.studentId);
                   const lesson = data.lessons.find((l) => l.id === req.confirmedLessonId);
                   return (
-                    <tr key={req.id} className="border-b border-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{student?.name}</td>
-                      <td className="px-4 py-3 text-slate-600">{req.instrument}</td>
+                    <tr key={req.id} className="border-b border-slate-50 dark:border-slate-800">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{student?.name}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{req.instrument}</td>
                       <td className="px-4 py-3">
                         <Badge status={req.status} />
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                         {lesson ? formatDateTime(lesson.startAt) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
                         {req.slaDeadline ? formatDateTime(req.slaDeadline) : "—"}
                         {(req.slaEscalationLevel ?? 0) >= 5 ? (
                           <span className="ml-1 font-semibold text-rose-600">Aşıldı</span>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
                         {req.decisionNote ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
                         {req.decidedAt ? formatDateTime(req.decidedAt) : "—"}
                       </td>
                     </tr>

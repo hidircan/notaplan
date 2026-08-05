@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { startOfMonth, endOfMonth, format } from "date-fns";
+import { tr } from "date-fns/locale";
 import { readData } from "@/lib/store";
 import { Badge, Card } from "@/components/ui";
-import { formatDateTime, formatTime } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { actionMarkAttendance } from "@/lib/actions";
-import { CalendarDays, Home, Music2, Users } from "lucide-react";
+import { computeTeacherEarningsForPeriod } from "@/lib/teacher-payout";
+import { CalendarDays, Home, Music2, Users, Wallet } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
+import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 import { LessonLiveActions } from "@/components/lesson-live-actions";
 
@@ -41,8 +45,20 @@ export default async function OgretmenPortalPage() {
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
     .slice(0, 8);
 
+  // Hakediş yalnızca oturumdaki (veya demo fallback) öğretmenin kendi
+  // teacherId'siyle hesaplanır — başka bir öğretmenin verisine erişim yok.
+  const now = new Date();
+  const periodStart = format(startOfMonth(now), "yyyy-MM-dd");
+  const periodEnd = format(endOfMonth(now), "yyyy-MM-dd");
+  const currentMonthEarnings = computeTeacherEarningsForPeriod(data, teacher.id, periodStart, periodEnd);
+  const recentPayouts = data.teacherPayouts
+    .filter((p) => p.teacherId === teacher.id)
+    .sort((a, b) => b.periodStart.localeCompare(a.periodStart))
+    .slice(0, 3);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <AssistantPageContext entity={{ kind: "teacher", id: teacher.id, label: teacher.name }} />
       <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
@@ -57,8 +73,8 @@ export default async function OgretmenPortalPage() {
                 .slice(0, 2)}
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">{teacher.name}</p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{teacher.name}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Öğretmen · {branch?.shortName} · {teacher.instruments.join(", ")}
               </p>
             </div>
@@ -78,23 +94,29 @@ export default async function OgretmenPortalPage() {
             <Music2 className="h-4 w-4" />
             <p className="text-xs font-medium uppercase tracking-wide">{data.settings.name}</p>
           </div>
-          <h1 className="mt-2 text-xl font-semibold text-slate-900">Bugünkü programın</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-50">Bugünkü programın</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {todayLessons.length} ders · {students.length} aktif öğrenci
           </p>
           <p className="mt-2 text-xs text-slate-400">
             Demo öğretmen portalı, bugünkü derslerini ve yoklama kontrolünü hızlıca gösterir.
           </p>
+          <Link
+            href="/ogretmen/program"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-cyan-700 hover:text-cyan-800"
+          >
+            <CalendarDays className="h-4 w-4" /> Ders Programım →
+          </Link>
         </Card>
 
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-cyan-700" />
-            <h2 className="text-sm font-semibold text-slate-800">Bugün</h2>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Bugün</h2>
           </div>
           {todayLessons.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500">Bugün dersin yok.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Bugün dersin yok.</p>
             </Card>
           ) : (
             <div className="space-y-3">
@@ -107,10 +129,10 @@ export default async function OgretmenPortalPage() {
                   <Card key={lesson.id} className="!p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-slate-900">
+                        <p className="font-semibold text-slate-900 dark:text-slate-50">
                           {formatTime(lesson.startAt)} · {student?.name}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                           {lesson.instrument} · {room?.name}
                           {lesson.type === "makeup" ? " · Telafi" : ""}
                         </p>
@@ -182,13 +204,13 @@ export default async function OgretmenPortalPage() {
 
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
-            <Users className="h-4 w-4 text-slate-600" />
-            <h2 className="text-sm font-semibold text-slate-800">Öğrencilerim</h2>
+            <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Öğrencilerim</h2>
           </div>
           <div className="space-y-2">
             {students.length === 0 ? (
               <Card>
-                <p className="text-sm text-slate-500">Aktif öğrenciniz yok.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Aktif öğrenciniz yok.</p>
               </Card>
             ) : (
               students.map((s) => (
@@ -196,10 +218,15 @@ export default async function OgretmenPortalPage() {
                   <Card className="!p-3 transition hover:border-cyan-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-900">{s.name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{s.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {s.instruments.join(", ")} · Veli: {s.parentName}
                         </p>
+                        {s.studentType || s.targetExam ? (
+                          <p className="mt-0.5 text-xs text-amber-600">
+                            {[s.studentType, s.targetExam].filter(Boolean).join(" · ")}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <Badge>{s.packageName.split("—")[0]?.trim()}</Badge>
@@ -214,7 +241,67 @@ export default async function OgretmenPortalPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-800">Yaklaşan seanslar</h2>
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <Wallet className="h-4 w-4 text-cyan-700" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Hakedişim</h2>
+          </div>
+          <Card className="!p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {format(now, "MMMM yyyy", { locale: tr })}
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{currentMonthEarnings.totalLessons}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Ders</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{currentMonthEarnings.totalMinutes}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Dakika</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-emerald-700">
+                  {formatMoney(currentMonthEarnings.totalAmount)}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Hakediş</p>
+              </div>
+            </div>
+            {currentMonthEarnings.missingFeeRuleLessonIds.length > 0 ? (
+              <p className="mt-3 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+                {currentMonthEarnings.missingFeeRuleLessonIds.length} derste ücret kuralı tanımlı değil —
+                kurumunuzla iletişime geçin.
+              </p>
+            ) : null}
+          </Card>
+
+          {recentPayouts.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              {recentPayouts.map((p) => (
+                <Link key={p.id} href={`/ogretmen/hakedis/${p.id}`}>
+                  <Card className="!p-3 transition hover:border-cyan-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                          {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{formatMoney(p.totalAmount)}</p>
+                      </div>
+                      <Badge status={p.status} />
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+          <Link
+            href="/ogretmen/hakedis"
+            className="mt-3 inline-block text-sm font-medium text-cyan-700 hover:text-cyan-800"
+          >
+            Geçmiş hakedişlerim →
+          </Link>
+        </section>
+
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Yaklaşan seanslar</h2>
           <div className="space-y-2">
             {weekLessons.map((l) => {
               const student = data.students.find((s) => s.id === l.studentId);
@@ -222,8 +309,8 @@ export default async function OgretmenPortalPage() {
                 <Card key={l.id} className="!p-3">
                   <div className="flex items-center justify-between text-sm">
                     <div>
-                      <p className="font-medium text-slate-800">{formatDateTime(l.startAt)}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{formatDateTime(l.startAt)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {student?.name} · {l.instrument}
                       </p>
                     </div>

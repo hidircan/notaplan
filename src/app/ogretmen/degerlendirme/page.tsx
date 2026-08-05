@@ -42,7 +42,7 @@ export default async function TeacherAssessmentStudentsPage() {
         ) : (
           students.map((student) => (
             <Link key={student.id} href={`/ogretmen/degerlendirme/${student.id}`}>
-              <Card className="!p-4 hover:border-violet-200">
+              <Card className="!p-4 hover:border-amber-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{student.name}</p>

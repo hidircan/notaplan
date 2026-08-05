@@ -108,7 +108,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-violet-300">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
           Demo ile giriş
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -118,22 +118,22 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
               type="button"
               disabled={loading}
               onClick={() => onDemoSelect(p)}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/10 disabled:opacity-50"
+              className="rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] px-3 py-2 text-left text-xs hover:border-[var(--color-primary)] disabled:opacity-50"
             >
-              <span className="block font-medium text-white">{p.label}</span>
-              <span className="block text-slate-400">{p.hint}</span>
+              <span className="block font-medium text-[var(--color-text)]">{p.label}</span>
+              <span className="block text-[var(--color-text-muted)]">{p.hint}</span>
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
           Bu hızlı seçenekler yalnızca demo amaçlıdır; gerçek kullanıcılar kendi e-posta/şifresiyle giriş yapar.
         </p>
       </div>
 
-      <div className="flex items-center gap-3 text-[11px] text-slate-500">
-        <span className="h-px flex-1 bg-white/10" />
+      <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-muted)]">
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
         veya e-posta / şifre ile
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -145,7 +145,6 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="border-white/10 bg-white/5 text-white"
           />
         </div>
         <div>
@@ -156,11 +155,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="border-white/10 bg-white/5 text-white"
           />
         </div>
         {error ? (
-          <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{error}</p>
+          <p className="rounded-[var(--radius-md)] bg-[var(--color-danger-soft)] px-3 py-2 text-sm text-[var(--color-danger)]">
+            {error}
+          </p>
         ) : null}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Giriş yapılıyor…" : "Giriş yap"}

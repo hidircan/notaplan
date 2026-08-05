@@ -30,7 +30,7 @@ export default async function AssessmentReportPage({
       <div className="mx-auto max-w-lg px-6 py-20 text-center">
         <p className="text-lg font-semibold text-slate-900">Rapor oluşturulamadı.</p>
         <p className="mt-2 text-sm text-slate-500">Bu öğrenciye erişim yetkiniz olmayabilir.</p>
-        <Link href={backHref} className="mt-6 inline-block text-sm font-medium text-violet-600 hover:text-violet-700">
+        <Link href={backHref} className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700">
           Geri dön
         </Link>
       </div>
@@ -47,7 +47,7 @@ export default async function AssessmentReportPage({
       <div className="mx-auto max-w-2xl">
         <AssessmentActions backHref={backHref} />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
           <p className="text-lg font-semibold text-slate-900">Gelişim Raporu</p>
           <p className="mt-1 text-sm text-slate-500">{student?.name ?? "—"}</p>
 
@@ -63,7 +63,7 @@ export default async function AssessmentReportPage({
                   {trend.map((point) => (
                     <div key={point.assessmentId} className="flex flex-1 flex-col items-center gap-1">
                       <div
-                        className="w-full rounded-t bg-violet-500"
+                        className="w-full rounded-t bg-amber-500"
                         style={{ height: `${Math.max(point.overallScore, 0.2) * 24}px` }}
                       />
                       <p className="text-[11px] font-semibold text-slate-700">
@@ -82,7 +82,7 @@ export default async function AssessmentReportPage({
                       <p className="text-sm font-semibold text-slate-900">
                         {formatDate(a.createdAt, "d MMMM yyyy")}
                       </p>
-                      <p className="text-sm font-semibold text-violet-700">
+                      <p className="text-sm font-semibold text-amber-700">
                         {computeOverallScore(a).toFixed(1)} / 5
                       </p>
                     </div>

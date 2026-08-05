@@ -28,7 +28,7 @@ export default async function StudentPaymentProfilePage({
         />
         <Link
           href="/panel/odemeler"
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
         >
           <ArrowLeft className="h-4 w-4" /> Ödemelere dön
         </Link>

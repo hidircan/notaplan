@@ -504,9 +504,9 @@ export default async function TeacherStudentWorkspacePage({
                 {trend.map((point) => (
                   <div
                     key={point.assessmentId}
-                    className="flex min-w-[3.5rem] flex-col items-center rounded-lg bg-violet-50 px-2 py-1.5"
+                    className="flex min-w-[3.5rem] flex-col items-center rounded-lg bg-amber-50 px-2 py-1.5"
                   >
-                    <span className="text-sm font-semibold text-violet-700">
+                    <span className="text-sm font-semibold text-amber-700">
                       {point.overallScore.toFixed(1)}
                     </span>
                     <span className="text-[10px] text-slate-500">
@@ -518,7 +518,7 @@ export default async function TeacherStudentWorkspacePage({
               {pastAssessments.length > 0 ? (
                 <p className="mt-2 text-xs text-slate-500">
                   Son ortalama:{" "}
-                  <span className="font-semibold text-violet-700">
+                  <span className="font-semibold text-amber-700">
                     {computeOverallScore(pastAssessments[0]!).toFixed(1)} / 5
                   </span>
                   {" · "}
@@ -562,10 +562,10 @@ export default async function TeacherStudentWorkspacePage({
             <div className="space-y-2">
               {pastAssessments.map((a) => (
                 <Link key={a.id} href={`/degerlendirme/${a.id}`}>
-                  <Card className="!p-4 transition hover:border-violet-200">
+                  <Card className="!p-4 transition hover:border-amber-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-violet-500" aria-hidden />
+                        <FileText className="h-4 w-4 text-amber-500" aria-hidden />
                         <div>
                           <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
                             {formatDate(a.createdAt, "d MMMM yyyy")}
@@ -573,7 +573,7 @@ export default async function TeacherStudentWorkspacePage({
                           <p className="text-xs text-slate-400 line-clamp-1">{a.strengthNote}</p>
                         </div>
                       </div>
-                      <p className="text-sm font-semibold text-violet-700">
+                      <p className="text-sm font-semibold text-amber-700">
                         {computeOverallScore(a).toFixed(1)} / 5
                       </p>
                     </div>

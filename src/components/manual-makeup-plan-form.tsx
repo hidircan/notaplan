@@ -15,6 +15,7 @@ export function ManualMakeupPlanForm({
   lessonDurationMinutes,
   teachers,
   rooms,
+  canWrite,
 }: {
   requestId: string;
   preferredTeacherId: string;
@@ -22,6 +23,8 @@ export function ManualMakeupPlanForm({
   lessonDurationMinutes: number;
   teachers: TeacherOption[];
   rooms: RoomOption[];
+  /** "Tüm kurumlar" görünümünde false — manuel telafi planlanamaz. */
+  canWrite: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -108,6 +111,14 @@ export function ManualMakeupPlanForm({
   }
 
   if (!open) {
+    if (!canWrite) {
+      return (
+        <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          &quot;Tüm kurumlar&quot; görünümündesiniz — manuel telafi planlamak için üstteki kurum
+          seçiciden tek bir kurum seçin.
+        </p>
+      );
+    }
     return (
       <button
         type="button"
@@ -124,34 +135,34 @@ export function ManualMakeupPlanForm({
       onSubmit={(event) => void onSubmit(event)}
       className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4"
     >
-      <p className="mb-3 text-sm font-medium text-slate-800">Başka bir saat planla</p>
+      <p className="mb-3 text-sm font-medium text-slate-800 dark:text-slate-200">Başka bir saat planla</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Tarih</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Tarih</label>
           <input
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
             required
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Başlangıç saati</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Başlangıç saati</label>
           <input
             type="time"
             value={time}
             onChange={(event) => setTime(event.target.value)}
             required
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Öğretmen</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Öğretmen</label>
           <select
             value={teacherId}
             onChange={(event) => onTeacherChange(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
           >
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>
@@ -161,11 +172,11 @@ export function ManualMakeupPlanForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Oda</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Oda</label>
           <select
             value={roomId}
             onChange={(event) => setRoomId(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
           >
             {availableRooms.length === 0 ? (
               <option value="">Bu öğretmenin şubesinde uygun oda yok</option>
@@ -180,7 +191,7 @@ export function ManualMakeupPlanForm({
         </div>
       </div>
       <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-slate-500">
+        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
           Karar notu (zorunlu)
         </label>
         <textarea
@@ -189,7 +200,7 @@ export function ManualMakeupPlanForm({
           required
           rows={2}
           placeholder="Bu saat neden seçildi?"
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -199,7 +210,7 @@ export function ManualMakeupPlanForm({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm font-medium text-slate-500 hover:text-slate-700"
+          className="text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-300"
         >
           Vazgeç
         </button>

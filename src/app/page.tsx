@@ -78,7 +78,7 @@ export default async function LandingPage() {
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-800">
             <Music2 className="h-4 w-4" />
           </div>
           <span className="font-semibold tracking-wide">NotaPlan</span>
@@ -92,7 +92,7 @@ export default async function LandingPage() {
           </a>
           <Link
             href="/login"
-            className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-violet-100"
+            className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-amber-100"
           >
             Giriş
           </Link>
@@ -108,13 +108,13 @@ export default async function LandingPage() {
       {/* Hero */}
       <section className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 text-center sm:pt-16">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(139,92,246,0.35),_transparent_55%)]" />
-        <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-200">
+        <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
           <Sparkles className="h-3.5 w-3.5" />
           Müzik okulları için operasyon SaaS
         </p>
         <h1 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
           Telafi derslerini{" "}
-          <span className="bg-gradient-to-r from-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
             WhatsApp kaosundan
           </span>{" "}
           kurtar
@@ -126,7 +126,7 @@ export default async function LandingPage() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold shadow-lg shadow-violet-600/30 hover:bg-violet-500"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-600/30 hover:bg-amber-500"
           >
             Demo panelini aç
             <ArrowRight className="h-4 w-4" />
@@ -156,15 +156,15 @@ export default async function LandingPage() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-6"
+              className="rounded-lg border border-white/10 bg-white/[0.04] p-6"
             >
-              <f.icon className="h-8 w-8 text-violet-300" />
+              <f.icon className="h-8 w-8 text-amber-300" />
               <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
             </div>
           ))}
         </div>
-        <div className="mt-8 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5 text-sm text-amber-100">
+        <div className="mt-8 rounded-lg border border-amber-400/20 bg-amber-500/10 p-5 text-sm text-amber-100">
           <strong>Demo akışı:</strong> Yoklama al → Gelmedi / iptal seç → Telafi hakkı oluşur → Uygun slot önerilir → Onayla → WhatsApp mesajı hazır.
         </div>
       </section>
@@ -177,7 +177,7 @@ export default async function LandingPage() {
         </p>
         <div className="mt-10 grid gap-5 md:grid-cols-4">
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               1. Yoklama
             </p>
             <p className="mt-4 text-sm text-slate-300">
@@ -185,7 +185,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               2. Telafi talebi
             </p>
             <p className="mt-4 text-sm text-slate-300">
@@ -193,7 +193,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               3. Uygun slot
             </p>
             <p className="mt-4 text-sm text-slate-300">
@@ -201,7 +201,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               4. Bildirim
             </p>
             <p className="mt-4 text-sm text-slate-300">
@@ -224,12 +224,12 @@ export default async function LandingPage() {
                 key={p.name}
                 className={`rounded-3xl border p-6 ${
                   p.highlighted
-                    ? "border-violet-400/50 bg-gradient-to-b from-violet-600/30 to-transparent shadow-xl shadow-violet-900/40"
+                    ? "border-amber-400/50 bg-gradient-to-b from-amber-600/30 to-transparent shadow-xl shadow-amber-900/40"
                     : "border-white/10 bg-white/[0.03]"
                 }`}
               >
                 {p.highlighted ? (
-                  <span className="rounded-full bg-violet-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                     Önerilen
                   </span>
                 ) : null}
@@ -251,7 +251,7 @@ export default async function LandingPage() {
                   href="/panel"
                   className={`mt-6 flex w-full items-center justify-center rounded-xl py-2.5 text-sm font-semibold ${
                     p.highlighted
-                      ? "bg-white text-slate-900 hover:bg-violet-100"
+                      ? "bg-white text-slate-900 hover:bg-amber-100"
                       : "border border-white/15 hover:bg-white/10"
                   }`}
                 >
@@ -273,14 +273,14 @@ export default async function LandingPage() {
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             href="/login"
-            className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold hover:bg-violet-500"
+            className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold hover:bg-amber-500"
           >
             Giriş yap
           </Link>
         </div>
       </section>
 
-      <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-500">
+      <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
         NotaPlan · github.com/hidircan
       </footer>
     </div>

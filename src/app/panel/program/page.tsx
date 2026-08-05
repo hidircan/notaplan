@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { readData } from "@/lib/store";
 import { Card, PageHeader } from "@/components/ui";
 import { WeekDatePicker } from "@/components/week-date-picker";
 import { ProgramStudio } from "@/components/program-studio";
 import { addDays, startOfWeek } from "@/lib/utils";
 import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
+import { requireSessionContext } from "@/lib/auth/session";
+import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
+import { KurumScopeNote } from "@/components/kurum-scope-note";
+import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +32,14 @@ export default async function ProgramPage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const { week } = await searchParams;
-  const data = await readData();
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/panel/program");
+  }
+  const kurum = await getInstitutionContext(session);
+  const data = await readScopedData(kurum.scope);
   const weekStart = resolveWeekStart(week);
   const todayWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const isCurrentWeek = isSameDay(weekStart, todayWeekStart);
@@ -48,6 +59,8 @@ export default async function ProgramPage({
 
   return (
     <div>
+      <KurumScopeNote scope={kurum.scope} />
+      <AssistantPageContext entity={{ kind: "page", label: "Ders Programı" }} />
       <PageHeader
         title="Ders programı"
         description="Öğretmen ve stüdyo bazında haftalık ders görünümü."
@@ -80,7 +93,7 @@ export default async function ProgramPage({
         ) : (
           <Link
             href={`/panel/program?week=${todayParam}`}
-            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
           >
             Bugün
           </Link>
@@ -94,7 +107,7 @@ export default async function ProgramPage({
         teachers={data.teachers}
         rooms={data.rooms}
         branchNames={branchNames}
-        lessonDurationMinutes={data.settings.lessonDurationMinutes}
+        canCreate={kurum.scope.mode === "single"}
         workingHours={data.settings.workingHours}
         days={days.map((d) => d.toISOString())}
         weekLessons={weekLessons}
@@ -102,12 +115,12 @@ export default async function ProgramPage({
       />
 
       <Card className="mt-6">
-        <h2 className="mb-3 font-semibold text-slate-900">Stüdyolar</h2>
+        <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Stüdyolar</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {data.rooms.map((room) => (
             <div key={room.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-900">{room.name}</p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{room.name}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {data.settings.branches.find((b) => b.id === room.branchId)?.shortName} · Kapasite{" "}
                 {room.capacity} · {room.instruments.join(", ")}
               </p>

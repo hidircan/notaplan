@@ -14,7 +14,7 @@ function NoticeScreen({ title, description, backHref }: { title: string; descrip
     <div className="mx-auto max-w-lg px-6 py-20 text-center">
       <p className="text-lg font-semibold text-slate-900">{title}</p>
       <p className="mt-2 text-sm text-slate-500">{description}</p>
-      <Link href={backHref} className="mt-6 inline-block text-sm font-medium text-violet-600 hover:text-violet-700">
+      <Link href={backHref} className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700">
         Geri dön
       </Link>
     </div>
@@ -59,12 +59,12 @@ export default async function AssessmentPage({
       <div className="mx-auto max-w-2xl">
         <AssessmentActions backHref={backHref} />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
             <p className="text-lg font-semibold text-slate-900">Öğrenci Gelişim Değerlendirmesi</p>
             <div className="shrink-0 text-right">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Genel puan</p>
-              <p className="mt-1 text-2xl font-bold text-violet-700">{overall.toFixed(1)} / 5</p>
+              <p className="mt-1 text-2xl font-bold text-amber-700">{overall.toFixed(1)} / 5</p>
             </div>
           </div>
 

@@ -26,7 +26,7 @@ export function CurriculumSummaryCard({
           <h2 id="curriculum-summary-heading" className="text-sm font-semibold text-slate-800">
             Müfredat ilerlemesi
           </h2>
-          <p className="text-lg font-semibold text-violet-700" aria-label="Genel ilerleme">
+          <p className="text-lg font-semibold text-amber-700" aria-label="Genel ilerleme">
             %{overallPercent}
           </p>
         </div>
@@ -45,7 +45,7 @@ export function CurriculumSummaryCard({
               </div>
               <div className="text-right">
                 <Badge status={t.status}>{t.status}</Badge>
-                <p className="mt-0.5 text-sm font-semibold text-violet-700">%{t.progressPercent}</p>
+                <p className="mt-0.5 text-sm font-semibold text-amber-700">%{t.progressPercent}</p>
               </div>
             </div>
           </Card>

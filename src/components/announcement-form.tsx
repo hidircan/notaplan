@@ -85,7 +85,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           required
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
       <div>
@@ -95,7 +95,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
           onChange={(event) => setBody(event.target.value)}
           required
           rows={3}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -104,7 +104,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
           <select
             value={audienceType}
             onChange={(event) => setAudienceType(event.target.value as AnnouncementAudienceType)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             {(Object.keys(AUDIENCE_LABELS) as AnnouncementAudienceType[]).map((key) => (
               <option key={key} value={key}>
@@ -119,7 +119,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
             <select
               value={branchId}
               onChange={(event) => setBranchId(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -137,7 +137,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
             <select
               value={studentType}
               onChange={(event) => setStudentType(event.target.value as typeof studentType)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {STUDENT_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -157,7 +157,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
             value={userIdsText}
             onChange={(event) => setUserIdsText(event.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-violet-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       ) : null}

@@ -26,7 +26,7 @@ function NoticeScreen({
       <p className="mt-2 text-sm text-slate-500">{description}</p>
       <Link
         href={backHref}
-        className="mt-6 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+        className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700"
       >
         {backLabel}
       </Link>
@@ -100,7 +100,7 @@ export default async function ReceiptPage({
       <div className="mx-auto max-w-2xl">
         <ReceiptActions backHref={backHref} />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
             <p className="text-lg font-semibold text-slate-900">Ödeme Makbuzu</p>
             <div className="shrink-0 text-right">

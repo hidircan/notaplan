@@ -33,7 +33,7 @@ export default async function DocumentsCenterPage() {
         description="Şablondan belge üretimi, otomatik alanlar, sabit referans ve yazdırma (Faz 1)."
       />
       <Card>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-violet-600">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-600">
           Şablonlar ({templates.length})
         </p>
         {templates.length === 0 ? (
@@ -50,7 +50,7 @@ export default async function DocumentsCenterPage() {
         )}
       </Card>
       <Card>
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-violet-600">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-600">
           Belge oluştur
         </p>
         <DocumentCreateForm

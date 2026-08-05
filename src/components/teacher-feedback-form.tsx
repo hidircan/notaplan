@@ -47,7 +47,7 @@ export function TeacherFeedbackForm({ studentId }: { studentId: string }) {
 
   if (success) {
     return (
-      <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
+      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
         Geri bildiriminiz için teşekkürler. Yalnızca okul yönetimi görüntüler.
       </p>
     );
@@ -66,7 +66,7 @@ export function TeacherFeedbackForm({ studentId }: { studentId: string }) {
                 onClick={() => setScores((prev) => ({ ...prev, [c.key]: n }))}
                 className={`h-7 w-7 rounded-full text-xs font-medium ${
                   scores[c.key] >= n
-                    ? "bg-violet-600 text-white"
+                    ? "bg-amber-600 text-white"
                     : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                 }`}
               >
@@ -82,7 +82,7 @@ export function TeacherFeedbackForm({ studentId }: { studentId: string }) {
         onChange={(e) => setComment(e.target.value)}
         placeholder="Yorum (opsiyonel)"
         rows={3}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-violet-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-amber-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
 
       {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
