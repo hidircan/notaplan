@@ -1,3 +1,20 @@
+
+## Session — PRODUCT_BACKLOG implementation (partial)
+
+Onaylı `PRODUCT_BACKLOG.md` eklendi. Uygulanan:
+- PII: AES-GCM T.C. şifreleme/maskeleme/reveal audit + `pii:full`
+- Öğrenci seviye kuralları MEB 1–8 / LCM opsiyonel
+- Tahsilat vade pencereleri + MEB VakıfBank / diğer Halkbank IBAN seçimi
+- Pazartesi + kapalı gün helpers; takvim 10:00 sabiti
+- Deneme dersi model/API/UI (`/panel/deneme`)
+- Evraklar Faz 1: şablon, otomatik alan, referans, oluştur/yazdır (`/panel/evraklar`)
+- Soft archive API (`/api/v1/students/:id/archive`)
+- Prisma migration `20260805190000_product_backlog_core`
+
+**Notion:** MCP Notion bağlantısı yok — iş/UAT kayıtları bu dosya + PRODUCT_BACKLOG §9 ile izlenir.
+
+Açık: tam form UX, liste filtreleri, yoklama UI durumları, Evraklar Faz 2, dini tatiller, hakediş enstrüman sütunu, store-db alan mapping parity (JSON patch path mevcut).
+
 # WORK_PROGRESS.md
 
 Çalışan plan — canonical dokümanların (`PRODUCT_REQUIREMENTS.md`, `PRODUCTION_AUDIT.md`,
