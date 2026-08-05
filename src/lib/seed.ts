@@ -441,7 +441,7 @@ export function createSeedData(): AppData {
       logoUrl: "https://www.niluferacar.com.tr/storage/settings/November2024/Ri2OWV2c9tRR3e3fAoWt.png",
       makeupWindowDays: 14,
       lessonDurationMinutes: 45,
-      workingHours: { start: "09:00", end: "21:00" },
+      workingHours: { start: "10:00", end: "21:00" },
       workingDays: [1, 2, 3, 4, 5, 6],
       currency: "TRY",
       feeRoundingMode: "exact_minutes",

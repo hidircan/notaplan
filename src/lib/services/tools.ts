@@ -232,6 +232,7 @@ import {
 } from "../documents";
 import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
 import { assertSchedulableDate } from "../lesson-scheduling";
+import { isMonday } from "../closed-days";
 import { resolveCollectionsIban } from "../collections-due";
 
 
@@ -1100,6 +1101,9 @@ export async function createLessonTool(
 
   const v = parseOrFail(lessonSchema, input);
   if (!v.ok) return v;
+  if (isMonday(new Date(v.data.startAt))) {
+    return fail("VALIDATION_ERROR", "Pazartesi okul kapalıdır — bu gün için ders planlanamaz.");
+  }
 
   try {
     const before = await readData();
@@ -1129,6 +1133,9 @@ export async function updateLessonScheduleTool(
 
   const v = parseOrFail(updateLessonScheduleSchema, input);
   if (!v.ok) return v;
+  if (v.data.startAt && isMonday(new Date(v.data.startAt))) {
+    return fail("VALIDATION_ERROR", "Pazartesi okul kapalıdır — ders bu güne taşınamaz.");
+  }
 
   try {
     await updateLessonSchedule(v.data);

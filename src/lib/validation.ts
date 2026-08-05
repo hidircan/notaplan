@@ -133,7 +133,12 @@ export const lessonSeriesParamsSchema = z.object({
   roomId: z.string().min(1),
   branchId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
-  weekday: z.coerce.number().int().min(0).max(6),
+  weekday: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(6)
+    .refine((d) => d !== 1, { message: "Pazartesi okul kapalıdır — bu gün için ders serisi oluşturulamaz." }),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
   durationMinutes: z.coerce.number().int().min(15).max(240),
   startsOn: z.string().min(1),

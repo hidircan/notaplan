@@ -36,7 +36,7 @@ const baseInput = {
   instrument: "Piyano",
   weekday: 2,
   startTime: "11:00",
-  durationMinutes: 45,
+  durationMinutes: 40,
   startsOn: "2026-09-01",
   endsOn: "2026-09-15",
 };
@@ -132,6 +132,14 @@ describe("createLessonSeriesTool", () => {
     const res = await createLessonSeriesTool(ctx({ role: "PARENT" }), baseInput);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("Pazartesi (weekday=1) için seri oluşturma zod tarafından reddedilir", async () => {
+    const res = await createLessonSeriesTool(ctx(), { ...baseInput, weekday: 1 });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("VALIDATION_ERROR");
+    const data = await readData();
+    expect(data.lessonSeries.length).toBe(0);
   });
 });
 

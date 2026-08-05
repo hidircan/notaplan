@@ -231,7 +231,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className="h-10 w-1 rounded-full"
-                        style={{ background: teacher?.color ?? "#7c3aed" }}
+                        style={{ background: teacher?.color ?? "#A56A00" }}
                       />
                       <div>
                         <p className="font-medium text-slate-900">

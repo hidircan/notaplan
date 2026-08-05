@@ -24,6 +24,7 @@ import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actio
 import { INSTRUMENTS, type Instrument, type Lesson, type Room, type Student, type Teacher } from "@/lib/types";
 import { dayName } from "@/lib/utils";
 import { DEFAULT_LESSON_DURATION_MINUTES, LESSON_DURATION_OPTIONS } from "@/lib/lesson-duration";
+import { CALENDAR_START_HOUR, isMonday, turkeyFixedPublicHolidays, toYmd } from "@/lib/closed-days";
 
 type ProgramStudioProps = {
   students: Student[];
@@ -64,6 +65,18 @@ function slotStarts(startMin: number, endMin: number) {
   return slots;
 }
 
+/**
+ * Türkiye'nin sabit tarihli resmî tatilleri — salt görsel bir işaret (kırmızı
+ * gün başlığı). Dini tatiller (ay takvimine bağlı) ve yönetici özel kapalı
+ * günleri henüz bir veri modeliyle desteklenmiyor (ClosedDay tipi var ama
+ * store/tool/UI'ı yok) — bu yüzden yalnızca sabit millî günler işaretlenir.
+ */
+function fixedHolidayName(day: Date): string | null {
+  const ymd = toYmd(day);
+  const holiday = turkeyFixedPublicHolidays(day.getFullYear()).find((h) => h.date === ymd);
+  return holiday?.name ?? null;
+}
+
 function minutesOfDay(iso: string) {
   const d = parseISO(iso);
   return d.getHours() * 60 + d.getMinutes();
@@ -74,6 +87,12 @@ function minutesOfDay(iso: string) {
  * değil — Pazar veya mesai dışı planlanmış bir ders varsa grid o dersi de
  * kapsayacak şekilde genişler, aksi halde okulun normal çalışma saati
  * görünümü korunur. Saf fonksiyon — birim testlerinde kullanılır.
+ */
+/**
+ * Takvim her zaman 10:00'da başlar (09:00–10:00 hiç görünmez) — okulun
+ * mesai saati veya mesai-dışı erken bir ders bile bu tabanın altına
+ * inemez. Bitiş hâlâ mesai saatinden geç bir dersle genişleyebilir
+ * (bu davranış değişmedi).
  */
 export function computeGridWindow(
   workingHours: { start: string; end: string },
@@ -87,6 +106,7 @@ export function computeGridWindow(
     startMin = Math.min(startMin, lessonStart);
     endMin = Math.max(endMin, lessonEnd);
   }
+  startMin = Math.max(startMin, CALENDAR_START_HOUR * 60);
   startMin = Math.floor(startMin / SLOT_MINUTES) * SLOT_MINUTES;
   endMin = Math.ceil(endMin / SLOT_MINUTES) * SLOT_MINUTES;
   return { startMin, endMin };
@@ -359,6 +379,11 @@ export function ProgramStudio({
 }: ProgramStudioProps) {
   const router = useRouter();
   const now = parseISO(todayIso);
+  // Pazartesi kapalı — hiçbir koşulda takvimde gün sütunu olarak görünmez.
+  // Mevcut Pazartesi dersleri SİLİNMEZ (weekLessons'ta kalır, veri kaybı yok);
+  // yalnızca haftalık grid'de gösterilmezler. Aşağıdaki uyarı bunları listeler.
+  const visibleDays = days.filter((d) => !isMonday(parseISO(d)));
+  const mondayLessons = weekLessons.filter((l) => isMonday(parseISO(l.startAt)));
   const gridWindow = computeGridWindow(workingHours, weekLessons);
   const slots = slotStarts(gridWindow.startMin, gridWindow.endMin);
   const windowStartMin = slots[0] ?? 0;
@@ -1269,6 +1294,19 @@ export function ProgramStudio({
         </div>
       ) : null}
 
+      {mondayLessons.length > 0 ? (
+        <div className="mb-3 rounded-[var(--radius-md)] border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]">
+          <p className="font-medium">
+            Okul artık Pazartesi kapalı — bu haftada {mondayLessons.length} ders hâlâ Pazartesi&apos;ye
+            planlanmış ve takvimde gösterilmiyor (veri silinmedi).
+          </p>
+          <p className="mt-1 text-[var(--color-text-muted)]">
+            Bu dersleri başka bir güne taşımak için öğrenci/öğretmen üzerinden ders detayını açın; yeni
+            Pazartesi planlaması artık engellenir.
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div>
@@ -1401,18 +1439,25 @@ export function ProgramStudio({
       <div className="overflow-x-auto">
         <div className="flex">
           <div className="w-14 shrink-0" />
-          {days.map((dayIso) => {
+          {visibleDays.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
+            const holidayName = fixedHolidayName(day);
             return (
               <div
                 key={dayIso}
                 className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold dark:border-slate-800 ${
-                  today ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "text-slate-600 dark:text-slate-400"
+                  holidayName
+                    ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+                    : today
+                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                      : "text-slate-600 dark:text-slate-400"
                 }`}
+                title={holidayName ?? undefined}
               >
                 {format(day, "EEEE", { locale: tr })}
                 <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">{format(day, "d MMM", { locale: tr })}</span>
+                {holidayName ? <span className="ml-1 font-normal">· Resmî tatil</span> : null}
               </div>
             );
           })}
@@ -1431,7 +1476,7 @@ export function ProgramStudio({
             ))}
           </div>
 
-          {days.map((dayIso) => {
+          {visibleDays.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
             const dayLessons = visibleWeekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
@@ -1505,7 +1550,7 @@ export function ProgramStudio({
                         height,
                         left: `${lane * widthPct}%`,
                         width: `calc(${widthPct}% - 2px)`,
-                        borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}`,
+                        borderLeft: `3px solid ${teacher?.color ?? "#A56A00"}`,
                       }}
                     >
                       <p className="truncate font-semibold text-slate-800 dark:text-slate-200">{student?.name}</p>
@@ -1539,7 +1584,7 @@ export function ProgramStudio({
       {calendarView === "day" ? (
       <div>
         <div className="grid gap-3">
-          {days.map((dayIso) => {
+          {visibleDays.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
             const dayLessons = visibleWeekLessons
@@ -1564,7 +1609,7 @@ export function ProgramStudio({
                           type="button"
                           onClick={() => openDetail(lesson)}
                           className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-amber-200"
-                          style={{ borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}` }}
+                          style={{ borderLeft: `3px solid ${teacher?.color ?? "#A56A00"}` }}
                         >
                           <LessonCardBody
                             student={student}

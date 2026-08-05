@@ -3,11 +3,13 @@ import {
   filterLessonsForCalendar,
   activeTeachersForBranch,
   resolveTeacherFilterForBranch,
+  resolveRoomFilterForBranch,
   studentsForBranch,
   resolveStudentFilterForBranch,
   lessonCardTier,
+  computeGridWindow,
 } from "../../components/program-studio";
-import type { Lesson, Student, Teacher } from "../types";
+import type { Lesson, Room, Student, Teacher } from "../types";
 
 function lesson(overrides: Partial<Lesson>): Lesson {
   return {
@@ -183,6 +185,68 @@ describe("resolveStudentFilterForBranch", () => {
 
   it("Tüm şubeler seçilirse önceki öğrenci filtresi korunur", () => {
     expect(resolveStudentFilterForBranch(students, "", "s1")).toBe("s1");
+  });
+});
+
+function room(overrides: Partial<Room>): Room {
+  return {
+    id: "r1",
+    name: "Stüdyo 1",
+    branchId: "erzene",
+    capacity: 1,
+    instruments: ["Piyano"],
+    ...overrides,
+  };
+}
+
+describe("resolveRoomFilterForBranch", () => {
+  const rooms = [room({ id: "r1", branchId: "erzene" }), room({ id: "r2", branchId: "evka3" })];
+
+  it("oda filtresi seçili değilse boş kalır", () => {
+    expect(resolveRoomFilterForBranch(rooms, "evka3", "")).toBe("");
+  });
+
+  it("seçili oda yeni şubede geçerliyse korunur", () => {
+    expect(resolveRoomFilterForBranch(rooms, "erzene", "r1")).toBe("r1");
+  });
+
+  it("seçili oda yeni şubede geçersizse sıfırlanır", () => {
+    expect(resolveRoomFilterForBranch(rooms, "evka3", "r1")).toBe("");
+  });
+
+  it("Tüm şubeler seçilirse önceki oda filtresi korunur", () => {
+    expect(resolveRoomFilterForBranch(rooms, "", "r1")).toBe("r1");
+  });
+});
+
+describe("computeGridWindow", () => {
+  const workingHours = { start: "09:00", end: "18:00" };
+
+  it("ders yokken bile 10:00 tabanının altına inmez (09:00-10:00 hiç görünmez)", () => {
+    expect(computeGridWindow(workingHours, [])).toEqual({ startMin: 10 * 60, endMin: 18 * 60 });
+  });
+
+  it("mesai saatleri içindeki ders grid'i genişletmez", () => {
+    const lessons = [{ startAt: "2026-08-03T10:00:00+03:00", endAt: "2026-08-03T10:40:00+03:00" }];
+    expect(computeGridWindow(workingHours, lessons)).toEqual({ startMin: 10 * 60, endMin: 18 * 60 });
+  });
+
+  it("mesai dışı erken saatteki (09:00 öncesi) bir ders bile 10:00 tabanını geçemez", () => {
+    const lessons = [{ startAt: "2026-08-02T07:10:00+03:00", endAt: "2026-08-02T07:50:00+03:00" }];
+    expect(computeGridWindow(workingHours, lessons)).toEqual({ startMin: 10 * 60, endMin: 18 * 60 });
+  });
+
+  it("mesai sonrası geç saatteki ders grid bitişini ileriye genişletir (bitiş davranışı değişmedi)", () => {
+    const lessons = [{ startAt: "2026-08-03T20:00:00+03:00", endAt: "2026-08-03T20:50:00+03:00" }];
+    expect(computeGridWindow(workingHours, lessons)).toEqual({ startMin: 10 * 60, endMin: 20 * 60 + 60 });
+  });
+
+  it("10:00 tabanının ÜZERİNDEKİ bir ders 30 dakikalık slot sınırına yuvarlanarak grid'i genişletir", () => {
+    const lateStartWorkingHours = { start: "12:00", end: "18:00" };
+    const lessons = [{ startAt: "2026-08-03T11:07:00+03:00", endAt: "2026-08-03T11:37:00+03:00" }];
+    const result = computeGridWindow(lateStartWorkingHours, lessons);
+    expect(result.startMin % 30).toBe(0);
+    expect(result.startMin).toBe(11 * 60);
   });
 });
 

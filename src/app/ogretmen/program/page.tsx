@@ -17,6 +17,7 @@ import { formatDate, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 import { LessonLiveActions } from "@/components/lesson-live-actions";
 import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actions";
+import { isMonday } from "@/lib/closed-days";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,8 @@ export default async function TeacherOwnProgramPage({
   const { week } = await searchParams;
   const now = new Date();
   const weekStart = normalizeWeekStart(week, now);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Pazartesi okul kapalı — öğretmenin kendi haftalık görünümünde de hiç gösterilmez.
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter((d) => !isMonday(d));
   const weekEndExclusive = addDays(weekStart, 7);
   const showingCurrentWeek = isCurrentWeek(weekStart, now);
 
