@@ -56,6 +56,7 @@ type StoreApi = {
     roomId: string;
     instrument: Instrument;
     startAt: string;
+    durationMinutes?: number;
   }) => Promise<AppData>;
   addPayment: (input: {
     studentId: string;
@@ -71,6 +72,11 @@ type StoreApi = {
   cancelLesson: (lessonId: string) => Promise<AppData>;
   startLessonLive: (lessonId: string) => Promise<LessonLiveUpdateResult>;
   endLessonLive: (lessonId: string) => Promise<LessonLiveUpdateResult>;
+  applyLessonOpsFlagLive: (
+    lessonId: string,
+    flag: import("./lesson-ops").LessonOpsFlag,
+    actorUserId: string
+  ) => Promise<import("./lesson-ops").ApplyLessonOpsResult>;
   correctLessonTimesLive: (
     lessonId: string,
     correction: LessonTimeCorrection
@@ -101,6 +107,7 @@ type StoreApi = {
   updateFeeRoundingMode: (feeRoundingMode: FeeRoundingMode) => Promise<AppData>;
   updateCollectionsSettings: (collectionsSettings: CollectionsSettings) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
+  listTenants: () => Promise<{ tenantId: string; name: string }[]>;
 };
 
 function getStore(): StoreApi {
@@ -140,6 +147,11 @@ async function withTenantScope<T>(fn: () => Promise<T>): Promise<T> {
 export async function readData(): Promise<AppData> {
   const data = await withTenantScope(() => store.readData());
   return applyMakeupExpiry(data);
+}
+
+/** Platformda erişilebilir tüm kurumları (tenant) listeler — kurum seçici bunu kullanır. */
+export async function listTenants(): Promise<{ tenantId: string; name: string }[]> {
+  return store.listTenants();
 }
 
 /**
@@ -234,6 +246,7 @@ export async function addLesson(input: {
   roomId: string;
   instrument: Instrument;
   startAt: string;
+  durationMinutes?: number;
 }): Promise<AppData> {
   return withTenantScope(() => store.addLesson(input));
 }
@@ -265,6 +278,14 @@ export async function startLessonLive(lessonId: string): Promise<LessonLiveUpdat
 
 export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateResult> {
   return withTenantScope(() => store.endLessonLive(lessonId));
+}
+
+export async function applyLessonOpsFlagLive(
+  lessonId: string,
+  flag: import("./lesson-ops").LessonOpsFlag,
+  actorUserId: string
+): Promise<import("./lesson-ops").ApplyLessonOpsResult> {
+  return withTenantScope(() => store.applyLessonOpsFlagLive(lessonId, flag, actorUserId));
 }
 
 export async function correctLessonTimesLive(

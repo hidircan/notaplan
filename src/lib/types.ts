@@ -336,6 +336,20 @@ export interface Lesson {
   endCorrectedBy?: string;
   endCorrectionNote?: string;
   notes?: string;
+  /**
+   * Operasyonel bayraklar (Geldi / İşlendi / Telafi) — tek enum değil;
+   * birlikte işaretlenebilir. Geldi dersi otomatik tamamlamaz.
+   * İşlendi hakediş/rapor için tamamlanmış ders kaynağıdır.
+   */
+  studentAttended?: boolean;
+  studentAttendedAt?: string;
+  studentAttendedBy?: string;
+  lessonProcessed?: boolean;
+  lessonProcessedAt?: string;
+  lessonProcessedBy?: string;
+  opsMakeupFlag?: boolean;
+  opsMakeupFlagAt?: string;
+  opsMakeupFlagBy?: string;
 }
 
 export type LessonSeriesStatus = "active" | "ended" | "cancelled";

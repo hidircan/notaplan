@@ -42,6 +42,7 @@ import {
   updateStudentProfile,
   updateTeacherAvailability,
   updateTeacherFeeRule,
+  applyLessonOpsFlagLive,
 } from "../store";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import {
@@ -1105,6 +1106,7 @@ export async function createLessonTool(
       roomId: v.data.roomId,
       instrument: v.data.instrument as Instrument,
       startAt: v.data.startAt,
+      durationMinutes: v.data.durationMinutes ?? DEFAULT_LESSON_DURATION_MINUTES,
     });
     const after = await readData();
     const created = after.lessons.find((l) => !ids.has(l.id));
@@ -2908,6 +2910,48 @@ export async function resolveCollectionsIbanTool(
   const settings = data.settings.collectionsSettings ?? { frequencyLimitDays: 3, autoSendEnabled: false };
   const r = resolveCollectionsIban(student.studentType, settings);
   return ok({ bank: r.bank, bankLabel: r.bankLabel, iban: r.iban });
+}
+
+
+/** Geldi / İşlendi / Telafi — TEACHER own lesson, admin all in tenant */
+export async function setLessonOpsFlagTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ lessonId: string; flag: string; alreadySet: boolean; message: string }>> {
+  const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({
+      lessonId: z.string().min(1),
+      flag: z.enum(["attended", "processed", "makeup"]),
+    }),
+    input
+  );
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+  if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+  if (ctx.role === "TEACHER" && lesson.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi dersinizde işlem yapabilirsiniz.");
+  }
+
+  try {
+    const result = await applyLessonOpsFlagLive(v.data.lessonId, v.data.flag, ctx.userId);
+    if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+    if (!result.alreadySet) {
+      audit(ctx, `lesson.ops.${v.data.flag}`, "Lesson", v.data.lessonId, { flag: v.data.flag });
+    }
+    return ok({
+      lessonId: v.data.lessonId,
+      flag: v.data.flag,
+      alreadySet: result.alreadySet,
+      message: result.message,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setLessonOpsFlag failed");
+  }
 }
 
 export const TOOL_CATALOG = [

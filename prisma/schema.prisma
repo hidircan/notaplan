@@ -272,6 +272,16 @@ model Lesson {
   startCorrectionNote String?
   endCorrectedBy      String?
   endCorrectionNote   String?
+  /// Geldi / İşlendi / Telafi operasyonel bayraklar
+  studentAttended     Boolean  @default(false)
+  studentAttendedAt   DateTime?
+  studentAttendedBy   String?
+  lessonProcessed     Boolean  @default(false)
+  lessonProcessedAt   DateTime?
+  lessonProcessedBy   String?
+  opsMakeupFlag       Boolean  @default(false)
+  opsMakeupFlagAt     DateTime?
+  opsMakeupFlagBy     String?
   attendances     Attendance[]
 
   @@index([tenantId])
@@ -758,6 +768,24 @@ model StudentCurriculumTopic {
 
 /// PRODUCT_BACKLOG §1.4
 
+
+model AiAuditLog {
+  id             String    @id
+  tenantId       String
+  capabilityId   String
+  callerRole     String
+  chosenProvider String
+  usedFallback   Boolean   @default(false)
+  success        Boolean
+  errorMessage   String?
+  durationMs     Int
+  approvalStatus String    @default("not_required")
+  approvedAt     DateTime?
+  approvedBy     String?
+  createdAt      DateTime  @default(now())
+  @@index([tenantId, capabilityId])
+  @@index([tenantId, approvalStatus])
+}
 
 model SocialMediaConsent {
   id                 String   @id

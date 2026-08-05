@@ -1,3 +1,4 @@
+import { applyLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
 /**
  * Serverless / demo memory store.
  * Process warm olduğu sürece veri kalır; cold start'ta seed yeniden yüklenir.
@@ -108,6 +109,12 @@ export async function resetData(): Promise<AppData> {
   return save(createSeedData());
 }
 
+/** memory modunda tek bir işlem-içi kurum verisi vardır (bkz. store-json.ts'in aynı fonksiyonu). */
+export async function listTenants(): Promise<{ tenantId: string; name: string }[]> {
+  const data = load();
+  return [{ tenantId: data.settings.tenantId, name: data.settings.name }];
+}
+
 export async function markAttendance(input: {
   lessonId: string;
   status: AttendanceStatus;
@@ -133,7 +140,8 @@ export async function markAttendance(input: {
   const filtered = data.attendances.filter((a) => a.lessonId !== input.lessonId);
 
   let lessonStatus: typeof lesson.status = lesson.status;
-  if (input.status === "present" || input.status === "late") lessonStatus = "completed";
+  // Geldi/geç: katılım kaydı; dersi otomatik "completed" yapma (İşlendi ayrı bayrak).
+  // late hâlâ katılım sayılır. İşlendi → setLessonOpsFlag("processed").
   if (input.status === "absent") lessonStatus = "no_show";
   if (input.status === "cancelled_by_school") lessonStatus = "cancelled";
 
@@ -322,12 +330,14 @@ export async function addLesson(input: {
   roomId: string;
   instrument: Instrument;
   startAt: string;
+  durationMinutes?: number;
 }): Promise<AppData> {
   const data = load();
   const validation = validateLessonSlot(
     data,
     { instrument: input.instrument, studentId: input.studentId },
-    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt }
+    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt },
+    { durationMinutes: input.durationMinutes }
   );
   if (!validation.ok) throw new Error(validation.message);
   const slot = validation.slot;
@@ -655,4 +665,19 @@ export function getDashboardStats(data: AppData) {
     activeStudents,
     activeTeachers,
   };
+}
+
+
+
+export async function applyLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ReturnType<typeof applyLessonOpsFlag>> {
+  const data = await readData();
+  const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  if (result.ok && !result.alreadySet) {
+    await writeData(result.data);
+  }
+  return result;
 }

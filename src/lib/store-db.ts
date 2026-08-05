@@ -1,3 +1,4 @@
+import { applyLessonOpsFlag, type LessonOpsFlag, type ApplyLessonOpsResult } from "./lesson-ops";
 import { prisma } from "./db";
 import type { Prisma } from "@prisma/client";
 import { logger } from "./logger";
@@ -169,6 +170,15 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       makeupRequestId: lesson.makeupRequestId ?? undefined,
       seriesId: lesson.seriesId ?? undefined,
       notes: lesson.notes ?? undefined,
+      studentAttended: (lesson as { studentAttended?: boolean }).studentAttended ?? undefined,
+      studentAttendedAt: (lesson as { studentAttendedAt?: Date | null }).studentAttendedAt?.toISOString?.() ?? undefined,
+      studentAttendedBy: (lesson as { studentAttendedBy?: string | null }).studentAttendedBy ?? undefined,
+      lessonProcessed: (lesson as { lessonProcessed?: boolean }).lessonProcessed ?? undefined,
+      lessonProcessedAt: (lesson as { lessonProcessedAt?: Date | null }).lessonProcessedAt?.toISOString?.() ?? undefined,
+      lessonProcessedBy: (lesson as { lessonProcessedBy?: string | null }).lessonProcessedBy ?? undefined,
+      opsMakeupFlag: (lesson as { opsMakeupFlag?: boolean }).opsMakeupFlag ?? undefined,
+      opsMakeupFlagAt: (lesson as { opsMakeupFlagAt?: Date | null }).opsMakeupFlagAt?.toISOString?.() ?? undefined,
+      opsMakeupFlagBy: (lesson as { opsMakeupFlagBy?: string | null }).opsMakeupFlagBy ?? undefined,
       actualStartAt: lesson.actualStartAt?.toISOString() ?? undefined,
       actualEndAt: lesson.actualEndAt?.toISOString() ?? undefined,
       startCorrectedBy: lesson.startCorrectedBy ?? undefined,
@@ -287,7 +297,7 @@ export function getDashboardStats(data: AppData) {
   };
 }
 
-async function seedDatabase(seed: AppData) {
+export async function seedDatabase(seed: AppData) {
   const tid = seed.settings.tenantId || tenantId();
 
   await prisma.$transaction([
@@ -542,12 +552,17 @@ async function seedDatabase(seed: AppData) {
     )
   );
 
-  // Auth users for this tenant (bcrypt hashed)
+  // Auth users for this tenant (bcrypt hashed). SUPER_ADMIN'in tek bir "ev"
+  // kurumu vardır (bootstrap listesinde tenantId'si sabit) ama her tenant
+  // seed edildiğinde de listeye dahil olur (platform genelinde erişimi
+  // simgeler) — skipDuplicates olmadan ikinci bir kurum seed edilirken
+  // SUPER_ADMIN satırı için birincil anahtar (id) çakışması oluşurdu.
   await prisma.user.createMany({
     data: getBootstrapUsersForSeed(tid).map((u) => ({
       ...u,
       email: u.email.toLowerCase(),
     })),
+    skipDuplicates: true,
   });
 
   return school;
@@ -598,6 +613,16 @@ export async function resetData(): Promise<AppData> {
   return readData();
 }
 
+/** Platform genelindeki tüm aktif kurumları (tenant) listeler — yalnız db modunda gerçek çokluluk vardır. */
+export async function listTenants(): Promise<{ tenantId: string; name: string }[]> {
+  const tenants = await prisma.tenant.findMany({
+    where: { active: true },
+    include: { schools: true },
+    orderBy: { name: "asc" },
+  });
+  return tenants.map((t) => ({ tenantId: t.id, name: t.schools[0]?.name ?? t.name }));
+}
+
 export async function markAttendance(input: {
   lessonId: string;
   status: AttendanceStatus;
@@ -614,10 +639,9 @@ export async function markAttendance(input: {
   const createsMakeupCredit =
     input.status === "absent" || input.status === "cancelled_by_school";
 
+  // Geldi/geç: katılım; dersi otomatik completed yapma (İşlendi ayrı).
   const lessonStatus =
-    input.status === "present" || input.status === "late"
-      ? "completed"
-      : input.status === "absent"
+    input.status === "absent"
       ? "no_show"
       : input.status === "cancelled_by_school"
       ? "cancelled"
@@ -1188,6 +1212,7 @@ export async function addLesson(input: {
   roomId: string;
   instrument: Instrument;
   startAt: string;
+  durationMinutes?: number;
 }): Promise<AppData> {
   logger.info("addLesson", input.studentId, input.teacherId, input.roomId);
   const tid = requireTenantId();
@@ -1195,7 +1220,8 @@ export async function addLesson(input: {
   const validation = validateLessonSlot(
     data,
     { instrument: input.instrument, studentId: input.studentId },
-    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt }
+    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt },
+    { durationMinutes: input.durationMinutes }
   );
   if (!validation.ok) throw new Error(validation.message);
   const slot = validation.slot;
@@ -1315,6 +1341,92 @@ export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateR
   });
   if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
   return reloadLessonLiveResult(lessonId);
+}
+
+
+export async function applyLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ApplyLessonOpsResult> {
+  logger.info("applyLessonOpsFlagLive", lessonId, flag);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  if (!result.ok || result.alreadySet) return result;
+
+  const L = result.lesson;
+  await prisma.lesson.updateMany({
+    where: { id: lessonId, tenantId: tid },
+    data: {
+      studentAttended: L.studentAttended ?? false,
+      studentAttendedAt: L.studentAttendedAt ? new Date(L.studentAttendedAt) : null,
+      studentAttendedBy: L.studentAttendedBy ?? null,
+      lessonProcessed: L.lessonProcessed ?? false,
+      lessonProcessedAt: L.lessonProcessedAt ? new Date(L.lessonProcessedAt) : null,
+      lessonProcessedBy: L.lessonProcessedBy ?? null,
+      opsMakeupFlag: L.opsMakeupFlag ?? false,
+      opsMakeupFlagAt: L.opsMakeupFlagAt ? new Date(L.opsMakeupFlagAt) : null,
+      opsMakeupFlagBy: L.opsMakeupFlagBy ?? null,
+      status: L.status,
+      actualEndAt: L.actualEndAt ? new Date(L.actualEndAt) : undefined,
+    },
+  });
+
+  // Sync attendance / makeup from pure result data for this lesson
+  const att = result.data.attendances.find((a) => a.lessonId === lessonId);
+  if (att && flag === "attended") {
+    const existing = await prisma.attendance.findFirst({ where: { lessonId, tenantId: tid } });
+    if (!existing) {
+      await prisma.attendance.create({
+        data: {
+          id: att.id,
+          tenantId: tid,
+          lessonId,
+          studentId: att.studentId,
+          status: att.status,
+          reason: att.reason,
+          markedAt: new Date(att.markedAt),
+          createsMakeupCredit: att.createsMakeupCredit,
+          schoolId: (await prisma.lesson.findFirst({ where: { id: lessonId } }))!.schoolId,
+        },
+      });
+    }
+  }
+  if (flag === "makeup") {
+    const mk = result.data.makeupRequests.find((m) => m.sourceLessonId === lessonId);
+    if (mk) {
+      const exists = await prisma.makeupRequest.findFirst({
+        where: { sourceLessonId: lessonId, tenantId: tid },
+      });
+      if (!exists) {
+        const les = await prisma.lesson.findFirst({ where: { id: lessonId, tenantId: tid } });
+        await prisma.makeupRequest.create({
+          data: {
+            id: mk.id,
+            tenantId: tid,
+            studentId: mk.studentId,
+            teacherId: mk.teacherId,
+            branchId: mk.branchId,
+            schoolId: les!.schoolId,
+            instrument: mk.instrument,
+            sourceLessonId: mk.sourceLessonId,
+            attendanceId: mk.attendanceId,
+            status: mk.status,
+            reason: mk.reason,
+            expiresAt: new Date(mk.expiresAt),
+            suggestedSlots: mk.suggestedSlots as object,
+            createdAt: new Date(mk.createdAt),
+            policyNote: mk.policyNote,
+          },
+        });
+      }
+    }
+  }
+
+  const next = await readData();
+  const nextLesson = next.lessons.find((l) => l.id === lessonId)!;
+  return { ok: true, alreadySet: false, data: next, lesson: nextLesson, message: result.message };
 }
 
 export async function correctLessonTimesLive(

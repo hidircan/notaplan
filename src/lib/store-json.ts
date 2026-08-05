@@ -4,6 +4,7 @@ import { resolveDataDir } from "./config";
 import { createSeedData } from "./seed";
 import { tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
+import { applyLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
 import type {
   AppData,
   Attendance,
@@ -108,6 +109,17 @@ export async function resetData(): Promise<AppData> {
   return seed;
 }
 
+/**
+ * json modunda dosya başına tek bir kurum (tenant) verisi vardır — bu yüzden
+ * "tüm kurumlar" listesi her zaman şu an aktif olan tek kurumdan oluşur.
+ * Gerçek çoklu-kurum listesi yalnızca db modunda (Prisma Tenant tablosu)
+ * mümkündür.
+ */
+export async function listTenants(): Promise<{ tenantId: string; name: string }[]> {
+  const data = await readData();
+  return [{ tenantId: data.settings.tenantId, name: data.settings.name }];
+}
+
 export async function markAttendance(input: {
   lessonId: string;
   status: AttendanceStatus;
@@ -133,7 +145,8 @@ export async function markAttendance(input: {
   const filtered = data.attendances.filter((a) => a.lessonId !== input.lessonId);
 
   let lessonStatus: typeof lesson.status = lesson.status;
-  if (input.status === "present" || input.status === "late") lessonStatus = "completed";
+  // Geldi/geç: katılım kaydı; dersi otomatik "completed" yapma (İşlendi ayrı bayrak).
+  // late hâlâ katılım sayılır. İşlendi → setLessonOpsFlag("processed").
   if (input.status === "absent") lessonStatus = "no_show";
   if (input.status === "cancelled_by_school") lessonStatus = "cancelled";
 
@@ -297,6 +310,25 @@ export async function addTeacher(
   return next;
 }
 
+/**
+ * EPIC 9 (IMPLEMENTATION_PLAN.md) — yalnızca onaylanmış bir
+ * TeacherAvailabilityRequest uygulanırken çağrılır (bkz.
+ * reviewTeacherAvailabilityRequestTool); doğrudan bir yazma yolu değildir.
+ */
+export async function updateTeacherAvailability(
+  teacherId: string,
+  availability: Teacher["availability"]
+): Promise<Teacher | null> {
+  const data = await readData();
+  const idx = data.teachers.findIndex((t) => t.id === teacherId);
+  if (idx === -1) return null;
+  const updated: Teacher = { ...data.teachers[idx], availability };
+  const teachers = [...data.teachers];
+  teachers[idx] = updated;
+  await writeData({ ...data, teachers });
+  return updated;
+}
+
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   const data = await readData();
   const payments: Payment[] = data.payments.map((p) =>
@@ -330,12 +362,14 @@ export async function addLesson(input: {
   roomId: string;
   instrument: Instrument;
   startAt: string;
+  durationMinutes?: number;
 }): Promise<AppData> {
   const data = await readData();
   const validation = validateLessonSlot(
     data,
     { instrument: input.instrument, studentId: input.studentId },
-    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt }
+    { teacherId: input.teacherId, roomId: input.roomId, startAt: input.startAt },
+    { durationMinutes: input.durationMinutes }
   );
   if (!validation.ok) throw new Error(validation.message);
   const slot = validation.slot;
@@ -690,4 +724,18 @@ export function getDashboardStats(data: AppData) {
     activeStudents,
     activeTeachers,
   };
+}
+
+
+export async function applyLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ReturnType<typeof applyLessonOpsFlag>> {
+  const data = await readData();
+  const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  if (result.ok && !result.alreadySet) {
+    await writeData(result.data);
+  }
+  return result;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LESSON_DURATION_OPTIONS } from "./lesson-duration";
 
 export const branchSchema = z.object({
   name: z.string().min(1),
@@ -92,6 +93,9 @@ export const lessonSchema = z.object({
   roomId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
   startAt: z.string().min(1),
+  durationMinutes: z.coerce.number().refine((v) => (LESSON_DURATION_OPTIONS as readonly number[]).includes(v), {
+    message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+  }).optional(),
 });
 
 export const paymentRecordSchema = z.object({
