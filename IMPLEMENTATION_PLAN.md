@@ -1007,13 +1007,12 @@ buna hazır (`stripPrivateNoteForRecipient` forward-compat).
 
 ## EPIC 6 — Öğrenci, veli, öğretmen portalı [P1/P2]
 
-**Durum:** 🟡 Kısmen tamamlandı — 6A (`042be50`), 6B (`8be124e`:
-Homework/HomeworkSubmission/TeachingMaterial/TeacherFeedback modelleri +
-tam backend + STUDENT portal UI + dosya erişimi), 6C (`c617c2c`: veli
-UI — ödev görünümü + öğretmen değerlendirme formu, yeni backend YOK)
-bitti. Yalnızca 6D (öğretmen UI: ödev/materyal oluşturma formu, teslim
-değerlendirme ekranı — TOOL'lar zaten 6B'de yazıldı) kaldı — bkz.
-aşağıdaki "Riskler" bölümündeki 5 adımlı bölünmenin son parçası.
+**Durum:** 🟢 Tamamlandı — 6A (`042be50`), 6B (`8be124e`: Homework/
+HomeworkSubmission/TeachingMaterial/TeacherFeedback modelleri + tam
+backend + STUDENT portal UI + dosya erişimi), 6C (`c617c2c`: veli UI),
+6D (`bbb0528`: öğretmen UI — ödev/materyal oluşturma + teslim
+değerlendirme). Tek istisna: çocuk hesabı yaş/onay politikası kod değil,
+bilinçli olarak açık bırakılmış bir ürün kararı (bkz. "Açık kararlar").
 
 ### Mevcut durum
 `/veli` bugün TEK, sabit bir "veli" deneyimi (`session.studentId` ile
@@ -1136,10 +1135,32 @@ pratik değildi — diskte çalışır durumda, commit'e dahil edilmedi (EPIC 1/
 ile aynı gerekçe). `/ogrenci` ve `/panel/duyurular` doğrudan URL ile
 erişilebilir, yalnızca sidebar'da görünür değiller.
 
-**Henüz yapılmayan (6D — ayrı bir turda, aynı 6B backend'i üzerine):**
-Öğretmen portalına (`/ogretmen`) ödev/materyal oluşturma formu + teslim
-değerlendirme ekranı. Çocuk hesabı yaş/onay politikası hâlâ bir ürün
-kararı, kod değişikliği değil (bkz. Açık kararlar).
+**Henüz yapılmayan:** Yalnızca çocuk hesabı yaş/onay politikası — kod
+değişikliği değil, bilinçli olarak açık bırakılmış bir ürün kararı (bkz.
+"Açık kararlar").
+
+### Tamamlanan — 6D (uygulama özeti — commit `bbb0528`)
+- Yeni backend/model/tool/RBAC YOK — 6B'nin tool'ları aynen kullanıldı
+  (6C ile aynı gerekçe).
+- `/ogretmen/odevler`: yeni ödev formu (yalnızca kendi aktif öğrencileri
+  seçilebilir — `createHomeworkTool` zaten başka bir `studentId`'yi
+  reddediyor), verdiği ödevlerin listesi + her teslimin dosya bağlantısı
+  + satır içi geri bildirim formu (yazıldıktan sonra formun yerini geri
+  bildirim metni alıyor, aynı teslime iki kez yazmayı fiilen engelliyor).
+- `/ogretmen/materyaller`: materyal oluşturma formu (başlık/açıklama,
+  opsiyonel studentType/enstrüman/seviye hedefleme, opsiyonel dosya) +
+  paylaşılanların listesi, çözümlenmiş hedeflemeyi veya "Tüm öğrencilere
+  görünür" ibaresini gösteriyor.
+- İkisi de `/ogretmen/page.tsx`'e DOKUNMADAN yeni kardeş route olarak
+  eklendi (o sayfa önceki oturumdan kalma hakediş widget'ı/dark-mode/
+  AssistantPageContext değişiklikleriyle iç içe geçmişti — EPIC 7/8/9
+  ile aynı gerekçe).
+- Yeni test YOK (6C ile aynı gerekçe). Toplam 733/733 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi
+  yeşil.
+
+**EPIC 6 (6A/6B/6C/6D) tamamen bitti** — kalan tek şey çocuk hesabı
+yaş/onay politikası ürün kararıdır, kod değil.
 
 ### Tamamlanan — 6C (uygulama özeti — commit `c617c2c`)
 - Yeni backend/model/tool/RBAC YOK — 6B'nin tool'ları aynen kullanıldı.
