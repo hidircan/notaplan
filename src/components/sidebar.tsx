@@ -35,10 +35,14 @@ const nav = [
   { href: "/panel/program", label: "Ders Programı", icon: CalendarDays },
   { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
   { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
+  { href: "/panel/ders-duzeltme", label: "Ders düzeltme", icon: ClipboardCheck },
   { href: "/panel/ogrenciler", label: "Öğrenciler", icon: GraduationCap },
   { href: "/panel/ogretmenler", label: "Öğretmenler", icon: Users },
   { href: "/panel/odemeler", label: "Ödemeler", icon: CreditCard },
   { href: "/panel/bildirimler", label: "WhatsApp", icon: MessageCircle },
+  { href: "/panel/duyurular", label: "Duyurular", icon: Megaphone },
+  { href: "/panel/subeler", label: "Şubeler", icon: Home },
+  { href: "/panel/ucret-kurallari", label: "Ücret kuralları", icon: CreditCard },
 ];
 
 const portals = [
