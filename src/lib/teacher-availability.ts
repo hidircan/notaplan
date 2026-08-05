@@ -222,6 +222,27 @@ export async function reviewAvailabilityRequest(
   return toPublic(updated);
 }
 
+async function listAllAvailabilityRequestsDb(tenantId: string): Promise<TeacherAvailabilityRequest[]> {
+  const { prisma } = await import("./db");
+  const rows = await prisma.teacherAvailabilityRequest.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => toPublic(mapDbRequest(r)));
+}
+
+/** EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir. */
+export async function listAllAvailabilityRequests(
+  tenantId: string
+): Promise<TeacherAvailabilityRequest[]> {
+  if (isDbMode) return listAllAvailabilityRequestsDb(tenantId);
+  const all = await loadAll();
+  return all
+    .filter((r) => r.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublic);
+}
+
 async function clearAvailabilityRequestsDb(tenantId: string): Promise<void> {
   const { prisma } = await import("./db");
   await prisma.teacherAvailabilityRequest.deleteMany({ where: { tenantId } });

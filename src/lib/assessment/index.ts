@@ -207,6 +207,25 @@ export async function getAssessment(tenantId: string, id: string): Promise<Lesso
   return found ? toPublicAssessment(found) : null;
 }
 
+async function listAllAssessmentsDb(tenantId: string): Promise<LessonAssessment[]> {
+  const { prisma } = await import("../db");
+  const rows = await prisma.lessonAssessment.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => toPublicAssessment(mapDbAssessment(r)));
+}
+
+/** EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir. */
+export async function listAllAssessments(tenantId: string): Promise<LessonAssessment[]> {
+  if (isDbMode) return listAllAssessmentsDb(tenantId);
+  const all = await loadAll();
+  return all
+    .filter((a) => a.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublicAssessment);
+}
+
 async function clearAssessmentsDb(tenantId: string): Promise<void> {
   const { prisma } = await import("../db");
   await prisma.lessonAssessment.deleteMany({ where: { tenantId } });

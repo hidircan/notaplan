@@ -6,7 +6,17 @@
  * tabanlı kapsamlamasından gelir (bkz. `src/lib/store.ts`) — burada AYRICA
  * hiçbir tenantId filtresi/parametre alınmaz, alınamaz.
  */
-import type { AppData } from "../types";
+import type {
+  Announcement,
+  AppData,
+  Homework,
+  HomeworkSubmission,
+  LessonAssessment,
+  Notification,
+  TeacherAvailabilityRequest,
+  TeacherFeedback,
+  TeachingMaterial,
+} from "../types";
 
 export type ExportEntity =
   | "students"
@@ -14,7 +24,15 @@ export type ExportEntity =
   | "lessons"
   | "attendances"
   | "payments"
-  | "makeupRequests";
+  | "makeupRequests"
+  | "notifications"
+  | "announcements"
+  | "lessonAssessments"
+  | "teacherAvailabilityRequests"
+  | "homework"
+  | "homeworkSubmissions"
+  | "teachingMaterials"
+  | "teacherFeedback";
 
 export const EXPORT_ENTITIES: ExportEntity[] = [
   "students",
@@ -23,7 +41,34 @@ export const EXPORT_ENTITIES: ExportEntity[] = [
   "attendances",
   "payments",
   "makeupRequests",
+  "notifications",
+  "announcements",
+  "lessonAssessments",
+  "teacherAvailabilityRequests",
+  "homework",
+  "homeworkSubmissions",
+  "teachingMaterials",
+  "teacherFeedback",
 ];
+
+/**
+ * `AppData`'nın dışında, standalone modüllerde tutulan varlıklar
+ * (EPIC 1/5/6/7/9 — bkz. src/lib/notifications, announcements, assessment,
+ * homework.ts, teaching-materials.ts, teacher-availability.ts,
+ * teacher-feedback.ts). Yalnızca istenen `entity` için doldurulur —
+ * `readData()` gibi her zaman tam gelmez, çağıran taraf (API rotası)
+ * yalnızca ihtiyaç duyduğunu tenant-scoped olarak burada geçirir.
+ */
+export type StandaloneExportData = {
+  notifications?: Notification[];
+  announcements?: Announcement[];
+  lessonAssessments?: LessonAssessment[];
+  teacherAvailabilityRequests?: TeacherAvailabilityRequest[];
+  homework?: Homework[];
+  homeworkSubmissions?: HomeworkSubmission[];
+  teachingMaterials?: TeachingMaterial[];
+  teacherFeedback?: TeacherFeedback[];
+};
 
 function csvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -49,7 +94,8 @@ function branchName(data: AppData, branchId: string): string {
  */
 export function buildInstitutionExport(
   data: AppData,
-  entities: ExportEntity[]
+  entities: ExportEntity[],
+  extra: StandaloneExportData = {}
 ): Record<ExportEntity, string> {
   const out = {} as Record<ExportEntity, string>;
 
@@ -196,6 +242,177 @@ export function buildInstitutionExport(
           onaylananDersId: m.confirmedLessonId,
         };
       })
+    );
+  }
+
+  if (entities.includes("notifications") && extra.notifications) {
+    out.notifications = toCsv(
+      ["id", "hedefKullaniciId", "hedefOgrenciId", "tur", "baslik", "govde", "olusturmaTarihi", "okunmaTarihi"],
+      extra.notifications.map((n) => ({
+        id: n.id,
+        hedefKullaniciId: n.targetUserId ?? "",
+        hedefOgrenciId: n.targetStudentId ?? "",
+        tur: n.kind,
+        baslik: n.title,
+        govde: n.body,
+        olusturmaTarihi: n.createdAt,
+        okunmaTarihi: n.readAt ?? "",
+      }))
+    );
+  }
+
+  if (entities.includes("announcements") && extra.announcements) {
+    out.announcements = toCsv(
+      [
+        "id",
+        "baslik",
+        "govde",
+        "hedefTuru",
+        "durum",
+        "sabitlenmis",
+        "olusturan",
+        "olusturmaTarihi",
+        "yayinTarihi",
+        "bitisTarihi",
+      ],
+      extra.announcements.map((a) => ({
+        id: a.id,
+        baslik: a.title,
+        govde: a.body,
+        hedefTuru: a.audienceType,
+        durum: a.status,
+        sabitlenmis: a.pinned,
+        olusturan: a.createdBy,
+        olusturmaTarihi: a.createdAt,
+        yayinTarihi: a.publishAt ?? "",
+        bitisTarihi: a.expireAt ?? "",
+      }))
+    );
+  }
+
+  if (entities.includes("lessonAssessments") && extra.lessonAssessments) {
+    out.lessonAssessments = toCsv(
+      [
+        "id",
+        "dersId",
+        "ogrenciId",
+        "ogretmenId",
+        "teknikBecerisi",
+        "notaOkuma",
+        "muzikalite",
+        "ritimDuyusu",
+        "calismaDuzeni",
+        "evOdeviTamamlama",
+        "dersKatilimi",
+        "motivasyon",
+        "genelIlerleme",
+        "hedefeUlasma",
+        "gucluYonler",
+        "sonrakiAdimlar",
+        "gelisimAlani",
+        "ogretmenImzasi",
+        "olusturmaTarihi",
+      ],
+      extra.lessonAssessments.map((a) => ({
+        id: a.id,
+        dersId: a.lessonId,
+        ogrenciId: a.studentId,
+        ogretmenId: a.teacherId,
+        teknikBecerisi: a.teknikBecerisi,
+        notaOkuma: a.notaOkuma,
+        muzikalite: a.muzikalite,
+        ritimDuyusu: a.ritimDuyusu,
+        calismaDuzeni: a.calismaDuzeni,
+        evOdeviTamamlama: a.evOdeviTamamlama,
+        dersKatilimi: a.dersKatilimi,
+        motivasyon: a.motivasyon,
+        genelIlerleme: a.genelIlerleme,
+        hedefeUlasma: a.hedefeUlasma,
+        gucluYonler: a.strengthNote,
+        sonrakiAdimlar: a.nextStepsNote,
+        gelisimAlani: a.improvementNote,
+        ogretmenImzasi: a.teacherSignedName,
+        olusturmaTarihi: a.createdAt,
+      }))
+    );
+  }
+
+  if (entities.includes("teacherAvailabilityRequests") && extra.teacherAvailabilityRequests) {
+    out.teacherAvailabilityRequests = toCsv(
+      ["id", "ogretmenId", "durum", "incelemeNotu", "inceleyen", "incelemeTarihi", "olusturmaTarihi"],
+      extra.teacherAvailabilityRequests.map((r) => ({
+        id: r.id,
+        ogretmenId: r.teacherId,
+        durum: r.status,
+        incelemeNotu: r.reviewNote ?? "",
+        inceleyen: r.reviewedBy ?? "",
+        incelemeTarihi: r.reviewedAt ?? "",
+        olusturmaTarihi: r.createdAt,
+      }))
+    );
+  }
+
+  if (entities.includes("homework") && extra.homework) {
+    out.homework = toCsv(
+      ["id", "ogretmenId", "ogrenciId", "baslik", "aciklama", "sonTeslimTarihi", "olusturmaTarihi"],
+      extra.homework.map((h) => ({
+        id: h.id,
+        ogretmenId: h.teacherId,
+        ogrenciId: h.studentId,
+        baslik: h.title,
+        aciklama: h.description,
+        sonTeslimTarihi: h.dueDate,
+        olusturmaTarihi: h.createdAt,
+      }))
+    );
+  }
+
+  if (entities.includes("homeworkSubmissions") && extra.homeworkSubmissions) {
+    out.homeworkSubmissions = toCsv(
+      ["id", "odevId", "ogrenciId", "not", "dosyaVarMi", "teslimTarihi", "ogretmenGeriBildirimi", "degerlendirmeTarihi"],
+      extra.homeworkSubmissions.map((s) => ({
+        id: s.id,
+        odevId: s.homeworkId,
+        ogrenciId: s.studentId,
+        not: s.note ?? "",
+        dosyaVarMi: Boolean(s.fileData),
+        teslimTarihi: s.submittedAt,
+        ogretmenGeriBildirimi: s.teacherFeedback ?? "",
+        degerlendirmeTarihi: s.reviewedAt ?? "",
+      }))
+    );
+  }
+
+  if (entities.includes("teachingMaterials") && extra.teachingMaterials) {
+    out.teachingMaterials = toCsv(
+      ["id", "ogretmenId", "baslik", "aciklama", "hedefOgrenciTuru", "hedefEnstruman", "hedefSeviye", "dosyaVarMi", "olusturmaTarihi"],
+      extra.teachingMaterials.map((m) => ({
+        id: m.id,
+        ogretmenId: m.teacherId,
+        baslik: m.title,
+        aciklama: m.description,
+        hedefOgrenciTuru: m.targetStudentType ?? "",
+        hedefEnstruman: m.targetInstrument ?? "",
+        hedefSeviye: m.targetLevel ?? "",
+        dosyaVarMi: Boolean(m.fileData),
+        olusturmaTarihi: m.createdAt,
+      }))
+    );
+  }
+
+  if (entities.includes("teacherFeedback") && extra.teacherFeedback) {
+    out.teacherFeedback = toCsv(
+      ["id", "ogretmenId", "ogrenciId", "gonderenRolu", "puanlar", "yorum", "durum", "olusturmaTarihi"],
+      extra.teacherFeedback.map((f) => ({
+        id: f.id,
+        ogretmenId: f.teacherId,
+        ogrenciId: f.studentId,
+        gonderenRolu: f.submitterRole,
+        puanlar: JSON.stringify(f.scores),
+        yorum: f.comment ?? "",
+        durum: f.status,
+        olusturmaTarihi: f.createdAt,
+      }))
     );
   }
 

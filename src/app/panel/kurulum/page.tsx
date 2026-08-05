@@ -15,6 +15,14 @@ const EXPORT_LABELS: Record<ExportEntity, string> = {
   attendances: "Yoklamalar",
   payments: "Ödemeler",
   makeupRequests: "Telafi talepleri",
+  notifications: "Bildirimler",
+  announcements: "Duyurular",
+  lessonAssessments: "Gelişim değerlendirmeleri",
+  teacherAvailabilityRequests: "Müsaitlik önerileri",
+  homework: "Ödevler",
+  homeworkSubmissions: "Ödev teslimleri",
+  teachingMaterials: "Materyaller",
+  teacherFeedback: "Öğretmen geri bildirimleri",
 };
 
 export const dynamic = "force-dynamic";

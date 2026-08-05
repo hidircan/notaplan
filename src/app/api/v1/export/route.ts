@@ -3,8 +3,20 @@ import { withApiHandler } from "@/lib/api/handler";
 import { jsonFail } from "@/lib/api/http";
 import { readData } from "@/lib/store";
 import { resolveWriteScope, ALL_MODE_WRITE_DENIED_MESSAGE } from "@/lib/institution/write-scope";
-import { buildInstitutionExport, EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-export";
+import {
+  buildInstitutionExport,
+  EXPORT_ENTITIES,
+  type ExportEntity,
+  type StandaloneExportData,
+} from "@/lib/export/institution-export";
 import { recordAuditLog } from "@/lib/audit/log";
+import { listAllNotifications } from "@/lib/notifications";
+import { listAnnouncements } from "@/lib/announcements";
+import { listAllAssessments } from "@/lib/assessment";
+import { listAllAvailabilityRequests } from "@/lib/teacher-availability";
+import { listAllHomework, listAllHomeworkSubmissions } from "@/lib/homework";
+import { listTeachingMaterials } from "@/lib/teaching-materials";
+import { listTeacherFeedback } from "@/lib/teacher-feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +48,36 @@ export const GET = withApiHandler(
     const entity = entityParam as ExportEntity;
 
     const data = await readData();
-    const files = buildInstitutionExport(data, [entity]);
+    const extra: StandaloneExportData = {};
+    switch (entity) {
+      case "notifications":
+        extra.notifications = await listAllNotifications(scope.tenantId);
+        break;
+      case "announcements":
+        extra.announcements = await listAnnouncements(scope.tenantId);
+        break;
+      case "lessonAssessments":
+        extra.lessonAssessments = await listAllAssessments(scope.tenantId);
+        break;
+      case "teacherAvailabilityRequests":
+        extra.teacherAvailabilityRequests = await listAllAvailabilityRequests(scope.tenantId);
+        break;
+      case "homework":
+        extra.homework = await listAllHomework(scope.tenantId);
+        break;
+      case "homeworkSubmissions":
+        extra.homeworkSubmissions = await listAllHomeworkSubmissions(scope.tenantId);
+        break;
+      case "teachingMaterials":
+        extra.teachingMaterials = await listTeachingMaterials(scope.tenantId);
+        break;
+      case "teacherFeedback":
+        extra.teacherFeedback = await listTeacherFeedback(scope.tenantId);
+        break;
+      default:
+        break;
+    }
+    const files = buildInstitutionExport(data, [entity], extra);
     const csv = files[entity];
 
     void recordAuditLog({

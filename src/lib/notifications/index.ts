@@ -201,6 +201,25 @@ export async function markNotificationRead(
   return toPublicNotification(updated);
 }
 
+async function listAllNotificationsDb(tenantId: string): Promise<Notification[]> {
+  const { prisma } = await import("../db");
+  const rows = await prisma.notification.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => toPublicNotification(mapDbNotification(r)));
+}
+
+/** EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir. */
+export async function listAllNotifications(tenantId: string): Promise<Notification[]> {
+  if (isDbMode) return listAllNotificationsDb(tenantId);
+  const all = await loadAll();
+  return all
+    .filter((n) => n.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublicNotification);
+}
+
 async function clearNotificationsDb(tenantId: string): Promise<void> {
   const { prisma } = await import("../db");
   await prisma.notification.deleteMany({ where: { tenantId } });

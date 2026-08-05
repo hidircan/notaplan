@@ -349,6 +349,48 @@ export async function reviewSubmission(
   return toPublicSubmissionFull(updated);
 }
 
+async function listAllHomeworkDb(tenantId: string): Promise<Homework[]> {
+  const { prisma } = await import("./db");
+  const rows = await prisma.homework.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => toPublicHomework(mapDbHomework(r)));
+}
+
+/** EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir. */
+export async function listAllHomework(tenantId: string): Promise<Homework[]> {
+  if (isDbMode) return listAllHomeworkDb(tenantId);
+  const all = await loadHomework();
+  return all
+    .filter((h) => h.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublicHomework);
+}
+
+async function listAllSubmissionsDb(tenantId: string): Promise<HomeworkSubmission[]> {
+  const { prisma } = await import("./db");
+  const rows = await prisma.homeworkSubmission.findMany({
+    where: { tenantId },
+    orderBy: { submittedAt: "desc" },
+  });
+  return rows.map((r) => toPublicSubmissionSummary(mapDbSubmission(r)));
+}
+
+/**
+ * EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir.
+ * `fileData` HARİÇ (özet) — CSV satırına ham base64 gömmek dosyayı
+ * kullanışsız şişirir; export yalnızca "dosya var mı" bilgisini taşır.
+ */
+export async function listAllHomeworkSubmissions(tenantId: string): Promise<HomeworkSubmission[]> {
+  if (isDbMode) return listAllSubmissionsDb(tenantId);
+  const all = await loadSubmissions();
+  return all
+    .filter((s) => s.tenantId === tenantId)
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+    .map(toPublicSubmissionSummary);
+}
+
 async function clearHomeworkDb(tenantId: string): Promise<void> {
   const { prisma } = await import("./db");
   await prisma.homework.deleteMany({ where: { tenantId } });
