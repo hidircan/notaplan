@@ -277,8 +277,18 @@ Her paket için minimum:
 | 1 Hassas veri + yetki | ✅ | PII AES-GCM, maskeleme, `pii:full`, reveal audit |
 | 2 Öğrenci/öğretmen model alanları | 🟡 kısmi | Types + schema + archive API; form UX sonraki |
 | 3 Tahsilat kuralları | 🟡 kısmi | Vade + IBAN çözümleme pure + tool |
-| 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers + deneme model/UI |
+| 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers + deneme model/UI; Geldi/İşlendi/Telafi artık Program+Yoklama+öğretmen ekranlarının hepsinde canlı (bkz. "Fonksiyon Onarımı + Kurumsal UI" sprinti) |
 | 5 Evraklar Faz 1 | ✅ iskelet | Şablon, referans, oluştur/yazdır API+UI |
 | 6 Evraklar Faz 2 | ⏳ | Yükleme/versiyon sonraki sprint |
 
 Durum güncellemeleri `WORK_PROGRESS.md` ve bu tablo ile senkron tutulur.
+
+## 10. Fonksiyon Onarımı + Kurumsal UI Yenilemesi (2026-08-05, Grok devrinden devam)
+
+Grok'un yarım bıraktığı sprint bu oturumda tamamlandı. Ayrıntılı checklist,
+regresyon bulguları ve commit listesi için `WORK_PROGRESS.md`'deki aynı
+başlıklı bölüme bakın. Özet: build'i kıran syntax hatası + eksik
+`durationMinutes` validasyonu düzeltildi, Geldi/İşlendi/Telafi admin Program
+ekranına bağlandı ve test edildi (18 yeni test), `/ogrenci` portalına geçmiş
+ders/ilerleme/metod/pasif-hesap koruması eklendi, ve tüm uygulama tek, açık,
+koyu-altın kurumsal temaya geçirildi (dark mode kaldırıldı).

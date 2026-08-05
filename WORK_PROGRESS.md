@@ -1,4 +1,69 @@
 
+## Session — Fonksiyon Onarımı + Kurumsal UI Yenilemesi (2026-08-05)
+
+Grok'un token'ı bitmesiyle yarım kalan sprint devralındı ve tamamlandı.
+Devir teslimde 136 kirli dosya vardı; A/B/C sınıflaması sonucu çoğu (Geldi/
+İşlendi/Telafi domain modeli, sidebar/nav merkezi config, lesson-ops API)
+Class A (doğru, korunacak) çıktı — Grok'un yaptığı iş beklenenden çok daha
+ileri durumdaydı, yalnızca iki kritik regresyon ve birkaç eksik bağlantı
+vardı. AI/Collections/kurum-selector ile ilgili ~35 dosyaya (ayrı,
+belgelenmiş sprintlere ait) hiç dokunulmadı.
+
+**Kritik regresyonlar (build tamamen kırıktı, önce bunlar düzeltildi):**
+- `src/lib/services/tools.ts` içinde bozuk bir import ifadesi (`, applyLessonOpsFlagLive }`)
+  `tsc`'yi tamamen kırıyordu.
+- Prisma client, `schema.prisma`'daki yeni ops-flag alanlarına göre rejenere
+  edilmemişti (`npx prisma generate`).
+- `lessonSchema` (validation.ts) hiç `durationMinutes` alanı almıyordu —
+  program-studio.tsx'teki 30/40/50 dk seçici sessizce hiçbir etki
+  yaratmıyordu (`createLessonTool` değeri düşürüyordu). 4 test bu yüzden
+  kırmızıydı, düzeltildi.
+
+**Geldi/İşlendi/Telafi:** `src/lib/lesson-ops.ts` zaten doğru modellenmişti
+(3 bağımsız, idempotent, audit'li bayrak — enum değil). Eksik olan: admin
+"Ders Programı" ekranına (program-studio.tsx `DetailPanel`) hiç bağlı
+değildi (yalnız Yoklama + öğretmen portalında vardı) ve hiç test yoktu.
+İkisi de bu sprintte eklendi — `src/lib/__tests__/lesson-ops.test.ts`
+(18 test: tekil/birlikte bayraklar, idempotency, RBAC, cross-teacher IDOR,
+NOT_FOUND sızıntısız, hakediş kaynağı `isLessonProcessedForPayout`).
+
+**`/ogrenci` portalı:** kod regresyonu YOKTU (son commit'ten beri diff
+yoktu) — ama gerçekten eksikti: geçmiş dersler, müfredat ilerleme %'si,
+eğitim metodu (Suzuki vb.), pasif/arşivlenmiş öğrenci koruması
+(`student.active === false` hiç kontrol edilmiyordu — pasif bir öğrenci
+tüm portala erişebiliyordu). Hepsi eklendi; `/ogretmen` ve `/veli`'ye
+dokunulmadı.
+
+**Kurumsal tema:** `globals.css` + `theme.ts` + `theme-selector.tsx` daha
+önceki bir sprintten kalma mor (#7c3aed) + açık/koyu/sistem tema anahtarlama
+sistemi kurmuştu — bu, güncel talimatla (dark mode YOK, tek açık altın tema)
+doğrudan çelişiyordu. Gerçek bir canlı bug da vardı: OS koyu modda olan HER
+ziyaretçi hiçbir aksiyon almadan koyu temayı görüyordu. Çözüm: yeni token
+tabanlı tek-açık-tema (`globals.css`), `dark:` varyantı imkansız bir
+selector'a kilitlendi (OS media query'sine asla düşmez), `ui.tsx` birincil
+bileşenleri (Button/Card/Input/Select/Badge/...) yeniden yazıldı + eksik
+LoadingState/ErrorState/FilterBar eklendi, ve ~50 sayfa/bileşende kalan
+mor/fuchsia vurgu rengi + `rounded-2xl` mekanik olarak altın/`rounded-lg`'e
+çevrildi (login ekranı — glassmorphism + koyu arka plan — elle yeniden
+yazıldı, mekanik geçiş bunu yakalayamazdı). `theme-selector.tsx` hiçbir
+yerde render edilmediği için dokunulmadan (zararsız, ölü kod) bırakıldı.
+
+**Doğrulama:** typecheck/lint/`prisma validate`/build temiz, tam test
+suite'i 815/815 yeşil (18'i yeni). Dev server + gerçek login (admin/
+öğretmen/veli/öğrenci) ile Özet, Program, Yoklama, Öğrenciler, Telafi,
+`/ogretmen`, `/veli`, `/ogrenci` 200 döndü; `/ogrenci` yeni bölümleri
+render ediyor; `setLessonOpsFlagTool`'a STUDENT oturumuyla POST 403
+(FORBIDDEN) döndü.
+
+**Dokunulmadan bırakılanlar (Class C — ayrı, belgelenmiş sprintler):**
+`src/lib/ai/**`, `src/lib/agent/**`, `src/app/panel/ai/**`,
+`src/app/panel/chat`, `src/app/panel/workflows`, `src/components/ai/**`,
+`src/hooks/**`, `src/lib/institution/**`, `src/lib/tahsilat/queue.ts`,
+kurum-selector/collections-intake-scan/tahsilat-queue bileşenleri (bu
+sonuncularda tema sed'i yanlışlıkla birkaç `violet`→`amber` sınıfını
+değiştirdi — commit'e alınmadı, kirli/uncommitted haliyle bırakıldı, bir
+sonraki oturumda gözden geçirilmeli).
+
 ## Session — PRODUCT_BACKLOG implementation (partial)
 
 Onaylı `PRODUCT_BACKLOG.md` eklendi. Uygulanan:
