@@ -11,7 +11,7 @@ import { cookies } from "next/headers";
 import { logger } from "./logger";
 import { KURUM_COOKIE, listAvailableKurumlar, pickInstitutionSelection } from "./institution/context";
 import { resolveWriteScope, WriteScopeDeniedError } from "./institution/write-scope";
-import { THEME_COOKIE, normalizeThemePreference } from "./theme";
+import { THEME_PROFILE_COOKIE, FONT_COOKIE, normalizeThemeProfile, normalizeFontChoice } from "./theme";
 import { auditLog } from "./auth/audit";
 import { uid } from "./utils";
 import {
@@ -173,19 +173,40 @@ export async function actionSetKurum(selection: string): Promise<void> {
 }
 
 /**
- * Tema tercihi (Sistem/Açık/Koyu) — kimlik doğrulama veya kurum kapsamından
- * TAMAMEN bağımsızdır; oturum gerektirmez (login ekranında da çalışsın diye)
- * ve hiçbir yetki/kurum kararını etkilemez. Yalnızca görsel bir cookie'dir.
+ * Görünüm tercihleri (tema profili / yazı tipi) — kimlik doğrulama veya
+ * kurum kapsamından TAMAMEN bağımsızdır; oturum gerektirmez (login
+ * ekranında da çalışsın diye) ve hiçbir yetki/kurum/veri kararını
+ * etkilemez. Yalnızca kullanıcının kişisel görsel cookie'leridir.
  */
-export async function actionSetTheme(preference: string): Promise<void> {
-  const normalized = normalizeThemePreference(preference);
+export async function actionSetThemeProfile(profile: string): Promise<void> {
+  const normalized = normalizeThemeProfile(profile);
   const jar = await cookies();
-  jar.set(THEME_COOKIE, normalized, {
+  jar.set(THEME_PROFILE_COOKIE, normalized, {
     httpOnly: false,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
+  revalidatePath("/", "layout");
+}
+
+export async function actionSetFont(font: string): Promise<void> {
+  const normalized = normalizeFontChoice(font);
+  const jar = await cookies();
+  jar.set(FONT_COOKIE, normalized, {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/", "layout");
+}
+
+/** Görünüm ayarlarını fabrika varsayılanına döndürür (Kurumsal Altın + Kurumsal Sans). */
+export async function actionResetThemePreferences(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(THEME_PROFILE_COOKIE);
+  jar.delete(FONT_COOKIE);
   revalidatePath("/", "layout");
 }
 

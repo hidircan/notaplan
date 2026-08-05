@@ -67,10 +67,63 @@
   --shadow-md: 0 2px 8px -2px rgb(36 28 20 / 0.10);
 }
 
+/**
+ * Tema Profilleri — renk VE tipografiyi birlikte yöneten kurumsal
+ * profiller (bkz. src/lib/theme.ts). Varsayılan "Kurumsal Altın" yukarıdaki
+ * :root'ta tanımlı; diğer üç profil yalnızca marka/vurgu renklerini
+ * değiştirir — boşluk, radius, gölge, durum renkleri (success/warning/
+ * danger/info) ve bilgi hiyerarşisi TÜM profillerde aynı kalır.
+ */
+:root[data-theme-profile="navy"] {
+  --color-bg: #f5f6f8;
+  --color-surface-muted: #eef1f5;
+  --color-border: #e2e5ea;
+  --color-border-strong: #cfd4dc;
+  --color-primary: #1e3a5f;
+  --color-primary-hover: #16293f;
+  --color-primary-soft: #e8eef5;
+  --color-primary-soft-text: #16324d;
+  --color-focus-ring: #1e3a5f;
+}
+
+:root[data-theme-profile="forest"] {
+  --color-bg: #f6f4ef;
+  --color-surface-muted: #eef3ee;
+  --color-border: #e2e8e0;
+  --color-border-strong: #cdd8cc;
+  --color-primary: #1f5c3f;
+  --color-primary-hover: #16452e;
+  --color-primary-soft: #e6f2ec;
+  --color-primary-soft-text: #14402c;
+  --color-focus-ring: #1f5c3f;
+}
+
+:root[data-theme-profile="burgundy"] {
+  --color-bg: #f7f4ef;
+  --color-surface-muted: #f5eaea;
+  --color-border: #e7dcdc;
+  --color-border-strong: #d6c1c1;
+  --color-primary: #6b1f2b;
+  --color-primary-hover: #52161f;
+  --color-primary-soft: #f5e9ea;
+  --color-primary-soft-text: #4a1620;
+  --color-focus-ring: #6b1f2b;
+}
+
+/** Yazı tipi seçenekleri — üç ciddi sans-serif; uygulama genelinde tutarlı uygulanır. */
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-font="modern"] {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-font="classic"] {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 

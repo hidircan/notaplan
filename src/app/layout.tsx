@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { THEME_PROFILE_COOKIE, FONT_COOKIE, normalizeThemeProfile, normalizeFontChoice } from "@/lib/theme";
+import { AssistantProvider } from "@/components/ai/assistant-context";
+import { GlobalAssistant } from "@/components/ai/global-assistant";
 
 export const metadata: Metadata = {
   title: "NotaPlan — Müzik Okulu Yönetimi",
@@ -18,17 +11,23 @@ export const metadata: Metadata = {
     "Nilüfer Acar Müzik Akademisi ve tüm müzik okulları için telafi planlama, program, yoklama ve ödeme SaaS.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jar = await cookies();
+  const themeProfile = normalizeThemeProfile(jar.get(THEME_PROFILE_COOKIE)?.value);
+  const font = normalizeFontChoice(jar.get(FONT_COOKIE)?.value);
+
   return (
-    <html
-      lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full bg-[#f4f2f8] text-slate-900">{children}</body>
+    <html lang="tr" className="h-full antialiased" data-theme-profile={themeProfile} data-font={font}>
+      <body className="min-h-full">
+        <AssistantProvider>
+          {children}
+          <GlobalAssistant />
+        </AssistantProvider>
+      </body>
     </html>
   );
 }

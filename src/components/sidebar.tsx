@@ -2,74 +2,64 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CalendarDays,
-  CreditCard,
-  GraduationCap,
-  LayoutDashboard,
-  Music2,
-  RefreshCcw,
-  ClipboardCheck,
-  Users,
-  MessageCircle,
-  Home,
-  UserRound,
-  Sparkles,
-  Activity,
-  ScrollText,
-  Workflow,
-  Brain,
-  Settings,
-  Upload,
-  FileText,
-  Megaphone,
-} from "lucide-react";
+import { Music2, Home, UserRound, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
+import {
+  PANEL_MAIN_NAV,
+  PANEL_OPS_NAV,
+  PANEL_AI_NAV,
+  PANEL_SYSTEM_NAV,
+  isNavActive,
+} from "@/lib/nav/panel-nav";
 
-const nav = [
-  { href: "/panel", label: "Özet", icon: LayoutDashboard },
-  { href: "/panel/chat", label: "AI Asistan", icon: Sparkles },
-  { href: "/panel/workflows", label: "Workflows", icon: Workflow },
-  { href: "/panel/ai", label: "AI Dashboard", icon: Activity },
-  { href: "/panel/ai/logs", label: "AI Logları", icon: ScrollText },
-  { href: "/panel/ai/memory", label: "AI Memory", icon: Brain },
-  { href: "/panel/program", label: "Ders Programı", icon: CalendarDays },
-  { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
-  { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
-  { href: "/panel/ders-duzeltme", label: "Ders düzeltme", icon: ClipboardCheck },
-  { href: "/panel/deneme", label: "Deneme dersleri", icon: Users },
-  { href: "/panel/evraklar", label: "Evraklar", icon: FileText },
-  { href: "/panel/ogrenciler", label: "Öğrenciler", icon: GraduationCap },
-  { href: "/panel/ogretmenler", label: "Öğretmenler", icon: Users },
-  { href: "/panel/odemeler", label: "Ödemeler", icon: CreditCard },
-  { href: "/panel/bildirimler", label: "WhatsApp", icon: MessageCircle },
-  { href: "/panel/duyurular", label: "Duyurular", icon: Megaphone },
-  { href: "/panel/subeler", label: "Şubeler", icon: Home },
-  { href: "/panel/ucret-kurallari", label: "Ücret kuralları", icon: CreditCard },
-];
-
-const portals = [
-  { href: "/veli", label: "Veli portalı", icon: UserRound },
-  { href: "/ogretmen", label: "Öğretmen portalı", icon: Users },
-  { href: "/", label: "Landing", icon: Home },
-];
-
-const setup = [
-  { href: "/panel/kurulum", label: "Kurulum Merkezi", icon: Settings },
-  { href: "/panel/veri-aktar", label: "Veri Aktar", icon: Upload },
-];
+function NavSection({
+  title,
+  items,
+  pathname,
+}: {
+  title?: string;
+  items: typeof PANEL_MAIN_NAV;
+  pathname: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      {title ? (
+        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+          {title}
+        </p>
+      ) : null}
+      {items.map((item) => {
+        const active = isNavActive(pathname, item.href);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={`${item.href}-${item.label}`}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+              active
+                ? "bg-[#A56A00]/15 font-semibold text-[#5c3d00]"
+                : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+            )}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#A56A00]" : "text-stone-500")} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Sidebar({
   schoolName,
   userLabel,
   roleLabel,
-  // Optional props used by dirty multi-kurum/theme layout — accepted for
-  // type compatibility; full UI remains out of this commit scope.
   kurumlar: _kurumlar,
   kurumSelection: _kurumSelection,
   canSeeAllKurumlar: _canSeeAllKurumlar,
-  themePreference: _themePreference,
 }: {
   schoolName?: string;
   userLabel?: string;
@@ -77,106 +67,67 @@ export function Sidebar({
   kurumlar?: unknown;
   kurumSelection?: string;
   canSeeAllKurumlar?: boolean;
-  themePreference?: string;
 }) {
   const schoolNameSafe = schoolName ?? "NotaPlan";
   void _kurumlar;
   void _kurumSelection;
   void _canSeeAllKurumlar;
-  void _themePreference;
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200/80 bg-[#0f0b1a] text-slate-200">
-      <div className="border-b border-white/10 px-5 py-6">
+    <aside
+      className="flex w-64 shrink-0 flex-col border-r border-stone-200 bg-[#f7f4ef] text-stone-800"
+      aria-label="Ana menü"
+    >
+      <div className="border-b border-stone-200 px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
-            <Music2 className="h-5 w-5 text-white" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#A56A00] text-white shadow-sm">
+            <Music2 className="h-5 w-5" aria-hidden />
           </div>
           <div>
-            <p className="text-sm font-semibold tracking-wide text-white">NotaPlan</p>
-            <p className="text-[11px] text-slate-400">Müzik okulu yönetimi</p>
+            <p className="text-sm font-semibold tracking-wide text-stone-900">NotaPlan</p>
+            <p className="text-[11px] text-stone-500">Kurum yönetimi</p>
           </div>
         </div>
-        <div className="mt-4 rounded-xl bg-white/5 px-3 py-2">
-          <p className="truncate text-xs font-medium text-violet-200">{schoolNameSafe}</p>
-          <p className="text-[10px] text-slate-500">
+        <div className="mt-3 rounded-lg border border-stone-200 bg-white px-3 py-2">
+          <p className="truncate text-xs font-medium text-[#5c3d00]">{schoolNameSafe}</p>
+          <p className="text-[10px] text-stone-500">
             {roleLabel || "Oturum"} · {userLabel || "—"}
           </p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {nav.map((item) => {
-          const active = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                active
-                  ? "bg-violet-500/20 text-white shadow-inner"
-                  : "text-slate-400 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              <Icon className={cn("h-4 w-4", active ? "text-violet-300" : "")} />
-              {item.label}
-              {item.href === "/panel/telafi" ? (
-                <span className="ml-auto rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
-                  ★
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-
-        <p className="mb-1 mt-5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          Portaller
-        </p>
-        {portals.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+        <NavSection items={PANEL_MAIN_NAV} pathname={pathname} />
+        <NavSection title="Operasyonlar" items={PANEL_OPS_NAV} pathname={pathname} />
+        <NavSection title="Yardımcı" items={PANEL_AI_NAV} pathname={pathname} />
       </nav>
 
-      <div className="border-t border-white/10 px-3 py-4">
-        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          Kurulum
-        </p>
-        {setup.map((item) => {
-          const active = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                active
-                  ? "bg-violet-500/20 text-white shadow-inner"
-                  : "text-slate-400 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              <Icon className={cn("h-4 w-4", active ? "text-violet-300" : "")} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="border-t border-white/10 p-4">
-        <LogoutButton className="w-full justify-start text-slate-300 hover:text-white" />
+      <div className="space-y-3 border-t border-stone-200 px-3 py-4">
+        <NavSection title="Sistem" items={PANEL_SYSTEM_NAV} pathname={pathname} />
+        <div className="space-y-0.5 px-0">
+          <Link
+            href="/ogretmen"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
+          >
+            <Users className="h-4 w-4" /> Öğretmen portalı
+          </Link>
+          <Link
+            href="/veli"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
+          >
+            <UserRound className="h-4 w-4" /> Veli portalı
+          </Link>
+          <Link
+            href="/ogrenci"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
+          >
+            <Home className="h-4 w-4" /> Öğrenci portalı
+          </Link>
+        </div>
+        <div className="px-3 pt-1">
+          <LogoutButton className="!text-xs" />
+        </div>
       </div>
     </aside>
   );
