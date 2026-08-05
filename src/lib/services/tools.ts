@@ -159,6 +159,11 @@ import {
   submitTeacherFeedbackSchema,
   createCurriculumTopicSchema,
   updateCurriculumTopicSchema,
+  createTrialLessonSchema,
+  updateTrialLessonStatusSchema,
+  archiveStudentSchema,
+  setNationalIdSchema,
+  createDocumentInstanceSchema,
   startLessonSchema,
   studentSchema,
   suggestLessonSlotsSchema,
@@ -212,6 +217,18 @@ import {
   getCurriculumTopic,
 } from "../curriculum";
 import type { StudentCurriculumTopic } from "../types";
+import { createTrialLesson, listTrialLessons, updateTrialLessonStatus, getTrialLesson } from "../trial-lessons";
+import {
+  listTemplates,
+  getTemplate,
+  createDocumentInstance,
+  markDocumentPrinted,
+  listDocumentsForStudent,
+} from "../documents";
+import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
+import { assertSchedulableDate } from "../lesson-scheduling";
+import { resolveCollectionsIban } from "../collections-due";
+
 
 /** Fire-and-forget critical-action audit write — never awaited, never blocks the tool's return. */
 function audit(
@@ -1171,7 +1188,7 @@ export async function previewLessonSeriesTool(
     studentName: student.name,
     weekday: v.data.weekday,
     startTime: v.data.startTime,
-    durationMinutes: v.data.durationMinutes,
+    durationMinutes: v.data.durationMinutes ?? DEFAULT_LESSON_DURATION_MINUTES,
     startsOn: v.data.startsOn,
     endsOn: v.data.endsOn,
     occurrenceCount: occurrences.length,
@@ -2602,6 +2619,295 @@ export async function listCurriculumForStudentTool(
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listCurriculumForStudent failed");
   }
+}
+
+
+/** PRODUCT_BACKLOG — soft archive / restore (hard delete yok) */
+export async function archiveStudentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string; archived: boolean }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(archiveStudentSchema, input);
+  if (!v.ok) return v;
+  try {
+    const data = await readData();
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+    await updateStudentProfile(v.data.studentId, {
+      active: !v.data.archived,
+      archivedAt: v.data.archived ? new Date().toISOString() : undefined,
+    });
+    audit(ctx, v.data.archived ? "student.archive" : "student.restore", "Student", v.data.studentId, {});
+    return ok({ studentId: v.data.studentId, archived: v.data.archived });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveStudent failed");
+  }
+}
+
+/** T.C. kimlik yazma — şifreli saklama */
+export async function setNationalIdTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ entityId: string; masked: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(setNationalIdSchema, input);
+  if (!v.ok) return v;
+  try {
+    const { cipher, last2 } = encryptNationalId(v.data.nationalId);
+    if (v.data.entity === "student") {
+      await updateStudentProfile(v.data.entityId, {
+        nationalIdCipher: cipher,
+        nationalIdLast2: last2,
+      });
+    } else {
+      return fail("VALIDATION_ERROR", "Öğretmen T.C. güncelleme bu sürümde yakında.");
+    }
+    audit(ctx, "pii.national_id.set", v.data.entity === "student" ? "Student" : "Teacher", v.data.entityId, {
+      last2,
+    });
+    return ok({ entityId: v.data.entityId, masked: maskNationalId(last2) });
+  } catch (e) {
+    return fail("VALIDATION_ERROR", e instanceof Error ? e.message : "setNationalId failed");
+  }
+}
+
+/** Tam T.C. çözümleme — pii:full + audit */
+export async function revealNationalIdTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ nationalId: string; masked: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!canViewFullNationalId(ctx.role)) return fail("FORBIDDEN", "Yetkiniz yok");
+  const v = parseOrFail(z.object({
+    entity: z.enum(["student", "teacher"]),
+    entityId: z.string().min(1),
+  }), input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const entity =
+    v.data.entity === "student"
+      ? data.students.find((s) => s.id === v.data.entityId)
+      : data.teachers.find((t) => t.id === v.data.entityId);
+  if (!entity || !("nationalIdCipher" in entity) || !entity.nationalIdCipher) {
+    return fail("NOT_FOUND", "Kimlik kaydı yok");
+  }
+  try {
+    const { decryptNationalId } = await import("../pii");
+    const nationalId = decryptNationalId(entity.nationalIdCipher as string);
+    audit(ctx, "pii.national_id.reveal", v.data.entity === "student" ? "Student" : "Teacher", v.data.entityId, {});
+    return ok({
+      nationalId,
+      masked: maskNationalId((entity as { nationalIdLast2?: string }).nationalIdLast2),
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reveal failed");
+  }
+}
+
+export async function createTrialLessonTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ trialId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(createTrialLessonSchema, input);
+  if (!v.ok) return v;
+  const sched = assertSchedulableDate(v.data.startAt, []);
+  if (!sched.ok) return fail("VALIDATION_ERROR", sched.message);
+  if (ctx.role === "TEACHER" && v.data.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi deneme dersinizi planlayabilirsiniz.");
+  }
+  const start = new Date(v.data.startAt);
+  const end = new Date(start.getTime() + v.data.durationMinutes * 60_000);
+  try {
+    const trial = await createTrialLesson({
+      tenantId: ctx.tenantId,
+      name: v.data.name,
+      phone: v.data.phone,
+      instrument: v.data.instrument as Instrument,
+      branchId: v.data.branchId,
+      teacherId: v.data.teacherId,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      durationMinutes: v.data.durationMinutes,
+      createdBy: ctx.userId,
+      notes: v.data.notes,
+    });
+    audit(ctx, "trial.create", "TrialLesson", trial.id, {});
+    return ok({ trialId: trial.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTrial failed");
+  }
+}
+
+export async function listTrialLessonsTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ trials: Awaited<ReturnType<typeof listTrialLessons>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    let trials = await listTrialLessons(ctx.tenantId);
+    if (ctx.role === "TEACHER" && ctx.teacherId) {
+      trials = trials.filter((t) => t.teacherId === ctx.teacherId);
+    }
+    return ok({ trials });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listTrial failed");
+  }
+}
+
+export async function updateTrialLessonStatusTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ trialId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(updateTrialLessonStatusSchema, input);
+  if (!v.ok) return v;
+  const existing = await getTrialLesson(ctx.tenantId, v.data.trialId);
+  if (!existing) return fail("NOT_FOUND", "Deneme bulunamadı");
+  if (ctx.role === "TEACHER" && existing.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yetkiniz yok");
+  }
+  try {
+    const updated = await updateTrialLessonStatus(ctx.tenantId, v.data.trialId, v.data.status);
+    if (!updated) return fail("NOT_FOUND", "Deneme bulunamadı");
+    audit(ctx, "trial.status", "TrialLesson", v.data.trialId, { status: v.data.status });
+    return ok({ trialId: v.data.trialId, status: updated.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTrial failed");
+  }
+}
+
+export async function listDocumentTemplatesTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ templates: Awaited<ReturnType<typeof listTemplates>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    const templates = await listTemplates(ctx.tenantId);
+    return ok({ templates });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listTemplates failed");
+  }
+}
+
+export async function createDocumentInstanceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; reference: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(createDocumentInstanceSchema, input);
+  if (!v.ok) return v;
+  const tpl = await getTemplate(ctx.tenantId, v.data.templateId);
+  if (!tpl) return fail("NOT_FOUND", "Şablon bulunamadı");
+  const data = await readData();
+  const student = v.data.studentId ? data.students.find((s) => s.id === v.data.studentId) : undefined;
+  const branch = student
+    ? data.settings.branches.find((b) => b.id === student.branchId)
+    : v.data.branchId
+      ? data.settings.branches.find((b) => b.id === v.data.branchId)
+      : undefined;
+  const autoFields: Record<string, string> = {
+    date: new Date().toLocaleDateString("tr-TR"),
+    studentName: student?.name ?? "",
+    parentName: student?.parentName ?? "",
+    branchName: branch?.name ?? "",
+    educationMethod: student?.educationMethod ?? "",
+    enrollmentDate: student?.enrollmentStartDate
+      ? new Date(student.enrollmentStartDate).toLocaleDateString("tr-TR")
+      : "",
+    paymentPlan: student?.paymentMethod
+      ? `${student.paymentMethod} · ${student.paymentAmount ?? student.monthlyFee} ₺ · gün ${student.paymentDueDay ?? "—"}`
+      : "",
+    freeText: "",
+    scopes: "",
+    name: "",
+    phone: "",
+    ...v.data.fieldValues,
+  };
+  try {
+    const doc = await createDocumentInstance({
+      tenantId: ctx.tenantId,
+      templateId: tpl.id,
+      kind: tpl.kind,
+      fieldValues: autoFields,
+      studentId: v.data.studentId,
+      teacherId: v.data.teacherId,
+      trialLessonId: v.data.trialLessonId,
+      branchId: v.data.branchId ?? student?.branchId,
+      createdBy: ctx.userId,
+    });
+    audit(ctx, "document.create", "DocumentInstance", doc.id, { reference: doc.reference });
+    return ok({ documentId: doc.id, reference: doc.reference });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createDocument failed");
+  }
+}
+
+export async function printDocumentInstanceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; reference: string; printCount: number; html?: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ documentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  try {
+    const doc = await markDocumentPrinted(ctx.tenantId, v.data.documentId);
+    if (!doc) return fail("NOT_FOUND", "Belge bulunamadı");
+    audit(ctx, "document.print", "DocumentInstance", doc.id, {
+      reference: doc.reference,
+      printCount: doc.printCount,
+    });
+    return ok({
+      documentId: doc.id,
+      reference: doc.reference,
+      printCount: doc.printCount,
+      html: doc.renderedHtml,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "printDocument failed");
+  }
+}
+
+export async function listStudentDocumentsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documents: Awaited<ReturnType<typeof listDocumentsForStudent>> }>> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+  try {
+    const documents = await listDocumentsForStudent(ctx.tenantId, v.data.studentId);
+    return ok({ documents });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listDocuments failed");
+  }
+}
+
+export async function resolveCollectionsIbanTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ bank: string; bankLabel: string; iban?: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "AI_AGENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci yok");
+  const settings = data.settings.collectionsSettings ?? { frequencyLimitDays: 3, autoSendEnabled: false };
+  const r = resolveCollectionsIban(student.studentType, settings);
+  return ok({ bank: r.bank, bankLabel: r.bankLabel, iban: r.iban });
 }
 
 export const TOOL_CATALOG = [

@@ -35,6 +35,11 @@ model Tenant {
   teachingMaterials   TeachingMaterial[]
   teacherFeedbacks    TeacherFeedback[]
   studentCurriculumTopics StudentCurriculumTopic[]
+  socialMediaConsents SocialMediaConsent[]
+  closedDays ClosedDay[]
+  trialLessons TrialLesson[]
+  documentTemplates DocumentTemplate[]
+  documentInstances DocumentInstance[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -192,6 +197,18 @@ model Student {
   /// scanOverduePaymentsTool bu öğrenciyi atlar. Manuel/idari mesajlaşmayı
   /// engellemez.
   communicationOptOut Boolean   @default(false)
+  /// PRODUCT_BACKLOG
+  birthDate              DateTime?
+  address                String?
+  nationalIdCipher       String?   @db.Text
+  nationalIdLast2        String?
+  educationMethod        String?
+  lessonDurationMinutes  Int?
+  paymentMethod          String?
+  paymentAmount          Int?
+  paymentDueDay          Int?
+  firstLessonAt          DateTime?
+  archivedAt             DateTime?
   lessons           Lesson[]
   lessonSeries      LessonSeries[]
   attendances       Attendance[]
@@ -739,3 +756,102 @@ model StudentCurriculumTopic {
   @@index([tenantId, teacherId])
 }
 
+/// PRODUCT_BACKLOG §1.4
+
+
+model SocialMediaConsent {
+  id                 String   @id
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId          String
+  status             String
+  representativeName String
+  relationship       String
+  grantedAt          DateTime
+  scopes             Json
+  sourceDocumentRef  String?
+  withdrawnAt        DateTime?
+  history            Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId, studentId])
+}
+
+/// PRODUCT_BACKLOG §4.2
+model ClosedDay {
+  id        String   @id
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date      String
+  name      String
+  kind      String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+}
+
+/// PRODUCT_BACKLOG §5
+model TrialLesson {
+  id                  String   @id
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  phone               String
+  instrument          String
+  branchId            String
+  teacherId           String
+  startAt             DateTime
+  endAt               DateTime
+  durationMinutes     Int
+  status              String   @default("planned")
+  convertedStudentId  String?
+  notes               String?
+  createdBy           String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, teacherId])
+}
+
+/// PRODUCT_BACKLOG §6 Faz 1
+model DocumentTemplate {
+  id        String   @id
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind      String
+  name      String
+  bodyHtml  String   @db.LongText
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, kind])
+}
+
+model DocumentInstance {
+  id           String   @id
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId   String
+  kind         String
+  reference    String
+  status       String   @default("draft")
+  studentId    String?
+  teacherId    String?
+  trialLessonId String?
+  branchId     String?
+  fieldValues  Json
+  renderedHtml String?  @db.LongText
+  printCount   Int      @default(0)
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, reference])
+  @@index([tenantId, studentId])
+  @@index([tenantId, kind])
+}

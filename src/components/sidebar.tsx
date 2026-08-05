@@ -36,6 +36,8 @@ const nav = [
   { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
   { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
   { href: "/panel/ders-duzeltme", label: "Ders düzeltme", icon: ClipboardCheck },
+  { href: "/panel/deneme", label: "Deneme dersleri", icon: Users },
+  { href: "/panel/evraklar", label: "Evraklar", icon: FileText },
   { href: "/panel/ogrenciler", label: "Öğrenciler", icon: GraduationCap },
   { href: "/panel/ogretmenler", label: "Öğretmenler", icon: Users },
   { href: "/panel/odemeler", label: "Ödemeler", icon: CreditCard },

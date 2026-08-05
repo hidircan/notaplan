@@ -422,3 +422,61 @@ export const updateCurriculumTopicSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   changeNote: z.string().max(500).optional(),
 });
+
+
+export const EDUCATION_METHOD_ENUM = ["Suzuki","Klasik","LCM","MEB","Kurum İçi","Diğer"] as const;
+export const LESSON_DURATION_PREF_ENUM = [30, 40, 50] as const;
+
+export const createTrialLessonSchema = z.object({
+  name: z.string().min(1).max(120),
+  phone: z.string().min(7).max(30),
+  instrument: z.string().min(1),
+  branchId: z.string().min(1),
+  teacherId: z.string().min(1),
+  startAt: z.string().min(1),
+  durationMinutes: z.union([z.literal(30), z.literal(40), z.literal(50)]),
+  notes: z.string().max(2000).optional(),
+});
+
+export const updateTrialLessonStatusSchema = z.object({
+  trialId: z.string().min(1),
+  status: z.enum([
+    "planned","attended","considering","awaiting_enrollment",
+    "will_continue","will_not_continue","cancelled",
+  ]),
+  convertToStudent: z.boolean().optional(),
+});
+
+export const archiveStudentSchema = z.object({
+  studentId: z.string().min(1),
+  archived: z.boolean(),
+});
+
+export const setNationalIdSchema = z.object({
+  entity: z.enum(["student","teacher"]),
+  entityId: z.string().min(1),
+  nationalId: z.string().min(11).max(20),
+});
+
+export const createDocumentInstanceSchema = z.object({
+  templateId: z.string().min(1),
+  studentId: z.string().optional(),
+  teacherId: z.string().optional(),
+  trialLessonId: z.string().optional(),
+  branchId: z.string().optional(),
+  fieldValues: z.record(z.string(), z.string()).default({}),
+});
+
+export const socialMediaConsentSchema = z.object({
+  studentId: z.string().min(1),
+  status: z.enum(["granted","denied","withdrawn","expired"]),
+  representativeName: z.string().min(1),
+  relationship: z.string().min(1),
+  scopes: z.array(z.enum(["photo","video","name","voice","website","instagram","other"])).min(1),
+  sourceDocumentRef: z.string().optional(),
+});
+
+export const closedDaySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  name: z.string().min(1).max(120),
+});
