@@ -16,6 +16,7 @@ import type {
   TeacherAvailabilityRequest,
   TeacherFeedback,
   TeachingMaterial,
+  StudentCurriculumTopic,
 } from "../types";
 
 export type ExportEntity =
@@ -32,7 +33,8 @@ export type ExportEntity =
   | "homework"
   | "homeworkSubmissions"
   | "teachingMaterials"
-  | "teacherFeedback";
+  | "teacherFeedback"
+  | "studentCurriculumTopics";
 
 export const EXPORT_ENTITIES: ExportEntity[] = [
   "students",
@@ -49,6 +51,7 @@ export const EXPORT_ENTITIES: ExportEntity[] = [
   "homeworkSubmissions",
   "teachingMaterials",
   "teacherFeedback",
+  "studentCurriculumTopics",
 ];
 
 /**
@@ -68,6 +71,7 @@ export type StandaloneExportData = {
   homeworkSubmissions?: HomeworkSubmission[];
   teachingMaterials?: TeachingMaterial[];
   teacherFeedback?: TeacherFeedback[];
+  studentCurriculumTopics?: StudentCurriculumTopic[];
 };
 
 function csvCell(value: unknown): string {
@@ -412,6 +416,40 @@ export function buildInstitutionExport(
         yorum: f.comment ?? "",
         durum: f.status,
         olusturmaTarihi: f.createdAt,
+      }))
+    );
+  }
+
+
+  if (entities.includes("studentCurriculumTopics") && extra.studentCurriculumTopics) {
+    out.studentCurriculumTopics = toCsv(
+      [
+        "id",
+        "studentId",
+        "teacherId",
+        "title",
+        "status",
+        "progressPercent",
+        "sortOrder",
+        "notes",
+        "createdBy",
+        "updatedBy",
+        "createdAt",
+        "updatedAt",
+      ],
+      extra.studentCurriculumTopics.map((t) => ({
+        id: t.id,
+        studentId: t.studentId,
+        teacherId: t.teacherId,
+        title: t.title,
+        status: t.status,
+        progressPercent: t.progressPercent,
+        sortOrder: t.sortOrder,
+        notes: t.notes ?? "",
+        createdBy: t.createdBy,
+        updatedBy: t.updatedBy,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
       }))
     );
   }

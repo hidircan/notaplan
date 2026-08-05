@@ -4,6 +4,15 @@
 `DATABASE_ARCHITECTURE.md`) **yanında** tutulur, onların yerine geçmez. Onlarla
 çelişen bir madde bulunursa canonical doküman geçerlidir.
 
+
+## Session — Production hardening (RBAC + curriculum)
+
+- TEACHER öğrenci erişimi fail-closed (`assertStudentAccess` + tool wiring).
+- `StudentCurriculumTopic` model (DB migration + JSON), tools, API, export.
+- UI: öğretmen çalışma alanı + `/ogrenci/mufredat` + `/veli/mufredat`.
+- Admin: `/panel/ders-duzeltme` (correctLessonTimes).
+- Sidebar: yalnızca izole link ekleri; kirli sidebar redesign commit edilmedi.
+
 ## Session — Öğretmen öğrenci çalışma alanı (portal birleşimi)
 
 Öğretmen ana ekranından kendi öğrencilerine `/ogretmen/ogrenciler/[studentId]`

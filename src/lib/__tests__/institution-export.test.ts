@@ -8,7 +8,7 @@ import {
 } from "../export/institution-export";
 import { createNotification, listAllNotifications, NOTIFICATIONS_FILE } from "../notifications";
 import { createAnnouncement, listAnnouncements, ANNOUNCEMENTS_FILE } from "../announcements";
-import { createAssessment, listAllAssessments } from "../assessment";
+import { createAssessment, listAllAssessments, LESSON_ASSESSMENTS_FILE } from "../assessment";
 import {
   createAvailabilityRequest,
   listAllAvailabilityRequests,
@@ -131,6 +131,22 @@ function fullExtraFixture(): StandaloneExportData {
         createdAt: new Date().toISOString(),
       },
     ],
+    studentCurriculumTopics: [
+      {
+        id: "cur1",
+        studentId: "s1",
+        teacherId: "t1",
+        title: "Do majör gam",
+        status: "in_progress",
+        progressPercent: 50,
+        sortOrder: 0,
+        history: [],
+        createdBy: "u1",
+        updatedBy: "u1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
   };
 }
 
@@ -225,6 +241,7 @@ describe("EPIC 0/12 — standalone export listeleri tenant'a kapalıdır (cross-
       HOMEWORK_SUBMISSIONS_FILE_PATH,
       TEACHING_MATERIALS_FILE_PATH,
       TEACHER_FEEDBACK_FILE_PATH,
+      LESSON_ASSESSMENTS_FILE,
     ]) {
       await fs.rm(f, { force: true });
     }

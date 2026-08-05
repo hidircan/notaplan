@@ -1489,3 +1489,23 @@ model yaratılmadı.
 **Ders state:** mevcut `startLessonTool` / `endLessonTool` +
 `/api/v1/lessons/:id/{start,end}` — yalnızca
 `scheduled → in_progress → completed`.
+
+---
+
+## Takip: Production hardening (RBAC + müfredat + admin UI) ✅
+
+| Adım | Konu | Durum |
+|------|------|--------|
+| 1 | TEACHER fail-closed `assertStudentAccess` / IDOR | ✅ |
+| 2 | StudentCurriculumTopic model + API + tests | ✅ |
+| 3 | Öğretmen/veli/öğrenci müfredat UI | ✅ |
+| 4 | Admin ders zamanı düzeltme UI + temel panel nav | ✅ |
+| 5 | Export + docs | ✅ |
+
+**Kapatılan:** `canAccessStudent` TEACHER blanket allow; schedule/homework/
+assessment/materials/parent-message tool ownership; müfredat ilerleme motoru;
+admin `correctLessonTimes` form eksikliği (UI).
+
+**Hâlâ açık (bilinçli):** kirli sidebar/layout tam temizlik; offline queue;
+WorkflowState tenant-backfill; AI/panel kirli ağaç işleri.
+

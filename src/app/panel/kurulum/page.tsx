@@ -23,6 +23,7 @@ const EXPORT_LABELS: Record<ExportEntity, string> = {
   homeworkSubmissions: "Ödev teslimleri",
   teachingMaterials: "Materyaller",
   teacherFeedback: "Öğretmen geri bildirimleri",
+  studentCurriculumTopics: "Müfredat konuları",
 };
 
 export const dynamic = "force-dynamic";
