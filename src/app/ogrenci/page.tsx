@@ -35,8 +35,9 @@ export default async function OgrenciPortalPage() {
   }
 
   const data = await readData();
-  const studentId = session.studentId || "s1";
-  const student = data.students.find((s) => s.id === studentId) ?? data.students[0];
+  const studentId = session.studentId;
+  if (!studentId) redirect("/login");
+  const student = data.students.find((s) => s.id === studentId);
   if (!student) redirect("/login");
   const teacher = data.teachers.find((t) => t.id === student.teacherId);
 
@@ -112,6 +113,12 @@ export default async function OgrenciPortalPage() {
             <Card className="!p-4 hover:border-emerald-200">
               <Video className="h-4 w-4 text-emerald-600" />
               <p className="mt-1 text-sm font-semibold text-slate-900">Materyaller</p>
+            </Card>
+          </Link>
+          <Link href="/ogrenci/mufredat" className="col-span-2">
+            <Card className="!p-4 hover:border-emerald-200">
+              <p className="text-sm font-semibold text-slate-900">Müfredatım</p>
+              <p className="mt-0.5 text-xs text-slate-500">Konu hedefleri ve ilerleme özeti</p>
             </Card>
           </Link>
         </div>

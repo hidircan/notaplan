@@ -14,6 +14,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { findOwnStudent, ownStudentLessons } from "@/lib/teacher-portal-scope";
 import {
   getAssessmentReportTool,
+  listCurriculumForStudentTool,
   listHomeworkForStudentTool,
   listHomeworkSubmissionsTool,
   listTeachingMaterialsForStudentTool,
@@ -23,9 +24,12 @@ import { Badge, Card, EmptyState } from "@/components/ui";
 import { HomeworkCreateForm } from "@/components/homework-create-form";
 import { HomeworkReviewForm } from "@/components/homework-review-form";
 import { LessonAssessmentForm } from "@/components/lesson-assessment-form";
+import { CurriculumTopicForm } from "@/components/curriculum-topic-form";
+import { CurriculumTopicUpdateForm } from "@/components/curriculum-topic-update-form";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 import { LessonLiveActions } from "@/components/lesson-live-actions";
+import type { StudentCurriculumTopic } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +133,13 @@ export default async function TeacherStudentWorkspacePage({
   const pastAssessments = assessmentReport.ok ? assessmentReport.data.assessments : [];
   const trend = assessmentReport.ok ? assessmentReport.data.trend : [];
   const assessmentLessons = lessons.map((l) => ({ id: l.id, startAt: l.startAt }));
+
+  const curriculumResult = await listCurriculumForStudentTool(session, { studentId: student.id });
+  const curriculumTopics = (curriculumResult.ok ? curriculumResult.data.topics : []) as StudentCurriculumTopic[];
+  const curriculumOverall = curriculumResult.ok ? curriculumResult.data.overallPercent : 0;
+  const curriculumExplain = curriculumResult.ok
+    ? curriculumResult.data.progressExplanation
+    : "Müfredat yüklenemedi.";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
@@ -370,29 +381,92 @@ export default async function TeacherStudentWorkspacePage({
           </h2>
 
           <Card className="mb-3 !p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Müfredat özeti</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Profil</p>
             <dl className="mt-2 grid grid-cols-2 gap-3 text-sm">
               <ProfileField label="Program türü" value={student.studentType ?? "Belirtilmemiş"} />
               <ProfileField label="Seviye" value={student.level ?? "Belirtilmemiş"} />
               <ProfileField label="Hedef sınav" value={student.targetExam ?? "—"} />
-              <ProfileField
-                label="Enstrüman"
-                value={student.instruments.join(", ") || "—"}
-              />
+              <ProfileField label="Enstrüman" value={student.instruments.join(", ") || "—"} />
             </dl>
-            <p className="mt-3 text-xs text-slate-400">
-              Ayrıntılı materyal paylaşımı için{" "}
-              <Link href="/ogretmen/materyaller" className="font-medium text-cyan-700 hover:text-cyan-800">
-                Materyaller
-              </Link>{" "}
-              sayfasını kullanın (hedef kitle: tür / enstrüman / seviye).
-            </p>
           </Card>
 
+          <Card className="mb-3 !p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-cyan-600">Konu ilerlemesi</p>
+              <p className="text-lg font-semibold text-cyan-800" aria-label="Genel ilerleme yüzdesi">
+                %{curriculumOverall}
+              </p>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{curriculumExplain}</p>
+          </Card>
+
+          <Card className="mb-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-cyan-600">Yeni konu hedefi</p>
+            <CurriculumTopicForm studentId={student.id} />
+          </Card>
+
+          {curriculumTopics.length === 0 ? (
+            <EmptyState
+              title="Henüz konu yok"
+              description="Yukarıdan bu öğrenci için müfredat konuları ekleyebilirsiniz."
+            />
+          ) : (
+            <div className="mb-4 space-y-2">
+              {curriculumTopics.map((topic) => (
+                <Card key={topic.id} className="!p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-slate-50">{topic.title}</p>
+                      {topic.description ? (
+                        <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{topic.description}</p>
+                      ) : null}
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Son güncelleme: {formatDateTime(topic.updatedAt)} · {topic.updatedBy}
+                      </p>
+                      {topic.notes ? (
+                        <p className="mt-1 text-xs text-slate-500">Not: {topic.notes}</p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <Badge status={topic.status}>{topic.status}</Badge>
+                      <p className="mt-1 text-sm font-semibold text-cyan-700">%{topic.progressPercent}</p>
+                    </div>
+                  </div>
+                  {topic.history?.length ? (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[11px] font-medium text-slate-500">
+                        Geçmiş ({topic.history.length})
+                      </summary>
+                      <ul className="mt-1 space-y-1 text-[11px] text-slate-500">
+                        {[...topic.history].reverse().slice(0, 8).map((ev, i) => (
+                          <li key={`${topic.id}-h-${i}`}>
+                            {formatDateTime(ev.at)} · {ev.action}
+                            {ev.fromProgress !== undefined && ev.toProgress !== undefined
+                              ? ` · %${ev.fromProgress}→%${ev.toProgress}`
+                              : ""}
+                            {ev.note ? ` — ${ev.note}` : ""} · {ev.byUserId}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                  <CurriculumTopicUpdateForm
+                    topicId={topic.id}
+                    currentStatus={topic.status}
+                    currentProgress={topic.progressPercent}
+                  />
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Paylaşılan materyaller
+          </p>
           {materials.length === 0 ? (
             <EmptyState
               title="Bu öğrenciye görünen materyal yok"
-              description="Paylaştığınız materyaller tür, enstrüman veya seviye hedefine göre filtrelenir."
+              description="Materyal paylaşımı için Materyaller sayfasını kullanın."
             />
           ) : (
             <div className="space-y-2">
@@ -408,6 +482,12 @@ export default async function TeacherStudentWorkspacePage({
               ))}
             </div>
           )}
+          <Link
+            href="/ogretmen/materyaller"
+            className="mt-2 inline-block text-sm font-medium text-cyan-700 hover:text-cyan-800"
+          >
+            Materyal paylaş →
+          </Link>
         </section>
 
         <section id="gelisim" aria-labelledby="gelisim-heading">
