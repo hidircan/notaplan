@@ -82,14 +82,14 @@ export default async function TeacherStudentWorkspacePage({
 
   const branch = data.settings.branches.find((b) => b.id === student.branchId);
   const lessons = ownStudentLessons(data.lessons, teacherId, student.id);
-  const nowMs = Date.now();
-  // Aktif/yaklaşan: in_progress + scheduled (gelecek veya son 6 saatte gecikmiş)
+  // Aktif/yaklaşan: in_progress + scheduled (gelecek veya son 6 saatte gecikmiş).
+  // Eşik ISO string karşılaştırması — sunucu render anında sabit.
+  const delayedCutoffIso = new Date(Date.parse(new Date().toISOString()) - 6 * 60 * 60 * 1000).toISOString();
   const upcoming = [...lessons]
     .filter((l) => {
       if (l.status === "in_progress") return true;
       if (l.status !== "scheduled") return false;
-      const start = new Date(l.startAt).getTime();
-      return start >= nowMs - 6 * 60 * 60 * 1000;
+      return l.startAt >= delayedCutoffIso;
     })
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
     .slice(0, 8);

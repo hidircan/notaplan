@@ -1445,15 +1445,15 @@ burada yalnızca tek bir yerden görülebilmesi için listeleniyor:
   EPIC 0'ın P1 alt-görevi) — hiç yazılmadı; tek-tenant üretimde pratik etkisi
   düşük olduğu için bilinçli olarak bu sprintin dışında bırakıldı. `/api/v1/workflows/tick`
   hâlâ global (tenant'lar arası paylaşılan) durumla çalışıyor.
-- **Sidebar/nav bağlantıları** (`src/components/sidebar.tsx`, `/ogretmen/page.tsx`,
-  `/panel/ogretmenler/page.tsx` vb.) — EPIC 1/5/6A/7/8/9/6D boyunca defalarca:
-  bu dosyalar önceki oturumdan kalma, commit edilmemiş, ilgisiz değişikliklerle
-  o kadar iç içe geçmiş ki satır bazında izolasyon güvenli değildi. Yeni
-  sayfaların TÜMÜ doğrudan URL ile çalışıyor, yalnızca menüde görünmüyorlar.
+- **Sidebar/nav bağlantıları** (`src/components/sidebar.tsx`, `/panel/ogretmenler/page.tsx`
+  vb.) — önceki oturumdan kalma, commit edilmemiş, ilgisiz değişikliklerle iç
+  içe; satır bazında izolasyon güvenli değildi. Öğretmen ana ekranındaki
+  **öğrenci çalışma alanı linki** ve **ders başlat/bitir** bu sprintte izole
+  edilerek eklendi; diğer menü temizlikleri hâlâ açık.
 - **Öğretmen müsaitlik düzeltme admin ekranı** (EPIC 8) — API/tool/RBAC yolu
   tam, yalnızca bir form eksik.
 - **Bağlantı kopması/offline senaryosu** (EPIC 8, "Dersi başlat/bitir") —
-  kullanıcıya UI uyarısı dışında çözülmedi, ayrı bir keşif görevi.
+  kullanıcıya UI uyarısı + tekrar dene dışında çözülmedi; offline queue yok.
 
 ## Bu turda gerçekleşen kapsam
 
@@ -1461,3 +1461,31 @@ Bu oturumda plandaki 12 adımın TAMAMI uygulandı — her epic kendi doğrulama
 turuyla (`typecheck`/`lint`/`test`/`prisma validate`/`build` + epic raporu),
 küçük ve bağımsız commit'lere bölünerek. Yukarıdaki "bilinçli olarak açık
 bırakılan öğeler" dışında hiçbir epic kısmi durumda değil.
+
+---
+
+## Takip: Öğretmen öğrenci çalışma alanı (post-EPIC portal birleşimi) ✅
+
+Öğretmen portalını tek bir **öğrenci çalışma alanı** etrafında birleştirir.
+Yeni veri modeli yok; mevcut store/API/RBAC kontratları kullanılır.
+
+| Adım | Commit konusu | Durum |
+|------|---------------|--------|
+| 1 | Güvenli `/ogretmen/ogrenciler/[studentId]` + `findOwnStudent` | ✅ |
+| 2 | Ödev / materyal / müfredat bölümleri | ✅ |
+| 3 | EPIC 7 `LessonAssessmentForm` + geçmiş/trend | ✅ |
+| 4 | Ders başlat/bitir UI (ana ekran + çalışma alanı) | ✅ |
+| 5 | Dokümantasyon | ✅ |
+
+**Erişim:** `session.teacherId` + `findOwnStudent` — URL'den gelen `studentId`
+başka öğretmenin öğrencisiyse veya tenant dışıysa genel "bulunamadı" kabuğu;
+hiçbir profil/ders/ödev sızmaz. Tenant izolasyonu `readData()` oturum
+kapsamına bağlı (mevcut davranış).
+
+**Gelişim formu kaynağı:** EPIC 7 (`3f44ae7`) — `LessonAssessment` /
+`AssessmentScores` (10 madde, 1–5) + `LessonAssessmentForm`; ikinci paralel
+model yaratılmadı.
+
+**Ders state:** mevcut `startLessonTool` / `endLessonTool` +
+`/api/v1/lessons/:id/{start,end}` — yalnızca
+`scheduled → in_progress → completed`.

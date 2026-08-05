@@ -4,6 +4,21 @@
 `DATABASE_ARCHITECTURE.md`) **yanında** tutulur, onların yerine geçmez. Onlarla
 çelişen bir madde bulunursa canonical doküman geçerlidir.
 
+## Session — Öğretmen öğrenci çalışma alanı (portal birleşimi)
+
+Öğretmen ana ekranından kendi öğrencilerine `/ogretmen/ogrenciler/[studentId]`
+çalışma alanı. Genel bakış, dersler, ödev (oluştur/incele), materyal/müfredat
+özeti, EPIC 7 gelişim formu + geçmiş. Ders başlat/bitir ana ekran bugünkü
+kartlarda ve çalışma alanı yaklaşan derslerde.
+
+- **Scope helpers:** `findOwnStudent` / `ownStudents` / `ownStudentLessons` /
+  `ownWeekLessons` (`teacher-portal-scope.ts`) + unit testler.
+- **Güvenlik:** cross-teacher URL → bulunamadı; tool katmanı ödev/değerlendirme/
+  materyal okumalarında zaten sahiplik zorlar.
+- **Gelişim formu:** mevcut `LessonAssessmentForm` (EPIC 7) — yeni model yok.
+- **Canlı ders UI:** `LessonLiveActions` double-click guard + loading/error retry.
+- **Dokunulmayan:** kirli ağaçtaki AI/panel/sidebar ve diğer ilgisiz dosyalar.
+
 ## Güncel Durum — AI Runtime (provider sırası / modeller / env)
 
 Bu bölüm HER ZAMAN güncel tutulur. Aşağıdaki session kayıtları (en yeniden en
