@@ -1,4 +1,97 @@
 
+## Session — Kişi Detay Ekranları + Liste Filtreleri + Evraklar UX +
+    Ders Programı Okunabilirliği + Kurumsal Tema Tercihleri (2026-08-05)
+
+Doğrudan önceki "Fonksiyon Onarımı + Kurumsal UI Yenilemesi" sprintinin
+üzerine, aynı oturumda devam edildi. Kirli çalışma ağacı bu sefer temizdi
+(önceki sprint sonunda hepsi commit'lenmişti) — yalnızca AI/kurum-seçici
+sprintlerine ait ~100 dosya hâlâ uncommitted, hiçbiri değişmedi.
+
+**1. Öğrenci detay ekranı (`/panel/ogrenciler/[studentId]`):** 9 bölüm
+(Genel/Veli-İletişim/Program/Yoklama/Telafi/Ödeme/Gelişim/Ödev-Materyal/
+Evrak), her biri ilgili tam ekrana derin bağlantı (Programda Aç artık
+`?studentId=` ile gerçekten ön-filtreliyor). T.C. kimlik maskeli + "Göster"
+ile audit'li reveal (yeni `NationalIdReveal` + `POST /api/v1/people/
+reveal-national-id` — `revealNationalIdTool` zaten vardı, hiçbir UI
+kullanmıyordu). "Pasife Al/Aktifleştir" onaylı (yeni `actionArchiveStudent`).
+**Gerçek güvenlik bulgusu:** `panel/layout.tsx` TEACHER/PARENT'ı engelliyordu
+ama STUDENT'ı hiç engellemiyordu — `/panel/odemeler/[studentId]`'de de rol
+kontrolü yoktu; bir öğrenci URL değiştirerek başka bir öğrencinin tüm ödeme
+geçmişini görebiliyordu. Layout'a STUDENT redirect'i eklenerek TÜM
+`/panel/*` için tek noktadan kapatıldı.
+
+**2. Öğretmen detay ekranı (`/panel/ogretmenler/[teacherId]`):** 8 bölüm,
+aynı desenle (T.C. reveal paylaşılan bileşenle, sözleşme kalan-gün
+hesaplaması, per-teacher hakediş — `computeTeacherEarningsForPeriod`,
+tenant-wide olan `computeTeacherPayoutOverview` değil). Öğretmen için
+arşiv/pasife-alma aksiyonu YOK — böyle bir store-level yetenek hiç
+yoktu ve spec'in 2. bölümü bunu istemiyor (yalnızca 1. bölüm, öğrenciler
+için istiyor).
+
+**3. Öğrenci listesi filtreleri:** `students-table.tsx` yeniden yazıldı —
+satır tıklama → detay, telefon/not listeden kaldırıldı, paket yalnız isim
+gösteriyor, tam sütun filtreleri (tür/şube/öğretmen/metod/paket/MEB-LCM
+seviye/ödeme durumu — hepsi çoklu seçim chip'leri — + aktif-pasif + kayıt
+tarihi aralığı) URL query string'inde (paylaşılabilir/yer imli),
+"Filtreleri Temizle" + toplam/filtre sonucu sayısı.
+
+**4. Evraklar Merkezi:** kart listesinden gerçek doküman merkezine —
+`listDocumentInstances`/Tool (tenant-scoped, filtreli), `archiveDocumentInstance`
+(silme yok, "cancelled"a geçer), yeni dosya alanları (`fileName`/
+`fileMimeType`/`fileData`/`signedUploadedAt`, migration
+`20260805210000_document_signed_upload`) + `uploadSignedDocumentFile`/Tool
++ `GET /api/v1/documents/:id/file`. Ana ekran: KPI satırı + filtrelenebilir
+tablo + "Yeni Evrak Oluştur" (mevcut form korunmuş). Detay ekranı: önizleme,
+imzalı sürüm yükleme/indirme, denetim kaydı (`listAuditLogs` artık
+`entityId` filtresi de alıyor), "Öğrenci Detayında Aç". `documentKindLabel()`
+9 evrak türüne ilk kez Türkçe isim kazandırdı (şablonlar İngilizce
+`kind.replace(/_/g,' ')` ile adlandırılıyordu). **Bilinen boşluk:** yalnız
+4/9 tür için gerçek şablon metni var (diğerleri editoryal içerik gerektirir,
+bu sprintin kapsamı dışında); `ClosedDay`'de olduğu gibi belge son kullanma
+tarihi hiç modellenmemiş, "Süresi Yaklaşan" KPI'sı hesaplanamıyor.
+
+**5. Ders Programı:** `computeGridWindow` artık 10:00 tabanının ALTINA
+İNEMİYOR (eskiden erken bir ders veya mesai saati grid'i geriye
+genişletebiliyordu — ilgili unit test bilerek güncellendi). Pazartesi
+`visibleDays` ile üç görünümden de (hafta grid'i, gün seçici, öğretmenin
+kendi haftalık görünümü) tamamen çıkarıldı; mevcut Pazartesi dersleri
+SİLİNMEDİ, görünmeyen haftada bir uyarı bandı olarak listeleniyor. Backend:
+`createLessonTool`/`updateLessonScheduleTool` (modal+drag-drop+resize'ın
+hepsi bunlardan geçiyor) + ders serisi şeması (`weekday=1` reddi) artık
+Pazartesi'yi reddediyor. `seed.ts`'in varsayılan `workingHours.start`'ı
+10:00'a çekildi (yalnız YENİ kurumlar için). Okunabilirlik: leftover
+`#7c3aed` (mekanik tema sed'inin hex literal'leri yakalamadığı iki nokta)
+düzeltildi, mevcut, storage gerektirmeyen `turkeyFixedPublicHolidays` artık
+gün başlıklarında kırmızı işaretleniyor. **Bilinen boşluk:** yönetici özel
+kapalı günü — `ClosedDay` yalnızca kullanılmayan bir tip, store/tool/UI'ı
+yok; bu ayrı bir özellik, bu sprintin kapsamı dışında.
+
+**6. Tema profilleri + yazı tipi:** eski Sistem/Açık/Koyu anahtarı tamamen
+kaldırıldı (`theme.ts` yeniden yazıldı, `theme-selector.tsx` — hiç render
+edilmiyordu — silindi). Dört profil (Kurumsal Altın/Lacivert Kurumsal/Orman
+Yeşili/Bordo Klasik — yalnızca marka/vurgu tokenları değişiyor, boşluk/
+radius/gölge/durum renkleri sabit) + üç font (Kurumsal/Modern/Klasik Sans,
+üçü de sans-serif). `/gorunum-ayarlari` (bilerek `/panel` DIŞINDA — ilk
+sürümü `/panel` altındaydı ve TEACHER/PARENT/STUDENT'ı dışlıyordu, son
+doğrulama turunda bulunup taşındı) canlı önizleme + "Varsayılana Dön" ile.
+**Bilinen boşluk:** öğretmen/veli/öğrenci portalları hâlâ kendi hardcoded
+emerald/cyan renklerini kullanıyor — profil cookie'si teknik olarak oradan
+da okunuyor ama görsel bir etkisi yok (yalnızca `/panel/*` zaten CSS
+token sistemini kullanıyor).
+
+**Doğrulama:** typecheck/lint/`prisma validate`/build temiz, tam test
+suite'i 829/829 yeşil (13'ü yeni: document-instances 10, theme-profiles +
+theme-actions 14, computeGridWindow/Pazartesi 7 — net +1 çünkü 2 eski,
+hiç commit'lenmemiş tema testi silindi). Dev server + gerçek login (4 rol)
+ile tüm admin ekranları, tüm portallar, yeni öğrenci/öğretmen detay
+ekranları, Evraklar Merkezi, Görünüm Ayarları (4 rol de artık erişebiliyor)
+200 döndü; STUDENT/TEACHER/PARENT yeni admin-only rotalarda 307; Program
+ekranı tam olarak 6 gün sütunu gösteriyor (Pazartesi yok), ilk görünür saat
+10:00.
+
+**Dokunulmadan bırakılanlar:** aynı ~35+ dosyalık AI/Collections/kurum-
+selector grubu (önceki oturumdaki gibi) hiç değişmedi/commit'e alınmadı.
+
 ## Session — Fonksiyon Onarımı + Kurumsal UI Yenilemesi (2026-08-05)
 
 Grok'un token'ı bitmesiyle yarım kalan sprint devralındı ve tamamlandı.

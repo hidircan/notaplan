@@ -275,13 +275,28 @@ Her paket için minimum:
 |-------|--------|----------------|
 | 0 Backlog belgesi | ✅ | `5646aa1` |
 | 1 Hassas veri + yetki | ✅ | PII AES-GCM, maskeleme, `pii:full`, reveal audit |
-| 2 Öğrenci/öğretmen model alanları | 🟡 kısmi | Types + schema + archive API; form UX sonraki |
+| 2 Öğrenci/öğretmen model alanları | 🟡 kısmi | Types + schema + archive API; öğrenci/öğretmen detay ekranları eklendi (bkz. §11); form UX sonraki |
 | 3 Tahsilat kuralları | 🟡 kısmi | Vade + IBAN çözümleme pure + tool |
-| 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers + deneme model/UI; Geldi/İşlendi/Telafi artık Program+Yoklama+öğretmen ekranlarının hepsinde canlı (bkz. "Fonksiyon Onarımı + Kurumsal UI" sprinti) |
-| 5 Evraklar Faz 1 | ✅ iskelet | Şablon, referans, oluştur/yazdır API+UI |
-| 6 Evraklar Faz 2 | ⏳ | Yükleme/versiyon sonraki sprint |
+| 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers artık gerçekten uygulanıyor (bkz. §11) + deneme model/UI; Geldi/İşlendi/Telafi Program+Yoklama+öğretmen ekranlarının hepsinde canlı |
+| 5 Evraklar Faz 1 | ✅ | Şablon, referans, oluştur/yazdır API+UI + tam Evraklar Merkezi (liste/filtre/KPI/detay), bkz. §11 |
+| 6 Evraklar Faz 2 | 🟡 kısmi | İmzalı sürüm yükleme/görüntüleme eklendi; sürüm geçmişi/arama sonraki |
 
 Durum güncellemeleri `WORK_PROGRESS.md` ve bu tablo ile senkron tutulur.
+
+## 11. Kişi Detay Ekranları + Liste Filtreleri + Evraklar UX + Ders Programı
+    Okunabilirliği + Kurumsal Tema Tercihleri (2026-08-05)
+
+Ayrıntılar için `WORK_PROGRESS.md`'deki aynı başlıklı bölüme bakın. Özet:
+öğrenci ve öğretmen detay ekranları (`/panel/ogrenciler/[studentId]`,
+`/panel/ogretmenler/[teacherId]`) eklendi; öğrenci listesine tam sütun
+filtreleri (URL query state) geldi; Evraklar Merkezi kart listesinden
+gerçek bir doküman merkezine (KPI + tablo + detay + imzalı yükleme)
+dönüştürüldü; Ders Programı artık Pazartesi'yi hiç göstermiyor, 10:00'da
+başlıyor ve backend'de yeni Pazartesi planlamasını reddediyor; dört
+kurumsal tema profili + üç yazı tipi seçeneği (`/gorunum-ayarlari`, tüm
+portallardan erişilebilir) eklendi. Devir teslimde bulunan (ama hiç
+commit'e alınmamış) `src/lib/nav/panel-nav.ts` da bu oturumda commit'e
+alındı — onsuz fresh clone build alamazdı.
 
 ## 10. Fonksiyon Onarımı + Kurumsal UI Yenilemesi (2026-08-05, Grok devrinden devam)
 
