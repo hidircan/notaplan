@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardList,
+  FileText,
   GraduationCap,
   User,
 } from "lucide-react";
@@ -12,13 +13,16 @@ import { readData } from "@/lib/store";
 import { requireSessionContext } from "@/lib/auth/session";
 import { findOwnStudent, ownStudentLessons } from "@/lib/teacher-portal-scope";
 import {
+  getAssessmentReportTool,
   listHomeworkForStudentTool,
   listHomeworkSubmissionsTool,
   listTeachingMaterialsForStudentTool,
 } from "@/lib/services";
+import { computeOverallScore } from "@/lib/assessment/score";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { HomeworkCreateForm } from "@/components/homework-create-form";
 import { HomeworkReviewForm } from "@/components/homework-review-form";
+import { LessonAssessmentForm } from "@/components/lesson-assessment-form";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 
@@ -108,6 +112,12 @@ export default async function TeacherStudentWorkspacePage({
     studentId: student.id,
   });
   const materials = materialsResult.ok ? materialsResult.data.materials : [];
+
+  // Gelişim — EPIC 7 LessonAssessment modeli (ikinci paralel form yok).
+  const assessmentReport = await getAssessmentReportTool(session, { studentId: student.id });
+  const pastAssessments = assessmentReport.ok ? assessmentReport.data.assessments : [];
+  const trend = assessmentReport.ok ? assessmentReport.data.trend : [];
+  const assessmentLessons = lessons.map((l) => ({ id: l.id, startAt: l.startAt }));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
@@ -388,7 +398,94 @@ export default async function TeacherStudentWorkspacePage({
           <h2 id="gelisim-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
             Gelişim
           </h2>
-          <EmptyState title="Gelişim takibi yakında" description="Mevcut değerlendirme formu buraya bağlanacak." />
+
+          {trend.length > 0 ? (
+            <Card className="mb-3 !p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Son skor trendi
+              </p>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                {trend.map((point) => (
+                  <div
+                    key={point.assessmentId}
+                    className="flex min-w-[3.5rem] flex-col items-center rounded-lg bg-violet-50 px-2 py-1.5"
+                  >
+                    <span className="text-sm font-semibold text-violet-700">
+                      {point.overallScore.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {formatDate(point.date, "d MMM")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {pastAssessments.length > 0 ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  Son ortalama:{" "}
+                  <span className="font-semibold text-violet-700">
+                    {computeOverallScore(pastAssessments[0]!).toFixed(1)} / 5
+                  </span>
+                  {" · "}
+                  <Link
+                    href={`/degerlendirme/rapor/${student.id}`}
+                    className="font-medium text-cyan-700 hover:underline"
+                  >
+                    4 haftalık rapor
+                  </Link>
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+
+          <Card className="mb-3">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-cyan-600">
+              Yeni gelişim değerlendirmesi
+            </p>
+            {assessmentLessons.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Bu öğrenciyle henüz ders kaydı yok; değerlendirme bir derse bağlanır.
+              </p>
+            ) : (
+              <LessonAssessmentForm
+                studentId={student.id}
+                lessons={assessmentLessons}
+                defaultTeacherName={teacher.name}
+              />
+            )}
+          </Card>
+
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Geçmiş değerlendirmeler
+          </p>
+          {pastAssessments.length === 0 ? (
+            <EmptyState
+              title="Henüz değerlendirme yok"
+              description="Yukarıdaki formla ilk gelişim kaydını oluşturabilirsiniz."
+            />
+          ) : (
+            <div className="space-y-2">
+              {pastAssessments.map((a) => (
+                <Link key={a.id} href={`/degerlendirme/${a.id}`}>
+                  <Card className="!p-4 transition hover:border-violet-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-violet-500" aria-hidden />
+                        <div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                            {formatDate(a.createdAt, "d MMMM yyyy")}
+                          </p>
+                          <p className="text-xs text-slate-400 line-clamp-1">{a.strengthNote}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-semibold text-violet-700">
+                        {computeOverallScore(a).toFixed(1)} / 5
+                      </p>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
