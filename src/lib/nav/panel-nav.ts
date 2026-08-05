@@ -69,7 +69,7 @@ export const PANEL_AI_NAV: PanelNavItem[] = [
 export const PANEL_SYSTEM_NAV: PanelNavItem[] = [
   { href: "/panel/kurulum", label: "Kurulum Merkezi", icon: Settings },
   { href: "/panel/veri-aktar", label: "Veri Aktarım Merkezi", icon: Upload },
-  { href: "/panel/gorunum-ayarlari", label: "Görünüm Ayarları", icon: Palette },
+  { href: "/gorunum-ayarlari", label: "Görünüm Ayarları", icon: Palette },
 ];
 
 export function isNavActive(pathname: string, href: string): boolean {

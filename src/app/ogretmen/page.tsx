@@ -7,7 +7,7 @@ import { Badge, Card } from "@/components/ui";
 import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { actionMarkAttendance } from "@/lib/actions";
 import { computeTeacherEarningsForPeriod } from "@/lib/teacher-payout";
-import { CalendarDays, Home, Music2, Users, Wallet } from "lucide-react";
+import { CalendarDays, Home, Music2, Palette, Users, Wallet } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
@@ -80,6 +80,9 @@ export default async function OgretmenPortalPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/gorunum-ayarlari" className="text-slate-400 hover:text-slate-600" aria-label="Görünüm ayarları">
+              <Palette className="h-4 w-4" />
+            </Link>
             <LogoutButton className="!text-xs" />
             <Link href="/" className="text-slate-400">
               <Home className="h-4 w-4" />

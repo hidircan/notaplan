@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Video } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Palette, Video } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { readData } from "@/lib/store";
 import { listAnnouncementsForUserTool, listCurriculumForStudentTool } from "@/lib/services";
@@ -104,6 +104,9 @@ export default async function OgrenciPortalPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/gorunum-ayarlari" className="text-slate-400 hover:text-slate-600" aria-label="Görünüm ayarları">
+              <Palette className="h-4 w-4" />
+            </Link>
             <LogoutButton className="!text-xs text-slate-500" />
             <Link href="/" className="text-xs text-emerald-600">
               <Home className="h-4 w-4" />

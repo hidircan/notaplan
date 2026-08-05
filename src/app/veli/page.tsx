@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   CreditCard,
   Star,
+  Palette,
 } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
@@ -151,6 +152,9 @@ export default async function VeliPortalPage() {
                 </span>
               ) : null}
             </a>
+            <Link href="/gorunum-ayarlari" className="text-slate-400 hover:text-slate-600" aria-label="Görünüm ayarları">
+              <Palette className="h-4 w-4" />
+            </Link>
             <LogoutButton className="!text-xs text-slate-500 dark:text-slate-400" />
             <Link href="/" className="text-xs text-amber-600">
               <Home className="h-4 w-4" />
