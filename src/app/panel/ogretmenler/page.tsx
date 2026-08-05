@@ -51,7 +51,12 @@ export default async function OgretmenlerPage() {
                         .slice(0, 2)}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">{t.name}</h3>
+                      <Link
+                        href={`/panel/ogretmenler/${t.id}`}
+                        className="font-semibold text-slate-900 hover:text-[var(--color-primary)] dark:text-slate-50"
+                      >
+                        {t.name}
+                      </Link>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         {data.settings.branches.find((b) => b.id === t.branchId)?.shortName} ·{" "}
                         {t.email} · {t.phone}
@@ -124,6 +129,12 @@ export default async function OgretmenlerPage() {
                 ) : null}
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                  <Link
+                    href={`/panel/ogretmenler/${t.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)]/40 bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary-soft-text)] hover:bg-[var(--color-primary-soft)]/70"
+                  >
+                    Detay
+                  </Link>
                   <Link
                     href={`/panel/ogretmenler/${t.id}/hakedis`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
