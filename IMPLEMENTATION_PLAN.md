@@ -1007,10 +1007,11 @@ buna hazır (`stripPrivateNoteForRecipient` forward-compat).
 
 ## EPIC 6 — Öğrenci, veli, öğretmen portalı [P1/P2]
 
-**Durum:** 🟡 Kısmen tamamlandı — yalnızca 6A (STUDENT rolü + boş `/ogrenci`
-iskelet) yapıldı, commit `042be50`. 6B/6C/6D (ödev/materyal, dosya erişim
-token'ı, memnuniyet formu) henüz PLANLANDI — bkz. aşağıdaki "Riskler"
-bölümündeki 5 adımlı bölünme, yalnızca adım (1) tamamlandı.
+**Durum:** 🟡 Kısmen tamamlandı — 6A (commit `042be50`) ve 6B (commit
+`8be124e`: Homework/HomeworkSubmission/TeachingMaterial/TeacherFeedback
+modelleri + tam backend + STUDENT portal UI) bitti. 6C (veli UI) ve 6D
+(öğretmen UI) aynı backend'i kullanarak PLANLANDI — bkz. aşağıdaki
+"Riskler" bölümündeki 5 adımlı bölünme, adım (1) ve (2) tamamlandı.
 
 ### Mevcut durum
 `/veli` bugün TEK, sabit bir "veli" deneyimi (`session.studentId` ile
@@ -1133,9 +1134,53 @@ pratik değildi — diskte çalışır durumda, commit'e dahil edilmedi (EPIC 1/
 ile aynı gerekçe). `/ogrenci` ve `/panel/duyurular` doğrudan URL ile
 erişilebilir, yalnızca sidebar'da görünür değiller.
 
-**Henüz yapılmayan (6B/6C/6D — ayrı bir turda):** Homework/HomeworkSubmission/
-TeachingMaterial modelleri, dosya/video erişim token'ı, TeacherFeedback
-(memnuniyet formu), çocuk hesabı yaş/onay politikası ürün kararı.
+**Henüz yapılmayan (6C/6D — ayrı turlarda, aynı 6B backend'i üzerine):**
+Veli portalına (`/veli`) ödev/materyal görünümü + öğretmen geri bildirim
+formu (6C); öğretmen portalına (`/ogretmen`) ödev/materyal oluşturma +
+teslim değerlendirme ekranı (6D). Çocuk hesabı yaş/onay politikası hâlâ bir
+ürün kararı, kod değişikliği değil (bkz. Açık kararlar).
+
+### Tamamlanan — 6B (uygulama özeti — commit `8be124e`)
+- `prisma/schema.prisma`: `Homework`/`HomeworkSubmission`/`TeachingMaterial`/
+  `TeacherFeedback` — dördü de additive. Dosya içeriği (foto/kısa video/
+  belge) `@db.LongText` alanında base64 olarak taşınıyor — plan'ın "(A)
+  seçeneği" (yeni obje depolama bağımlılığı YOK), ~2MB ham veri sınırıyla
+  (`validation.ts`).
+- `src/lib/homework.ts`/`teaching-materials.ts`/`teacher-feedback.ts`
+  (standalone modüller, `announcements`/`assessment` ile aynı desen) +
+  `src/lib/teaching-materials-audience.ts` (saf hedefleme fonksiyonu,
+  `announcements/audience.ts`'in aynısı — her hedefleme alanı BAĞIMSIZ
+  eşleşir).
+- Tools: `createHomeworkTool`/`submitHomeworkTool`/
+  `reviewHomeworkSubmissionTool`/`createTeachingMaterialTool` + liste
+  varyantları — sahiplik her yerde `canAccessStudent` +
+  `assertTeacherOwnsStudent` ile zorlanıyor (bir öğretmen asla başka bir
+  öğretmenin öğrencisinin ödevine/teslimine dokunamıyor).
+- Dosya erişimi: `GET /api/v1/homework-submissions/[id]/file` ve
+  `GET /api/v1/teaching-materials/[id]/file` — asla ham/tahmin edilebilir
+  bir URL değil, her istekte oturum + aynı sahiplik kontrolü tekrar
+  çalışıyor, ham baytlar `Content-Disposition: inline` ile dönüyor.
+- Yeni RBAC izinleri: `homework:read/write/submit`,
+  `materials:read/write`, `teacher_feedback:submit/read`. STUDENT'a EPIC
+  6A'nın "hiç yazamaz" kuralına BİLİNÇLİ, DAR iki istisna eklendi (kendi
+  ödev teslimini yükleme, kendi öğretmeni hakkında geri bildirim) — ikisi
+  de tanım gereği öğrenci tarafından üretilen içerik.
+- `TeacherFeedback` (6C'nin modeli, şema göçüyle bağlı olduğu için burada
+  kuruldu): `submitTeacherFeedbackTool` (PARENT/STUDENT, yalnızca kendi
+  çocuğu/kendisi), `listTeacherFeedbackTool` (yalnızca SCHOOL_ADMIN/
+  SUPER_ADMIN — öğretmenin kendi puanını görebileceği bir yol YOK, kamuya
+  açık ortalama/sıralama asla hesaplanmıyor).
+- UI: `/ogrenci`'ye "Program bilgim" kartı (EPIC 4'ün studentType/level/
+  targetExam alanları) + `/ogrenci/odevlerim` (ödev listesi, teslim
+  durumu, öğretmen geri bildirimi, yükleme formu) ve
+  `/ogrenci/materyaller` (hedeflenen materyaller) bağlantıları eklendi.
+- Test: `homework-visibility.test.ts` (22 test) ve
+  `teacher-feedback-privacy.test.ts` (10 test) — her tool'da sahiplik
+  sınırı, hedefleme eşleşme uçları, TEACHER'ın RBAC kataloğunda
+  `teacher_feedback:read` izninin OLMADIĞININ açık doğrulaması. Toplam
+  733/733 test yeşil.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi
+  yeşil.
 
 ---
 
