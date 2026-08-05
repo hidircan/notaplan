@@ -181,19 +181,30 @@ export default async function OgretmenPortalPage() {
             <h2 className="text-sm font-semibold text-slate-800">Öğrencilerim</h2>
           </div>
           <div className="space-y-2">
-            {students.map((s) => (
-              <Card key={s.id} className="!p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{s.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {s.instruments.join(", ")} · Veli: {s.parentName}
-                    </p>
-                  </div>
-                  <Badge>{s.packageName.split("—")[0]?.trim()}</Badge>
-                </div>
+            {students.length === 0 ? (
+              <Card>
+                <p className="text-sm text-slate-500">Aktif öğrenciniz yok.</p>
               </Card>
-            ))}
+            ) : (
+              students.map((s) => (
+                <Link key={s.id} href={`/ogretmen/ogrenciler/${s.id}`} className="block">
+                  <Card className="!p-3 transition hover:border-cyan-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{s.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {s.instruments.join(", ")} · Veli: {s.parentName}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge>{s.packageName.split("—")[0]?.trim()}</Badge>
+                        <span className="text-[11px] font-medium text-cyan-700">Çalışma alanı →</span>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))
+            )}
           </div>
         </section>
 

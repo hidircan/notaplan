@@ -1,0 +1,325 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  ArrowLeft,
+  BookOpen,
+  CalendarDays,
+  ClipboardList,
+  GraduationCap,
+  User,
+} from "lucide-react";
+import { readData } from "@/lib/store";
+import { requireSessionContext } from "@/lib/auth/session";
+import { findOwnStudent, ownStudentLessons } from "@/lib/teacher-portal-scope";
+import { Badge, Card, EmptyState } from "@/components/ui";
+import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
+import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Öğretmen öğrenci çalışma alanı.
+ *
+ * Güvenlik: studentId URL'den gelir ama teacherId ASLA URL'den alınmaz —
+ * yalnızca oturumdan. `findOwnStudent` kaydın bu öğretmene ait olduğunu
+ * doğrular; değilse (başka öğretmen / tenant dışı id) "bulunamadı"
+ * gösterilir, hiçbir öğrenci verisi sızmaz.
+ */
+export default async function TeacherStudentWorkspacePage({
+  params,
+}: {
+  params: Promise<{ studentId: string }>;
+}) {
+  const { studentId } = await params;
+
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect(`/login?next=/ogretmen/ogrenciler/${studentId}`);
+  }
+  if (session.role === "PARENT") redirect("/veli");
+  if (session.role === "STUDENT") redirect("/ogrenci");
+
+  const data = await readData();
+  // Oturum teacherId yoksa (admin demo) rastgele öğretmen düşme — erişim yok.
+  const teacherId = session.teacherId;
+  if (!teacherId) {
+    return (
+      <NotFoundShell
+        backHref="/ogretmen"
+        message="Bu sayfaya yalnızca öğretmen hesabıyla erişilebilir."
+      />
+    );
+  }
+
+  const teacher = data.teachers.find((t) => t.id === teacherId);
+  if (!teacher) {
+    return <NotFoundShell backHref="/ogretmen" message="Öğretmen kaydı bulunamadı." />;
+  }
+
+  const student = findOwnStudent(data.students, studentId, teacherId);
+  if (!student) {
+    return (
+      <NotFoundShell
+        backHref="/ogretmen"
+        message="Öğrenci bulunamadı veya size atanmamış."
+      />
+    );
+  }
+
+  const branch = data.settings.branches.find((b) => b.id === student.branchId);
+  const lessons = ownStudentLessons(data.lessons, teacherId, student.id);
+  const nowIso = new Date().toISOString();
+  const upcoming = lessons.filter((l) => l.startAt >= nowIso && l.status === "scheduled").slice(0, 6);
+  const past = lessons
+    .filter((l) => l.startAt < nowIso || l.status === "completed" || l.status === "no_show")
+    .slice(0, 8);
+
+  const lessonIds = new Set(lessons.map((l) => l.id));
+  const attendances = data.attendances.filter((a) => lessonIds.has(a.lessonId));
+  const attendanceSummary = {
+    present: attendances.filter((a) => a.status === "present").length,
+    late: attendances.filter((a) => a.status === "late").length,
+    absent: attendances.filter((a) => a.status === "absent").length,
+    cancelled: attendances.filter((a) => a.status === "cancelled_by_school").length,
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
+          <Link
+            href="/ogretmen"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
+          </Link>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Öğrenci</p>
+          <span className="w-10" aria-hidden />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
+        {/* Genel bakış */}
+        <Card className="border-cyan-100">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
+              style={{ background: teacher.color }}
+              aria-hidden
+            >
+              {student.name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{student.name}</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {student.instruments.join(", ")}
+                {branch ? ` · ${branch.shortName}` : ""}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Veli: {student.parentName} · {student.parentPhone}
+              </p>
+            </div>
+            <Badge>{student.packageName.split("—")[0]?.trim()}</Badge>
+          </div>
+        </Card>
+
+        <nav aria-label="Bölümler" className="flex flex-wrap gap-2 px-1">
+          <SectionChip href="#genel" icon={<User className="h-3 w-3" />} label="Genel" />
+          <SectionChip href="#dersler" icon={<CalendarDays className="h-3 w-3" />} label="Dersler" />
+          <SectionChip href="#odevler" icon={<ClipboardList className="h-3 w-3" />} label="Ödevler" />
+          <SectionChip href="#materyal" icon={<BookOpen className="h-3 w-3" />} label="Materyal" />
+          <SectionChip href="#gelisim" icon={<GraduationCap className="h-3 w-3" />} label="Gelişim" />
+        </nav>
+
+        <section id="genel" aria-labelledby="genel-heading">
+          <h2 id="genel-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Genel bakış
+          </h2>
+          <Card className="!p-4">
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <ProfileField label="Eğitim türü" value={student.studentType ?? "Belirtilmemiş"} />
+              <ProfileField label="Seviye" value={student.level ?? "Belirtilmemiş"} />
+              <ProfileField label="Hedef" value={student.targetExam ?? "—"} />
+              <ProfileField
+                label="Haftalık ders"
+                value={`${student.weeklyLessonCount} seans`}
+              />
+              <ProfileField
+                label="Kayıt başlangıcı"
+                value={
+                  student.enrollmentStartDate
+                    ? formatDate(student.enrollmentStartDate)
+                    : "—"
+                }
+              />
+              <ProfileField
+                label="Paket"
+                value={student.packageName.split("—")[0]?.trim() ?? "—"}
+              />
+            </dl>
+            {student.specialNotes || student.notes ? (
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {student.specialNotes || student.notes}
+              </p>
+            ) : null}
+          </Card>
+
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            <MiniStat label="Geldi" value={attendanceSummary.present} />
+            <MiniStat label="Geç" value={attendanceSummary.late} />
+            <MiniStat label="Yok" value={attendanceSummary.absent} />
+            <MiniStat label="İptal" value={attendanceSummary.cancelled} />
+          </div>
+        </section>
+
+        <section id="dersler" aria-labelledby="dersler-heading">
+          <h2 id="dersler-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Dersler
+          </h2>
+
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Yaklaşan
+          </p>
+          {upcoming.length === 0 ? (
+            <EmptyState title="Yaklaşan ders yok" description="Planlanmış seans bulunmuyor." />
+          ) : (
+            <div className="mb-3 space-y-2">
+              {upcoming.map((lesson) => {
+                const room = data.rooms.find((r) => r.id === lesson.roomId);
+                const liveStatus = computeLiveDisplayStatus(lesson);
+                return (
+                  <Card key={lesson.id} className="!p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                          {formatDateTime(lesson.startAt)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {lesson.instrument} · {room?.name ?? "—"}
+                          {lesson.type === "makeup" ? " · Telafi" : ""}
+                        </p>
+                      </div>
+                      <Badge status={liveStatus} />
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+            Geçmiş
+          </p>
+          {past.length === 0 ? (
+            <EmptyState title="Geçmiş ders yok" />
+          ) : (
+            <div className="space-y-2">
+              {past.map((lesson) => {
+                const attendance = data.attendances.find((a) => a.lessonId === lesson.id);
+                return (
+                  <Card key={lesson.id} className="!p-3">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <div>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                          {formatDate(lesson.startAt)} · {formatTime(lesson.startAt)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{lesson.instrument}</p>
+                      </div>
+                      <Badge status={attendance?.status ?? lesson.status} />
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Placeholder sections — filled in later commits; anchors stay stable */}
+        <section id="odevler" aria-labelledby="odevler-heading">
+          <h2 id="odevler-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Ödevler
+          </h2>
+          <EmptyState title="Ödevler yakında" description="Bu bölüm bir sonraki adımda doldurulacak." />
+        </section>
+
+        <section id="materyal" aria-labelledby="materyal-heading">
+          <h2 id="materyal-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Materyal / müfredat
+          </h2>
+          <EmptyState title="Materyaller yakında" description="Bu bölüm bir sonraki adımda doldurulacak." />
+        </section>
+
+        <section id="gelisim" aria-labelledby="gelisim-heading">
+          <h2 id="gelisim-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Gelişim
+          </h2>
+          <EmptyState title="Gelişim takibi yakında" description="Mevcut değerlendirme formu buraya bağlanacak." />
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function NotFoundShell({ backHref, message }: { backHref: string; message: string }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
+      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-4">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
+          </Link>
+        </div>
+      </header>
+      <main className="mx-auto max-w-lg px-4 py-8">
+        <EmptyState title="Bulunamadı" description={message} />
+      </main>
+    </div>
+  );
+}
+
+function SectionChip({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:border-cyan-200 hover:text-cyan-800"
+    >
+      {icon}
+      {label}
+    </a>
+  );
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">{value}</dd>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="!p-2 text-center">
+      <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{value}</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
+    </Card>
+  );
+}
