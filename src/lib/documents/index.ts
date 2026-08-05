@@ -84,7 +84,7 @@ export async function ensureDefaultTemplates(tenantId: string): Promise<Document
     id: uid("dtpl"),
     tenantId,
     kind,
-    name: kind.replace(/_/g, " "),
+    name: documentKindLabel(kind),
     bodyHtml,
     active: true,
     createdAt: now,
@@ -136,6 +136,23 @@ function mapTplDb(t: {
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
+}
+
+const KIND_LABELS: Record<DocumentTemplateKind, string> = {
+  student_enrollment_contract: "Öğrenci Kayıt Sözleşmesi",
+  parent_social_media_consent: "Veli / Sosyal Medya İzni",
+  kvkk: "KVKK",
+  teacher_contract: "Öğretmen Sözleşmesi",
+  teacher_info_form: "Öğretmen Bilgi Formu",
+  trial_form: "Deneme Formu",
+  makeup_request: "Telafi Talebi",
+  payment_commitment: "Ödeme Taahhüdü",
+  petition: "Dilekçe",
+  custom: "Özel Şablon",
+};
+
+export function documentKindLabel(kind: DocumentTemplateKind): string {
+  return KIND_LABELS[kind] ?? kind;
 }
 
 export function renderTemplate(bodyHtml: string, fields: Record<string, string>): string {
@@ -208,6 +225,52 @@ export async function createDocumentInstance(input: {
   return pub;
 }
 
+type DbInstanceRow = {
+  id: string;
+  templateId: string;
+  kind: string;
+  reference: string;
+  status: string;
+  studentId: string | null;
+  teacherId: string | null;
+  trialLessonId: string | null;
+  branchId: string | null;
+  fieldValues: unknown;
+  renderedHtml: string | null;
+  printCount: number;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  fileName?: string | null;
+  fileMimeType?: string | null;
+  fileData?: string | null;
+  signedUploadedAt?: Date | null;
+};
+
+function mapDbInstance(r: DbInstanceRow): DocumentInstance {
+  return {
+    id: r.id,
+    templateId: r.templateId,
+    kind: r.kind as DocumentTemplateKind,
+    reference: r.reference,
+    status: r.status as DocumentInstanceStatus,
+    studentId: r.studentId ?? undefined,
+    teacherId: r.teacherId ?? undefined,
+    trialLessonId: r.trialLessonId ?? undefined,
+    branchId: r.branchId ?? undefined,
+    fieldValues: r.fieldValues as Record<string, string>,
+    renderedHtml: r.renderedHtml ?? undefined,
+    printCount: r.printCount,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    fileName: r.fileName ?? undefined,
+    fileMimeType: r.fileMimeType ?? undefined,
+    fileData: r.fileData ?? undefined,
+    signedUploadedAt: r.signedUploadedAt ? r.signedUploadedAt.toISOString() : undefined,
+  };
+}
+
 export async function getDocumentInstance(
   tenantId: string,
   id: string
@@ -216,28 +279,123 @@ export async function getDocumentInstance(
     const { prisma } = await import("../db");
     const r = await prisma.documentInstance.findFirst({ where: { id, tenantId } });
     if (!r) return null;
-    return {
-      id: r.id,
-      templateId: r.templateId,
-      kind: r.kind as DocumentTemplateKind,
-      reference: r.reference,
-      status: r.status as DocumentInstanceStatus,
-      studentId: r.studentId ?? undefined,
-      teacherId: r.teacherId ?? undefined,
-      trialLessonId: r.trialLessonId ?? undefined,
-      branchId: r.branchId ?? undefined,
-      fieldValues: r.fieldValues as Record<string, string>,
-      renderedHtml: r.renderedHtml ?? undefined,
-      printCount: r.printCount,
-      createdBy: r.createdBy,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    };
+    return mapDbInstance(r);
   }
   const all = await loadInst();
   const r = all.find((x) => x.id === id && x.tenantId === tenantId);
   if (!r) return null;
   const { tenantId: _t, ...pub } = r;
+  void _t;
+  return pub;
+}
+
+export type DocumentInstanceFilters = {
+  kind?: DocumentTemplateKind;
+  status?: DocumentInstanceStatus;
+  studentId?: string;
+  teacherId?: string;
+  branchId?: string;
+  reference?: string;
+};
+
+/** Evraklar Merkezi ana tablosu — kurumun TÜM evrak örnekleri, isteğe bağlı filtrelerle. */
+export async function listDocumentInstances(
+  tenantId: string,
+  filters: DocumentInstanceFilters = {}
+): Promise<DocumentInstance[]> {
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const rows = await prisma.documentInstance.findMany({
+      where: {
+        tenantId,
+        ...(filters.kind ? { kind: filters.kind } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.studentId ? { studentId: filters.studentId } : {}),
+        ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+        ...(filters.branchId ? { branchId: filters.branchId } : {}),
+        ...(filters.reference
+          ? { reference: { contains: filters.reference } }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapDbInstance);
+  }
+  const all = await loadInst();
+  return all
+    .filter((x) => x.tenantId === tenantId)
+    .filter((x) => !filters.kind || x.kind === filters.kind)
+    .filter((x) => !filters.status || x.status === filters.status)
+    .filter((x) => !filters.studentId || x.studentId === filters.studentId)
+    .filter((x) => !filters.teacherId || x.teacherId === filters.teacherId)
+    .filter((x) => !filters.branchId || x.branchId === filters.branchId)
+    .filter((x) => !filters.reference || x.reference.toLowerCase().includes(filters.reference.toLowerCase()))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(({ tenantId: _t, ...pub }) => {
+      void _t;
+      return pub;
+    });
+}
+
+/** Silme yok — arşivleme "cancelled" durumuna geçirir (Faz 2 durum listesiyle aynı anlam). */
+export async function archiveDocumentInstance(
+  tenantId: string,
+  id: string
+): Promise<DocumentInstance | null> {
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const r = await prisma.documentInstance.findFirst({ where: { id, tenantId } });
+    if (!r) return null;
+    await prisma.documentInstance.update({ where: { id }, data: { status: "cancelled" } });
+    return getDocumentInstance(tenantId, id);
+  }
+  const all = await loadInst();
+  const idx = all.findIndex((x) => x.id === id && x.tenantId === tenantId);
+  if (idx < 0) return null;
+  all[idx] = { ...all[idx], status: "cancelled", updatedAt: new Date().toISOString() };
+  await saveInst(all);
+  const { tenantId: _t, ...pub } = all[idx];
+  void _t;
+  return pub;
+}
+
+/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur. */
+export async function uploadSignedDocumentFile(
+  tenantId: string,
+  id: string,
+  file: { fileName: string; fileMimeType: string; fileData: string }
+): Promise<DocumentInstance | null> {
+  const now = new Date();
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const r = await prisma.documentInstance.findFirst({ where: { id, tenantId } });
+    if (!r) return null;
+    await prisma.documentInstance.update({
+      where: { id },
+      data: {
+        status: "uploaded",
+        fileName: file.fileName,
+        fileMimeType: file.fileMimeType,
+        fileData: file.fileData,
+        signedUploadedAt: now,
+      },
+    });
+    return getDocumentInstance(tenantId, id);
+  }
+  const all = await loadInst();
+  const idx = all.findIndex((x) => x.id === id && x.tenantId === tenantId);
+  if (idx < 0) return null;
+  all[idx] = {
+    ...all[idx],
+    status: "uploaded",
+    fileName: file.fileName,
+    fileMimeType: file.fileMimeType,
+    fileData: file.fileData,
+    signedUploadedAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  await saveInst(all);
+  const { tenantId: _t, ...pub } = all[idx];
   void _t;
   return pub;
 }
@@ -282,23 +440,7 @@ export async function listDocumentsForStudent(
       where: { tenantId, studentId },
       orderBy: { createdAt: "desc" },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      templateId: r.templateId,
-      kind: r.kind as DocumentTemplateKind,
-      reference: r.reference,
-      status: r.status as DocumentInstanceStatus,
-      studentId: r.studentId ?? undefined,
-      teacherId: r.teacherId ?? undefined,
-      trialLessonId: r.trialLessonId ?? undefined,
-      branchId: r.branchId ?? undefined,
-      fieldValues: r.fieldValues as Record<string, string>,
-      renderedHtml: r.renderedHtml ?? undefined,
-      printCount: r.printCount,
-      createdBy: r.createdBy,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    }));
+    return rows.map(mapDbInstance);
   }
   const all = await loadInst();
   return all

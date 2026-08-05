@@ -1,0 +1,150 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireSessionContext } from "@/lib/auth/session";
+import { getDocumentInstanceTool } from "@/lib/services";
+import { documentKindLabel } from "@/lib/documents";
+import { listAuditLogs } from "@/lib/audit/log";
+import { readData } from "@/lib/store";
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
+import { DocumentSignedUpload } from "@/components/document-signed-upload";
+import { formatDateTime } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+export default async function DocumentDetailPage({
+  params,
+}: {
+  params: Promise<{ documentId: string }>;
+}) {
+  const { documentId } = await params;
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect(`/login?next=/panel/evraklar/${documentId}`);
+  }
+  if (session.role !== "SCHOOL_ADMIN" && session.role !== "SUPER_ADMIN") {
+    redirect("/panel");
+  }
+
+  const result = await getDocumentInstanceTool(session, { documentId });
+  if (!result.ok) {
+    return (
+      <div>
+        <PageHeader title="Evrak bulunamadı" />
+        <EmptyState title="Evrak bulunamadı" description="Bu belge mevcut kurum kapsamınızda değil veya kaldırılmış olabilir." />
+        <Link href="/panel/evraklar" className="mt-4 inline-block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
+          ← Evraklar Merkezine dön
+        </Link>
+      </div>
+    );
+  }
+
+  const doc = result.data.document;
+  const data = await readData();
+  const student = doc.studentId ? data.students.find((s) => s.id === doc.studentId) : undefined;
+  const teacher = doc.teacherId ? data.teachers.find((t) => t.id === doc.teacherId) : undefined;
+  const branch = doc.branchId ? data.settings.branches.find((b) => b.id === doc.branchId) : undefined;
+
+  const auditEntries = await listAuditLogs(session.tenantId, { entityId: doc.id, entityType: "DocumentInstance", limit: 20 });
+
+  return (
+    <div>
+      <PageHeader
+        title={doc.reference}
+        description={documentKindLabel(doc.kind)}
+        actions={<Badge status={doc.status}>{doc.status}</Badge>}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Önizleme</p>
+            {doc.renderedHtml ? (
+              <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+                <div dangerouslySetInnerHTML={{ __html: doc.renderedHtml }} />
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-muted)]">Önizleme yok.</p>
+            )}
+          </Card>
+
+          <Card>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">İmzalı / taranmış sürüm</p>
+            {doc.fileData ? (
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text)]">{doc.fileName}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Yüklendi: {doc.signedUploadedAt ? formatDateTime(doc.signedUploadedAt) : "—"}
+                  </p>
+                </div>
+                <a
+                  href={`/api/v1/documents/${doc.id}/file`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+                >
+                  Görüntüle / indir
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-[var(--color-text-muted)]">Henüz imzalı sürüm yüklenmedi.</p>
+                <DocumentSignedUpload documentId={doc.id} />
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+              Denetim kaydı (oluşturma / yazdırma / yükleme / arşivleme)
+            </p>
+            {auditEntries.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Denetim kaydı yok (yalnızca STORE_MODE=db altında tutulur).
+              </p>
+            ) : (
+              <ul className="space-y-1.5 text-xs text-[var(--color-text-muted)]">
+                {auditEntries.map((a) => (
+                  <li key={a.id}>
+                    {formatDateTime(a.createdAt.toISOString())} · {a.action} · {a.actorRole}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Bilgiler</p>
+            <dl className="space-y-2 text-sm">
+              <Field label="İlgili kişi" value={student?.name ?? teacher?.name ?? "—"} />
+              <Field label="Şube" value={branch?.name ?? "—"} />
+              <Field label="Şablon sürümü" value={doc.templateId} />
+              <Field label="Yazdırma sayısı" value={String(doc.printCount)} />
+              <Field label="Oluşturulma" value={formatDateTime(doc.createdAt)} />
+              <Field label="Son güncelleme" value={formatDateTime(doc.updatedAt)} />
+              <Field label="Oluşturan" value={doc.createdBy} />
+            </dl>
+          </Card>
+          {student ? (
+            <Link href={`/panel/ogrenciler/${student.id}`} className="block text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
+              Öğrenci Detayında Aç →
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">{label}</dt>
+      <dd className="mt-0.5 font-medium text-[var(--color-text)]">{value}</dd>
+    </div>
+  );
+}

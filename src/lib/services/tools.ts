@@ -217,7 +217,7 @@ import {
   toCurriculumSummary,
   getCurriculumTopic,
 } from "../curriculum";
-import type { StudentCurriculumTopic } from "../types";
+import type { StudentCurriculumTopic, DocumentInstance } from "../types";
 import { createTrialLesson, listTrialLessons, updateTrialLessonStatus, getTrialLesson } from "../trial-lessons";
 import {
   listTemplates,
@@ -225,6 +225,10 @@ import {
   createDocumentInstance,
   markDocumentPrinted,
   listDocumentsForStudent,
+  listDocumentInstances,
+  archiveDocumentInstance,
+  uploadSignedDocumentFile,
+  type DocumentInstanceFilters,
 } from "../documents";
 import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
 import { assertSchedulableDate } from "../lesson-scheduling";
@@ -2852,6 +2856,25 @@ export async function createDocumentInstanceTool(
   }
 }
 
+/** Evrak detay ekranı + imzalı dosya servis rotası — SCHOOL_ADMIN/SUPER_ADMIN. */
+export async function getDocumentInstanceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ document: DocumentInstance }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ documentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  try {
+    const { getDocumentInstance } = await import("../documents");
+    const document = await getDocumentInstance(ctx.tenantId, v.data.documentId);
+    if (!document) return fail("NOT_FOUND", "Belge bulunamadı");
+    return ok({ document });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getDocument failed");
+  }
+}
+
 export async function printDocumentInstanceTool(
   ctx: ServiceContext,
   input: unknown
@@ -2893,6 +2916,81 @@ export async function listStudentDocumentsTool(
     return ok({ documents });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listDocuments failed");
+  }
+}
+
+const documentInstanceFiltersSchema = z.object({
+  kind: z.string().optional(),
+  status: z.string().optional(),
+  studentId: z.string().optional(),
+  teacherId: z.string().optional(),
+  branchId: z.string().optional(),
+  reference: z.string().optional(),
+});
+
+/** Evraklar Merkezi ana tablosu — kurumun tüm evrakları, isteğe bağlı filtrelerle. */
+export async function listDocumentInstancesTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documents: Awaited<ReturnType<typeof listDocumentInstances>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(documentInstanceFiltersSchema, input);
+  if (!v.ok) return v;
+  try {
+    const documents = await listDocumentInstances(ctx.tenantId, v.data as DocumentInstanceFilters);
+    return ok({ documents });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listDocumentInstances failed");
+  }
+}
+
+/** Silme yok — arşivleme durumu "İptal Edildi"ye geçirir. */
+export async function archiveDocumentInstanceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ documentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  try {
+    const doc = await archiveDocumentInstance(ctx.tenantId, v.data.documentId);
+    if (!doc) return fail("NOT_FOUND", "Belge bulunamadı");
+    audit(ctx, "document.archive", "DocumentInstance", doc.id, {});
+    return ok({ documentId: doc.id, status: doc.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveDocument failed");
+  }
+}
+
+const uploadSignedDocumentSchema = z.object({
+  documentId: z.string().min(1),
+  fileName: z.string().min(1),
+  fileMimeType: z.string().min(1),
+  fileData: z.string().max(2_800_000),
+});
+
+/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur, dosya tipi/boyutu Zod'da doğrulanır. */
+export async function uploadSignedDocumentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(uploadSignedDocumentSchema, input);
+  if (!v.ok) return v;
+  try {
+    const doc = await uploadSignedDocumentFile(ctx.tenantId, v.data.documentId, {
+      fileName: v.data.fileName,
+      fileMimeType: v.data.fileMimeType,
+      fileData: v.data.fileData,
+    });
+    if (!doc) return fail("NOT_FOUND", "Belge bulunamadı");
+    audit(ctx, "document.upload_signed", "DocumentInstance", doc.id, { fileName: v.data.fileName });
+    return ok({ documentId: doc.id, status: doc.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "uploadSignedDocument failed");
   }
 }
 

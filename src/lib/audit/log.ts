@@ -92,7 +92,7 @@ export type AuditLogEntry = {
  */
 export async function listAuditLogs(
   tenantId: string,
-  opts?: { limit?: number; action?: string; entityType?: string }
+  opts?: { limit?: number; action?: string; entityType?: string; entityId?: string }
 ): Promise<AuditLogEntry[]> {
   try {
     const rows = await prisma.auditLog.findMany({
@@ -100,6 +100,7 @@ export async function listAuditLogs(
         tenantId,
         action: opts?.action,
         entityType: opts?.entityType,
+        entityId: opts?.entityId,
       },
       orderBy: { createdAt: "desc" },
       take: opts?.limit ?? 100,

@@ -878,6 +878,10 @@ model DocumentInstance {
   createdBy    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  fileName     String?
+  fileMimeType String?
+  fileData     String?  @db.LongText
+  signedUploadedAt DateTime?
 
   @@unique([tenantId, reference])
   @@index([tenantId, studentId])

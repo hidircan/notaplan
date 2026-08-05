@@ -1,0 +1,5 @@
+ALTER TABLE `DocumentInstance`
+  ADD COLUMN `fileName` VARCHAR(191) NULL,
+  ADD COLUMN `fileMimeType` VARCHAR(191) NULL,
+  ADD COLUMN `fileData` LONGTEXT NULL,
+  ADD COLUMN `signedUploadedAt` DATETIME(3) NULL;

@@ -798,6 +798,11 @@ export interface DocumentInstance {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  /** İmzalı/taranmış sürüm — yüklenince status "uploaded" olur. */
+  fileName?: string;
+  fileMimeType?: string;
+  fileData?: string;
+  signedUploadedAt?: string;
 }
 
 /** MEB seviye 1–8; LCM serbest; diğer türlerde yok */

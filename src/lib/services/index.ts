@@ -81,6 +81,7 @@ export {
   createCurriculumTopicTool,
   updateCurriculumTopicTool,
   listCurriculumForStudentTool,
+  setLessonOpsFlagTool,
   archiveStudentTool,
   setNationalIdTool,
   revealNationalIdTool,
@@ -91,5 +92,9 @@ export {
   createDocumentInstanceTool,
   printDocumentInstanceTool,
   listStudentDocumentsTool,
+  listDocumentInstancesTool,
+  archiveDocumentInstanceTool,
+  uploadSignedDocumentTool,
+  getDocumentInstanceTool,
   resolveCollectionsIbanTool,
 } from "./tools";
