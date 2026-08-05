@@ -192,6 +192,7 @@ import {
   type TeachingMaterial,
 } from "../types";
 import {
+  assertStudentAccess,
   canAccessStudent,
   canAccessTeacher,
   requireRole,
@@ -344,6 +345,15 @@ export async function createMakeupLessonTool(
   );
   if (!v.ok) return v;
 
+  if (ctx.role === "TEACHER") {
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+    if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+    if (!canAccessTeacher(ctx, lesson.teacherId)) {
+      return fail("FORBIDDEN", "Yalnızca kendi dersiniz için telafi oluşturabilirsiniz.");
+    }
+  }
+
   try {
     await markAttendance(v.data);
     const data = await readData();
@@ -482,13 +492,11 @@ export async function getStudentScheduleTool(
 
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Cannot access this student's schedule");
-  }
 
   const data = await readData();
   const student = data.students.find((s) => s.id === v.data.studentId);
-  if (!student) return fail("NOT_FOUND", "Student not found");
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
 
   const lessons = data.lessons
     .filter((l) => l.studentId === v.data.studentId)
@@ -536,11 +544,12 @@ export async function getParentBalanceTool(
 
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Cannot access this balance");
-  }
 
   const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+
   const payments = data.payments.filter((p) => p.studentId === v.data.studentId);
   const outstanding = payments
     .filter((p) => p.status !== "paid")
@@ -588,6 +597,8 @@ export async function sendParentMessageTool(
 
   const data = await readData();
   const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
   if (!student) return fail("NOT_FOUND", "Student not found");
 
   let message: WaMessage | null = null;
@@ -1665,12 +1676,16 @@ export async function createAssessmentTool(
 
   const data = await readData();
   const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
   if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
-  if (!data.lessons.some((l) => l.id === v.data.lessonId)) {
-    return fail("NOT_FOUND", "Ders bulunamadı");
+  const lesson = data.lessons.find((l) => l.id === v.data.lessonId);
+  if (!lesson) return fail("NOT_FOUND", "Ders bulunamadı");
+  if (lesson.studentId !== student.id) {
+    return fail("VALIDATION_ERROR", "Seçilen ders bu öğrenciye ait değil.");
   }
-  if (ctx.role === "TEACHER" && student.teacherId !== ctx.teacherId) {
-    return fail("FORBIDDEN", "Yalnızca kendi öğrenciniz için değerlendirme oluşturabilirsiniz.");
+  if (ctx.role === "TEACHER" && lesson.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi dersiniz için değerlendirme oluşturabilirsiniz.");
   }
 
   try {
@@ -1706,19 +1721,6 @@ export async function createAssessmentTool(
   }
 }
 
-function assertTeacherOwnsStudent(
-  ctx: ServiceContext,
-  studentId: string,
-  students: Student[]
-): { ok: true } | { ok: false; message: string } {
-  if (ctx.role !== "TEACHER") return { ok: true };
-  const student = students.find((s) => s.id === studentId);
-  if (!student || student.teacherId !== ctx.teacherId) {
-    return { ok: false, message: "Yalnızca kendi öğrenciniz için değerlendirme görebilirsiniz." };
-  }
-  return { ok: true };
-}
-
 export async function listAssessmentsForStudentTool(
   ctx: ServiceContext,
   input: unknown
@@ -1726,14 +1728,11 @@ export async function listAssessmentsForStudentTool(
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
 
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
-  }
-
   try {
     const data = await readData();
-    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    const access = assertStudentAccess(ctx, student, v.data.studentId);
+    if (!access.ok) return fail(access.code, access.message);
 
     const assessments = await listAssessmentsForStudent(ctx.tenantId, v.data.studentId);
     return ok({ assessments: assessments.map((a) => stripPrivateNoteForRecipient(a, ctx.role)) });
@@ -1752,7 +1751,10 @@ export async function getAssessmentTool(
   try {
     const assessment = await getAssessment(ctx.tenantId, v.data.assessmentId);
     if (!assessment) return fail("NOT_FOUND", "Değerlendirme bulunamadı");
-    if (!canAccessStudent(ctx, assessment.studentId)) return fail("FORBIDDEN", "Bu kayda erişiminiz yok");
+    const data = await readData();
+    const student = data.students.find((s) => s.id === assessment.studentId);
+    const access = assertStudentAccess(ctx, student, assessment.studentId);
+    if (!access.ok) return fail(access.code, access.message);
     if (ctx.role === "TEACHER" && assessment.teacherId !== ctx.teacherId) {
       return fail("FORBIDDEN", "Bu kayda erişiminiz yok");
     }
@@ -1770,14 +1772,11 @@ export async function getAssessmentReportTool(
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
 
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
-  }
-
   try {
     const data = await readData();
-    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    const access = assertStudentAccess(ctx, student, v.data.studentId);
+    if (!access.ok) return fail(access.code, access.message);
 
     const assessments = await listAssessmentsForStudent(ctx.tenantId, v.data.studentId);
     const trend = computeTrend(assessments, 4);
@@ -2034,14 +2033,11 @@ export async function listHomeworkForStudentTool(
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
 
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
-  }
-
   try {
     const data = await readData();
-    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    const access = assertStudentAccess(ctx, student, v.data.studentId);
+    if (!access.ok) return fail(access.code, access.message);
 
     const homework = await listHomeworkForStudent(ctx.tenantId, v.data.studentId);
     return ok({ homework });
@@ -2116,14 +2112,12 @@ export async function listHomeworkSubmissionsTool(
 
   const homework = await getHomework(ctx.tenantId, v.data.homeworkId);
   if (!homework) return fail("NOT_FOUND", "Ödev bulunamadı");
-  if (!canAccessStudent(ctx, homework.studentId)) {
-    return fail("FORBIDDEN", "Bu ödeve erişiminiz yok");
-  }
 
   try {
     const data = await readData();
-    const ownership = assertTeacherOwnsStudent(ctx, homework.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    const student = data.students.find((s) => s.id === homework.studentId);
+    const access = assertStudentAccess(ctx, student, homework.studentId);
+    if (!access.ok) return fail(access.code, access.message);
 
     const submissions = await listSubmissionsForHomework(ctx.tenantId, v.data.homeworkId);
     return ok({ submissions });
@@ -2173,14 +2167,12 @@ export async function getHomeworkSubmissionFileTool(
 
   const submission = await getSubmission(ctx.tenantId, v.data.submissionId);
   if (!submission) return fail("NOT_FOUND", "Teslim bulunamadı");
-  if (!canAccessStudent(ctx, submission.studentId)) {
-    return fail("FORBIDDEN", "Bu dosyaya erişiminiz yok");
-  }
 
   try {
     const data = await readData();
-    const ownership = assertTeacherOwnsStudent(ctx, submission.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    const student = data.students.find((s) => s.id === submission.studentId);
+    const access = assertStudentAccess(ctx, student, submission.studentId);
+    if (!access.ok) return fail(access.code, access.message);
     if (!submission.fileData) return fail("NOT_FOUND", "Bu teslimde dosya yok");
 
     return ok({
@@ -2238,16 +2230,12 @@ export async function listTeachingMaterialsForStudentTool(
   const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
   if (!v.ok) return v;
 
-  if (!canAccessStudent(ctx, v.data.studentId)) {
-    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
-  }
-
   try {
     const data = await readData();
     const student = data.students.find((s) => s.id === v.data.studentId);
+    const access = assertStudentAccess(ctx, student, v.data.studentId);
+    if (!access.ok) return fail(access.code, access.message);
     if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
-    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
-    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
 
     const all = await listTeachingMaterialsForTeacher(ctx.tenantId, student.teacherId);
     const materials = all.filter((m) => matchesMaterialAudience(m, student));

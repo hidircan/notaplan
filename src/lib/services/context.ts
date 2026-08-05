@@ -49,13 +49,54 @@ export function requireRole(
   };
 }
 
-export function canAccessStudent(ctx: ServiceContext, studentId: string): boolean {
+/**
+ * Öğrenci erişim matrisi.
+ *
+ * TEACHER için sahiplik (`ownership.teacherId === ctx.teacherId`) ZORUNLUDUR.
+ * ownership verilmezse fail-closed `false` — IDOR'u kapatır. Tool/API katmanı
+ * öğrenciyi yükledikten sonra `canAccessStudent(ctx, id, { teacherId })` veya
+ * `assertStudentAccess` kullanmalıdır.
+ */
+export function canAccessStudent(
+  ctx: ServiceContext,
+  studentId: string,
+  ownership?: { teacherId: string }
+): boolean {
   if (ctx.role === "SUPER_ADMIN" || ctx.role === "SCHOOL_ADMIN" || ctx.role === "AI_AGENT") {
     return true;
   }
   if (ctx.role === "PARENT" || ctx.role === "STUDENT") return ctx.studentId === studentId;
-  if (ctx.role === "TEACHER") return true; // filtered by schedule ownership in tools where needed
+  if (ctx.role === "TEACHER") {
+    if (!ctx.teacherId) return false;
+    if (!ownership) return false;
+    return ownership.teacherId === ctx.teacherId;
+  }
   return false;
+}
+
+/**
+ * Tek giriş noktası: kayıt yoksa NOT_FOUND benzeri mesaj, sahiplik yoksa
+ * FORBIDDEN. UI'daki `findOwnStudent` ile aynı kural tool/API'de.
+ */
+export function assertStudentAccess(
+  ctx: ServiceContext,
+  student: { id: string; teacherId: string } | undefined | null,
+  studentId: string
+): { ok: true } | { ok: false; code: "NOT_FOUND" | "FORBIDDEN"; message: string } {
+  if (!student || student.id !== studentId) {
+    return { ok: false, code: "NOT_FOUND", message: "Öğrenci bulunamadı" };
+  }
+  if (!canAccessStudent(ctx, studentId, { teacherId: student.teacherId })) {
+    return {
+      ok: false,
+      code: "FORBIDDEN",
+      message:
+        ctx.role === "TEACHER"
+          ? "Yalnızca kendi öğrencinize erişebilirsiniz."
+          : "Bu öğrenciye erişiminiz yok",
+    };
+  }
+  return { ok: true };
 }
 
 export function canAccessTeacher(ctx: ServiceContext, teacherId: string): boolean {

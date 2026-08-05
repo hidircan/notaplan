@@ -1,13 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { canAccessStudent, canAccessTeacher, requireRole } from "../services/context";
+import {
+  assertStudentAccess,
+  canAccessStudent,
+  canAccessTeacher,
+  requireRole,
+} from "../services/context";
 import type { ServiceContext } from "../services/context";
 import type { AppRole } from "../auth/types";
 
 /**
- * EPIC 0 (IMPLEMENTATION_PLAN.md §1) — locks in the rol/yetki matrisi as an
- * executable test, across every role, not just the couple of cases other
- * test files happen to exercise. If this matrix ever needs to change,
- * IMPLEMENTATION_PLAN.md §1 must change with it.
+ * EPIC 0 + production hardening — rol/yetki matrisi.
+ * TEACHER için öğrenci erişimi ownership olmadan fail-closed.
  */
 
 function ctx(overrides: Partial<ServiceContext> & { role: AppRole }): ServiceContext {
@@ -34,8 +37,48 @@ describe("canAccessStudent — rol matrisi", () => {
     expect(canAccessStudent(parent, "s1")).toBe(false);
   });
 
-  it("TEACHER true döner (filtreleme öğrenci-şeması tool'larında ayrıca yapılır — bkz. getStudentScheduleTool)", () => {
-    expect(canAccessStudent(ctx({ role: "TEACHER", teacherId: "t2" }), "s1")).toBe(true);
+  it("TEACHER ownership olmadan false (fail-closed IDOR koruması)", () => {
+    expect(canAccessStudent(ctx({ role: "TEACHER", teacherId: "t2" }), "s1")).toBe(false);
+  });
+
+  it("TEACHER yalnızca kendi öğrencisine ownership ile erişir", () => {
+    const teacher = ctx({ role: "TEACHER", teacherId: "t1" });
+    expect(canAccessStudent(teacher, "s1", { teacherId: "t1" })).toBe(true);
+    expect(canAccessStudent(teacher, "s2", { teacherId: "t2" })).toBe(false);
+  });
+
+  it("TEACHER teacherId yoksa erişemez", () => {
+    expect(canAccessStudent(ctx({ role: "TEACHER" }), "s1", { teacherId: "t1" })).toBe(false);
+  });
+});
+
+describe("assertStudentAccess", () => {
+  const s1 = { id: "s1", teacherId: "t1" };
+
+  it("kendi öğretmeni için ok", () => {
+    expect(assertStudentAccess(ctx({ role: "TEACHER", teacherId: "t1" }), s1, "s1").ok).toBe(true);
+  });
+
+  it("cross-teacher FORBIDDEN", () => {
+    const r = assertStudentAccess(ctx({ role: "TEACHER", teacherId: "t2" }), s1, "s1");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("FORBIDDEN");
+  });
+
+  it("olmayan öğrenci NOT_FOUND (bilgi sızdırmaz — aynı kabuk)", () => {
+    const r = assertStudentAccess(ctx({ role: "TEACHER", teacherId: "t1" }), undefined, "ghost");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("NOT_FOUND");
+  });
+
+  it("PARENT kendi çocuğuna erişir", () => {
+    expect(assertStudentAccess(ctx({ role: "PARENT", studentId: "s1" }), s1, "s1").ok).toBe(true);
+  });
+
+  it("PARENT başka çocuğa erişemez", () => {
+    const r = assertStudentAccess(ctx({ role: "PARENT", studentId: "s2" }), s1, "s1");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("FORBIDDEN");
   });
 });
 
@@ -76,8 +119,8 @@ describe("requireRole — SUPER_ADMIN bypass, diğer roller listeye tabi", () =>
   });
 
   it("PARENT, yalnızca STAFF grubuna açık bir işlemi (ör. yoklama işaretleme) yapamaz", () => {
-    expect(requireRole(ctx({ role: "PARENT" }), ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER", "AI_AGENT"]).ok).toBe(
-      false
-    );
+    expect(
+      requireRole(ctx({ role: "PARENT" }), ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER", "AI_AGENT"]).ok
+    ).toBe(false);
   });
 });
