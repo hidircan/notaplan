@@ -25,6 +25,7 @@ import { HomeworkReviewForm } from "@/components/homework-review-form";
 import { LessonAssessmentForm } from "@/components/lesson-assessment-form";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+import { LessonLiveActions } from "@/components/lesson-live-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -81,10 +82,20 @@ export default async function TeacherStudentWorkspacePage({
 
   const branch = data.settings.branches.find((b) => b.id === student.branchId);
   const lessons = ownStudentLessons(data.lessons, teacherId, student.id);
-  const nowIso = new Date().toISOString();
-  const upcoming = lessons.filter((l) => l.startAt >= nowIso && l.status === "scheduled").slice(0, 6);
+  const nowMs = Date.now();
+  // Aktif/yaklaşan: in_progress + scheduled (gelecek veya son 6 saatte gecikmiş)
+  const upcoming = [...lessons]
+    .filter((l) => {
+      if (l.status === "in_progress") return true;
+      if (l.status !== "scheduled") return false;
+      const start = new Date(l.startAt).getTime();
+      return start >= nowMs - 6 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+    .slice(0, 8);
+  const upcomingIds = new Set(upcoming.map((l) => l.id));
   const past = lessons
-    .filter((l) => l.startAt < nowIso || l.status === "completed" || l.status === "no_show")
+    .filter((l) => !upcomingIds.has(l.id) && l.status !== "in_progress")
     .slice(0, 8);
 
   const lessonIds = new Set(lessons.map((l) => l.id));
@@ -241,6 +252,11 @@ export default async function TeacherStudentWorkspacePage({
                       </div>
                       <Badge status={liveStatus} />
                     </div>
+                    {(liveStatus === "scheduled" ||
+                      liveStatus === "delayed" ||
+                      liveStatus === "in_progress") && (
+                      <LessonLiveActions lessonId={lesson.id} displayStatus={liveStatus} />
+                    )}
                   </Card>
                 );
               })}

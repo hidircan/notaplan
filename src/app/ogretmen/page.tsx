@@ -8,6 +8,8 @@ import { CalendarDays, Home, Music2, Users } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
 import { TelafiSubmitButton } from "@/components/telafi-submit-button";
+import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+import { LessonLiveActions } from "@/components/lesson-live-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,7 @@ export default async function OgretmenPortalPage() {
                 const student = data.students.find((s) => s.id === lesson.studentId);
                 const attendance = data.attendances.find((a) => a.lessonId === lesson.id);
                 const room = data.rooms.find((r) => r.id === lesson.roomId);
+                const liveStatus = computeLiveDisplayStatus(lesson);
                 return (
                   <Card key={lesson.id} className="!p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -112,9 +115,11 @@ export default async function OgretmenPortalPage() {
                           {lesson.type === "makeup" ? " · Telafi" : ""}
                         </p>
                       </div>
-                      <Badge status={attendance?.status ?? lesson.status} />
+                      <Badge status={attendance?.status ?? liveStatus} />
                     </div>
-                    {!attendance && lesson.status === "scheduled" ? (
+                    <LessonLiveActions lessonId={lesson.id} displayStatus={liveStatus} />
+                    {!attendance &&
+                    (lesson.status === "scheduled" || lesson.status === "in_progress") ? (
                       <div className="mt-3 flex flex-wrap gap-2">
                         <form action={actionMarkAttendance}>
                           <input type="hidden" name="lessonId" value={lesson.id} />
