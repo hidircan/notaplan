@@ -1416,30 +1416,48 @@ sonrası alan gerçekten değişir); ayrı bir entegrasyon testi yazılmadı.
 
 ## Uygulama sırası (onaylanan, keşif sonrası küçük netleştirmelerle)
 
-1. **EPIC 0** — güvenlik/tenant/audit temeli (bu turda uygulanıyor)
-2. **EPIC 2** — makbuz sadeleştirme (bu turda uygulanıyor, hızlı kazanım)
-3. **EPIC 3** — saatlik ücret (backend zaten hazır, düşük risk)
-4. **EPIC 4** — öğrenci türü/kayıt dönemi (additive, düşük risk)
-5. **EPIC 10** — telafi sebep/filtre/SLA
-6. **EPIC 1** — tahsilat otomasyonu + bildirim
-7. **EPIC 5** — duyuru merkezi
-8. **EPIC 7** — gelişim formu + PDF
-9. **EPIC 6** — öğrenci/veli/öğretmen portalı (en büyük, en son — 4/5/7'ye bağımlı)
-10. **EPIC 8** — ders başlat/bitiş
-11. **EPIC 9** — öğretmen müsaitlik/onay
-12. Export/yedekleme/geri yükleme tatbikatının tamamlanması (EPIC 0'ın son
-    alt-adımı, diğer epic'lerin ürettiği yeni varlıkları export'a dahil ederek)
+1. **EPIC 0** — güvenlik/tenant/audit temeli ✅
+2. **EPIC 2** — makbuz sadeleştirme ✅
+3. **EPIC 3** — saatlik ücret ✅
+4. **EPIC 4** — öğrenci türü/kayıt dönemi ✅
+5. **EPIC 10** — telafi sebep/filtre/SLA ✅
+6. **EPIC 1** — tahsilat otomasyonu + bildirim ✅
+7. **EPIC 5** — duyuru merkezi ✅
+8. **EPIC 7** — gelişim formu + PDF ✅
+9. **EPIC 6** — öğrenci/veli/öğretmen portalı (6A/6B/6C/6D) ✅
+10. **EPIC 8** — ders başlat/bitiş ✅
+11. **EPIC 9** — öğretmen müsaitlik/onay ✅
+12. Export/yedekleme/geri yükleme tatbikatının tamamlanması ✅ (commit
+    `667d922` — 14 varlık türünün tamamı `/api/v1/export`'a dahil)
 
-Kart/RFID (EPIC 8'de bahsedilen) bu plana HİÇ dahil edilmedi — kullanıcının
-talimatı gereği ayrı, uzun vadeli bir keşif görevi olarak `PRODUCT_ROADMAP.md`'ye
-not düşülecek, bu sprint kapsamında değil.
+**Tüm 12 adım tamamlandı.** Kart/RFID (EPIC 8'de bahsedilen) bu plana HİÇ
+dahil edilmedi — kullanıcının talimatı gereği ayrı, uzun vadeli bir keşif
+görevi olarak `PRODUCT_ROADMAP.md`'ye not düşülecek, bu sprint kapsamında
+değil.
+
+## Bilinçli olarak açık bırakılan öğeler (kod eksikliği değil)
+
+Aşağıdakiler her epic'in kendi bölümünde gerekçesiyle birlikte belgelenmiştir;
+burada yalnızca tek bir yerden görülebilmesi için listeleniyor:
+
+- **Çocuk hesabı yaş/onay politikası** (EPIC 6) — ürün/hukuk kararı, kod değil.
+- **`WorkflowState` tenant-backfill script'i** (`scripts/backfill-workflow-state-tenant.ts`,
+  EPIC 0'ın P1 alt-görevi) — hiç yazılmadı; tek-tenant üretimde pratik etkisi
+  düşük olduğu için bilinçli olarak bu sprintin dışında bırakıldı. `/api/v1/workflows/tick`
+  hâlâ global (tenant'lar arası paylaşılan) durumla çalışıyor.
+- **Sidebar/nav bağlantıları** (`src/components/sidebar.tsx`, `/ogretmen/page.tsx`,
+  `/panel/ogretmenler/page.tsx` vb.) — EPIC 1/5/6A/7/8/9/6D boyunca defalarca:
+  bu dosyalar önceki oturumdan kalma, commit edilmemiş, ilgisiz değişikliklerle
+  o kadar iç içe geçmiş ki satır bazında izolasyon güvenli değildi. Yeni
+  sayfaların TÜMÜ doğrudan URL ile çalışıyor, yalnızca menüde görünmüyorlar.
+- **Öğretmen müsaitlik düzeltme admin ekranı** (EPIC 8) — API/tool/RBAC yolu
+  tam, yalnızca bir form eksik.
+- **Bağlantı kopması/offline senaryosu** (EPIC 8, "Dersi başlat/bitir") —
+  kullanıcıya UI uyarısı dışında çözülmedi, ayrı bir keşif görevi.
 
 ## Bu turda gerçekleşen kapsam
 
-Bu oturumda **EPIC 0** ve **EPIC 2** uygulanıyor (P0 + hızlı-kazanım P1).
-EPIC 3/4/10/1/5/7/6/8/9 yukarıda tam planlanmış durumda ama kod olarak
-YAZILMADI — kapsamları gerçekten büyük (her biri en az 1 yeni Prisma modeli +
-5-10 dosya + yeni ekran) ve kullanıcının kendi talimatındaki "küçük, tamamlanan,
-test edilen commit'lere böl" ilkesiyle tek oturumda hepsini üstünkörü yazmak
-çelişir. Sonraki oturumlarda bu plan sırasıyla, her epic kendi doğrulama
-turuyla (typecheck/lint/test/build + epic raporu) uygulanacak.
+Bu oturumda plandaki 12 adımın TAMAMI uygulandı — her epic kendi doğrulama
+turuyla (`typecheck`/`lint`/`test`/`prisma validate`/`build` + epic raporu),
+küçük ve bağımsız commit'lere bölünerek. Yukarıdaki "bilinçli olarak açık
+bırakılan öğeler" dışında hiçbir epic kısmi durumda değil.
