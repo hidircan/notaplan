@@ -50,6 +50,7 @@ import {
   type MakeupSlaEscalation,
 } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
+import { DEFAULT_LESSON_DURATION_MINUTES } from "../lesson-duration";
 import {
   buildSeriesPreviewText,
   checkSeriesOccurrences,
@@ -156,6 +157,8 @@ import {
   roomSchema,
   submitHomeworkSchema,
   submitTeacherFeedbackSchema,
+  createCurriculumTopicSchema,
+  updateCurriculumTopicSchema,
   startLessonSchema,
   studentSchema,
   suggestLessonSlotsSchema,
@@ -200,6 +203,15 @@ import {
 } from "./context";
 import { fail, fromZodError, ok, type ServiceErrorCode, type ServiceResult } from "./result";
 import { recordAuditLog } from "../audit/log";
+import {
+  createCurriculumTopic,
+  updateCurriculumTopic,
+  listCurriculumTopicsForStudent,
+  computeOverallCurriculumProgress,
+  toCurriculumSummary,
+  getCurriculumTopic,
+} from "../curriculum";
+import type { StudentCurriculumTopic } from "../types";
 
 /** Fire-and-forget critical-action audit write — never awaited, never blocks the tool's return. */
 function audit(
@@ -527,6 +539,80 @@ export async function getTeacherScheduleTool(
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
   return ok({ teacherId: v.data.teacherId, lessons });
+}
+
+export type FindPersonScheduleResult =
+  | { matchType: "none"; query: string }
+  | {
+      matchType: "ambiguous";
+      query: string;
+      candidates: Array<{ kind: "student" | "teacher"; id: string; name: string }>;
+    }
+  | {
+      matchType: "student" | "teacher";
+      id: string;
+      name: string;
+      upcomingLessons: unknown[];
+    };
+
+/**
+ * Free-text name → schedule. TEACHER only matches own students (ownership via
+ * canAccessStudent + teacherId) and self among teachers.
+ */
+export async function findPersonScheduleTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<FindPersonScheduleResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "PARENT", "AI_AGENT", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ query: z.string().min(1).max(120) }), input);
+  if (!v.ok) return v;
+
+  const needle = v.data.query.trim().toLocaleLowerCase("tr");
+  if (!needle) return fail("VALIDATION_ERROR", "query boş olamaz");
+
+  const data = await readData();
+  const students = data.students.filter(
+    (s) =>
+      s.active &&
+      s.name.toLocaleLowerCase("tr").includes(needle) &&
+      canAccessStudent(ctx, s.id, { teacherId: s.teacherId })
+  );
+  const teachers = data.teachers.filter(
+    (t) => t.active && t.name.toLocaleLowerCase("tr").includes(needle) && canAccessTeacher(ctx, t.id)
+  );
+
+  const total = students.length + teachers.length;
+  if (total === 0) return ok({ matchType: "none", query: v.data.query });
+
+  if (total > 1) {
+    return ok({
+      matchType: "ambiguous",
+      query: v.data.query,
+      candidates: [
+        ...students.map((s) => ({ kind: "student" as const, id: s.id, name: s.name })),
+        ...teachers.map((t) => ({ kind: "teacher" as const, id: t.id, name: t.name })),
+      ].slice(0, 8),
+    });
+  }
+
+  const now = Date.now();
+  if (students.length === 1) {
+    const s = students[0];
+    const upcomingLessons = data.lessons
+      .filter((l) => l.studentId === s.id && l.status === "scheduled" && new Date(l.startAt).getTime() >= now)
+      .sort((a, b) => a.startAt.localeCompare(b.startAt))
+      .slice(0, 5);
+    return ok({ matchType: "student", id: s.id, name: s.name, upcomingLessons });
+  }
+
+  const t = teachers[0];
+  const upcomingLessons = data.lessons
+    .filter((l) => l.teacherId === t.id && l.status === "scheduled" && new Date(l.startAt).getTime() >= now)
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+    .slice(0, 5);
+  return ok({ matchType: "teacher", id: t.id, name: t.name, upcomingLessons });
 }
 
 export async function getParentBalanceTool(
@@ -2395,6 +2481,129 @@ export async function resetDemoTool(
  * @deprecated Prefer `@/lib/agent` listToolDefinitions / TOOL_REGISTRY.
  * Kept for backward-compatible imports.
  */
+
+/** TEACHER kendi öğrencisine müfredat konusu ekler. */
+export async function createCurriculumTopicTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ topicId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  const v = parseOrFail(createCurriculumTopicSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+
+  try {
+    const topic = await createCurriculumTopic({
+      tenantId: ctx.tenantId,
+      studentId: v.data.studentId,
+      teacherId: ctx.teacherId,
+      title: v.data.title,
+      description: v.data.description,
+      status: v.data.status,
+      progressPercent: v.data.progressPercent,
+      sortOrder: v.data.sortOrder,
+      notes: v.data.notes,
+      createdBy: ctx.userId,
+    });
+    audit(ctx, "curriculum.create", "StudentCurriculumTopic", topic.id, {
+      studentId: v.data.studentId,
+    });
+    return ok({ topicId: topic.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createCurriculumTopic failed");
+  }
+}
+
+/** TEACHER kendi öğrencisinin konusunu günceller. */
+export async function updateCurriculumTopicTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ topicId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  const v = parseOrFail(updateCurriculumTopicSchema, input);
+  if (!v.ok) return v;
+
+  const existing = await getCurriculumTopic(ctx.tenantId, v.data.topicId);
+  if (!existing) return fail("NOT_FOUND", "Konu bulunamadı");
+  if (existing.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi oluşturduğunuz konuları güncelleyebilirsiniz.");
+  }
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === existing.studentId);
+  const access = assertStudentAccess(ctx, student, existing.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+
+  try {
+    const { topicId, ...patch } = v.data;
+    const updated = await updateCurriculumTopic(ctx.tenantId, topicId, {
+      ...patch,
+      updatedBy: ctx.userId,
+    });
+    if (!updated) return fail("NOT_FOUND", "Konu bulunamadı");
+    audit(ctx, "curriculum.update", "StudentCurriculumTopic", topicId, {
+      status: patch.status,
+      progressPercent: patch.progressPercent,
+    });
+    return ok({ topicId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateCurriculumTopic failed");
+  }
+}
+
+/**
+ * TEACHER/PARENT/STUDENT/admin — öğrenci müfredat listesi + genel ilerleme.
+ * PARENT/STUDENT özet (history/notes yok); TEACHER/admin tam kayıt.
+ */
+export async function listCurriculumForStudentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<
+  ServiceResult<{
+    topics: StudentCurriculumTopic[] | ReturnType<typeof toCurriculumSummary>[];
+    overallPercent: number;
+    progressExplanation: string;
+  }>
+> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  try {
+    const data = await readData();
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    const access = assertStudentAccess(ctx, student, v.data.studentId);
+    if (!access.ok) return fail(access.code, access.message);
+
+    const topics = await listCurriculumTopicsForStudent(ctx.tenantId, v.data.studentId);
+    const overallPercent = computeOverallCurriculumProgress(topics);
+    const progressExplanation =
+      topics.length === 0
+        ? "Henüz konu tanımlanmadı; genel ilerleme 0%."
+        : `Genel ilerleme, ${topics.length} konunun progressPercent değerlerinin aritmetik ortalamasıdır (eşit ağırlık).`;
+
+    if (ctx.role === "PARENT" || ctx.role === "STUDENT") {
+      return ok({
+        topics: topics.map(toCurriculumSummary),
+        overallPercent,
+        progressExplanation,
+      });
+    }
+    return ok({ topics, overallPercent, progressExplanation });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listCurriculumForStudent failed");
+  }
+}
+
 export const TOOL_CATALOG = [
   { name: "markAttendance", description: "Mark lesson attendance; may create makeup credit" },
   { name: "findAvailableSlots", description: "Suggest makeup slots for a request" },

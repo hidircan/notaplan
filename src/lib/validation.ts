@@ -391,3 +391,34 @@ export const submitTeacherFeedbackSchema = z.object({
   ),
   comment: z.string().max(2000).optional(),
 });
+
+/** Müfredat konu durumu */
+export const curriculumTopicStatusSchema = z.enum([
+  "planned",
+  "in_progress",
+  "mastered",
+  "deferred",
+]);
+
+/** TEACHER — öğrenciye müfredat konusu ekler */
+export const createCurriculumTopicSchema = z.object({
+  studentId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  status: curriculumTopicStatusSchema.optional(),
+  progressPercent: z.number().int().min(0).max(100).optional(),
+  sortOrder: z.number().int().min(0).max(10_000).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+/** TEACHER — konu günceller (durum/ilerleme/not) */
+export const updateCurriculumTopicSchema = z.object({
+  topicId: z.string().min(1),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  status: curriculumTopicStatusSchema.optional(),
+  progressPercent: z.number().int().min(0).max(100).optional(),
+  sortOrder: z.number().int().min(0).max(10_000).optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  changeNote: z.string().max(500).optional(),
+});

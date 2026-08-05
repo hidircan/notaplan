@@ -545,3 +545,40 @@ export interface TeacherFeedback {
   status: TeacherFeedbackStatus;
   createdAt: string;
 }
+
+/**
+ * Öğrenci müfredat/konu ilerleme (production follow-up).
+ * Öğretmen konu hedefleri tanımlar; durum + 0–100 ilerleme.
+ * overallPercent = konuların progressPercent ortalaması (eşit ağırlık).
+ */
+export type CurriculumTopicStatus = "planned" | "in_progress" | "mastered" | "deferred";
+
+export type CurriculumTopicEvent = {
+  at: string;
+  byUserId: string;
+  action: "created" | "updated" | "status_changed";
+  note?: string;
+  fromStatus?: CurriculumTopicStatus;
+  toStatus?: CurriculumTopicStatus;
+  fromProgress?: number;
+  toProgress?: number;
+};
+
+export interface StudentCurriculumTopic {
+  id: string;
+  studentId: string;
+  teacherId: string;
+  title: string;
+  description?: string;
+  status: CurriculumTopicStatus;
+  /** 0–100; overall student progress = average of topics */
+  progressPercent: number;
+  sortOrder: number;
+  notes?: string;
+  history: CurriculumTopicEvent[];
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

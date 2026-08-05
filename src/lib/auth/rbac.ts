@@ -32,7 +32,9 @@ export type Permission =
   | "materials:read"
   | "materials:write"
   | "teacher_feedback:submit"
-  | "teacher_feedback:read";
+  | "teacher_feedback:read"
+  | "curriculum:read"
+  | "curriculum:write";
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -59,6 +61,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "homework:read",
     "materials:read",
     "teacher_feedback:read",
+    "curriculum:read",
   ],
   SCHOOL_ADMIN: [
     "attendance:write",
@@ -83,6 +86,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "homework:read",
     "materials:read",
     "teacher_feedback:read",
+    "curriculum:read",
   ],
   TEACHER: [
     "attendance:write",
@@ -101,6 +105,8 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "homework:write",
     "materials:read",
     "materials:write",
+    "curriculum:read",
+    "curriculum:write",
   ],
   PARENT: [
     "students:read",
@@ -112,6 +118,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "homework:read",
     "materials:read",
     "teacher_feedback:submit",
+    "curriculum:read",
   ],
   /**
    * EPIC 6A — bilinçli olarak dar bir izin seti: yalnızca kendi verisini
@@ -130,6 +137,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "homework:submit",
     "materials:read",
     "teacher_feedback:submit",
+    "curriculum:read",
   ],
   AI_AGENT: [
     "attendance:write",
@@ -146,6 +154,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "communication:write",
     "announcements:read",
     "assessments:read",
+    "curriculum:read",
   ],
 };
 
