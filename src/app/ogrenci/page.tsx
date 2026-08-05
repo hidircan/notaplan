@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Video } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { readData } from "@/lib/store";
-import { listAnnouncementsForUserTool } from "@/lib/services";
+import { listAnnouncementsForUserTool, listCurriculumForStudentTool } from "@/lib/services";
 import { listNotificationsForUser } from "@/lib/notifications";
 import { NotificationList } from "@/components/notification-list";
 import { LogoutButton } from "@/components/logout-button";
 import { Badge, Card } from "@/components/ui";
+import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { formatDateTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 
@@ -39,6 +40,27 @@ export default async function OgrenciPortalPage() {
   if (!studentId) redirect("/login");
   const student = data.students.find((s) => s.id === studentId);
   if (!student) redirect("/login");
+
+  // Pasif/arşivlenmiş öğrenci: portala girebilir ama HİÇBİR ders/ödev/materyal/
+  // rapor verisi görmez — yalnız güvenli, açıklayıcı bir ekran. Veri sızıntısı yok.
+  if (!student.active) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-emerald-50 to-slate-50 px-4">
+        <Card className="max-w-sm text-center">
+          <p className="text-sm font-semibold text-slate-900">Hesabınız pasif durumda</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Kaydınız kurum tarafından pasife alınmış. Ders, ödev, materyal ve rapor
+            bilgilerine erişim geçici olarak kapalı. Sorularınız için kurumla iletişime
+            geçin.
+          </p>
+          <div className="mt-4">
+            <LogoutButton className="!text-xs" />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const teacher = data.teachers.find((t) => t.id === student.teacherId);
 
   const upcoming = data.lessons
@@ -51,6 +73,11 @@ export default async function OgrenciPortalPage() {
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
     .slice(0, 5);
 
+  const past = data.lessons
+    .filter((l) => l.studentId === student.id && new Date(l.startAt) < new Date())
+    .sort((a, b) => b.startAt.localeCompare(a.startAt))
+    .slice(0, 5);
+
   const notifications = await listNotificationsForUser({
     tenantId: data.settings.tenantId,
     userId: session.userId,
@@ -59,6 +86,9 @@ export default async function OgrenciPortalPage() {
 
   const announcementsResult = await listAnnouncementsForUserTool(session);
   const announcements = announcementsResult.ok ? announcementsResult.data.announcements : [];
+
+  const curriculumResult = await listCurriculumForStudentTool(session, { studentId: student.id });
+  const overallPercent = curriculumResult.ok ? curriculumResult.data.overallPercent : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50">
@@ -91,15 +121,33 @@ export default async function OgrenciPortalPage() {
           </p>
         </Card>
 
-        {student.studentType || student.level || student.targetExam ? (
+        {student.studentType || student.level || student.targetExam || student.educationMethod ? (
           <Card className="!p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Program bilgim</p>
             <div className="mt-1 space-y-0.5 text-sm text-slate-600">
               {student.studentType ? <p>Tür: {student.studentType}</p> : null}
               {student.level ? <p>Seviye: {student.level}</p> : null}
+              {student.educationMethod ? <p>Eğitim metodu: {student.educationMethod}</p> : null}
               {student.targetExam ? <p>Hedef sınav: {student.targetExam}</p> : null}
             </div>
           </Card>
+        ) : null}
+
+        {overallPercent !== null ? (
+          <Link href="/ogrenci/mufredat">
+            <Card className="!p-4 hover:border-emerald-200">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-900">Müfredat ilerlemem</p>
+                <p className="text-sm font-semibold text-emerald-600">%{overallPercent}</p>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-100">
+                <div
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${Math.max(0, Math.min(100, overallPercent))}%` }}
+                />
+              </div>
+            </Card>
+          </Link>
         ) : null}
 
         <div className="grid grid-cols-2 gap-2">
@@ -175,6 +223,37 @@ export default async function OgrenciPortalPage() {
                     <Badge status={l.type === "makeup" ? "makeup" : computeLiveDisplayStatus(l)} />
                   </div>
                   <p className="text-sm text-slate-500">{l.instrument}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <CalendarDays className="h-4 w-4 text-emerald-600" />
+            <h2 className="text-sm font-semibold text-slate-800">Geçmiş dersler</h2>
+          </div>
+          {past.length === 0 ? (
+            <Card>
+              <p className="text-sm text-slate-500">Henüz geçmiş ders yok.</p>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {past.map((l) => (
+                <Card key={l.id} className="!p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-slate-900">{formatDateTime(l.startAt)}</p>
+                    <Badge status={l.type === "makeup" ? "makeup" : l.status} />
+                  </div>
+                  <p className="text-sm text-slate-500">{l.instrument}</p>
+                  <div className="mt-1.5">
+                    <LessonOpsBadges
+                      studentAttended={l.studentAttended}
+                      lessonProcessed={l.lessonProcessed}
+                      opsMakeupFlag={l.opsMakeupFlag}
+                    />
+                  </div>
                 </Card>
               ))}
             </div>
