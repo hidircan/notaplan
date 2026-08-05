@@ -5,6 +5,7 @@ import { Badge, Card } from "@/components/ui";
 import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import {
   Bell,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
   FileText,
@@ -14,6 +15,7 @@ import {
   Music2,
   RefreshCcw,
   CreditCard,
+  Star,
 } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/logout-button";
@@ -169,6 +171,21 @@ export default async function VeliPortalPage() {
             Bu sayfa demo görünümüdür. Gerçekte veli kendi hesabıyla giriş yapar ve telafi / ödeme bilgilerini görür.
           </p>
         </Card>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/veli/odevler">
+            <Card className="!p-4 hover:border-violet-200">
+              <BookOpen className="h-4 w-4 text-violet-600" />
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Ödevler</p>
+            </Card>
+          </Link>
+          <Link href="/veli/degerlendirme">
+            <Card className="!p-4 hover:border-violet-200">
+              <Star className="h-4 w-4 text-violet-600" />
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Öğretmeni değerlendir</p>
+            </Card>
+          </Link>
+        </div>
 
         <section id="bildirimler">
           <div className="mb-2 flex items-center gap-2 px-1">
