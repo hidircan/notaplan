@@ -90,6 +90,29 @@ import {
   listAvailabilityRequestsForTeacher,
   reviewAvailabilityRequest,
 } from "../teacher-availability";
+import {
+  clearHomework,
+  createHomework,
+  getHomework,
+  getSubmission,
+  listHomeworkForStudent,
+  listHomeworkForTeacher,
+  listSubmissionsForHomework,
+  reviewSubmission,
+  submitHomework,
+} from "../homework";
+import {
+  clearTeachingMaterials,
+  createTeachingMaterial,
+  getTeachingMaterial,
+  listTeachingMaterialsForTeacher,
+} from "../teaching-materials";
+import { matchesMaterialAudience } from "../teaching-materials-audience";
+import {
+  clearTeacherFeedback,
+  listTeacherFeedback,
+  submitTeacherFeedback,
+} from "../teacher-feedback";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
@@ -124,10 +147,15 @@ import {
   markAnnouncementReadSchema,
   markNotificationReadSchema,
   markTeacherPayoutPaidSchema,
+  createHomeworkSchema,
+  createTeachingMaterialSchema,
   paymentRecordSchema,
   proposeTeacherAvailabilitySchema,
+  reviewHomeworkSubmissionSchema,
   reviewTeacherAvailabilityRequestSchema,
   roomSchema,
+  submitHomeworkSchema,
+  submitTeacherFeedbackSchema,
   startLessonSchema,
   studentSchema,
   suggestLessonSlotsSchema,
@@ -149,6 +177,8 @@ import {
   type BranchId,
   type CollectionsSettings,
   type FeeRoundingMode,
+  type Homework,
+  type HomeworkSubmission,
   type Instrument,
   type LessonAssessment,
   type MakeupSlot,
@@ -156,8 +186,10 @@ import {
   type Student,
   type Teacher,
   type TeacherAvailabilityRequest,
+  type TeacherFeedback,
   type TeacherFeeRule,
   type TeacherPayout,
+  type TeachingMaterial,
 } from "../types";
 import {
   canAccessStudent,
@@ -1960,6 +1992,393 @@ export async function reviewTeacherAvailabilityRequestTool(
   }
 }
 
+/** EPIC 6B (IMPLEMENTATION_PLAN.md) — TEACHER kendi öğrencisi için ödev oluşturur. */
+export async function createHomeworkTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ homeworkId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createHomeworkSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+  if (student.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi öğrenciniz için ödev oluşturabilirsiniz.");
+  }
+
+  try {
+    const homework = await createHomework({
+      tenantId: ctx.tenantId,
+      teacherId: ctx.teacherId!,
+      studentId: v.data.studentId,
+      title: v.data.title,
+      description: v.data.description,
+      dueDate: v.data.dueDate,
+    });
+    audit(ctx, "homework.create", "Homework", homework.id, { studentId: v.data.studentId });
+    return ok({ homeworkId: homework.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createHomework failed");
+  }
+}
+
+/** Öğrencinin kendi ödevleri — STUDENT/PARENT kendi çocuğu, TEACHER kendi öğrencisi, admin herkes. */
+export async function listHomeworkForStudentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ homework: Homework[] }>> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (!canAccessStudent(ctx, v.data.studentId)) {
+    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+
+    const homework = await listHomeworkForStudent(ctx.tenantId, v.data.studentId);
+    return ok({ homework });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listHomeworkForStudent failed");
+  }
+}
+
+/** EPIC 6D — TEACHER kendi öğrencilerine verdiği ödevlerin listesi. */
+export async function listHomeworkForTeacherTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ homework: Homework[] }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  try {
+    const homework = await listHomeworkForTeacher(ctx.tenantId, ctx.teacherId);
+    return ok({ homework });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listHomeworkForTeacher failed");
+  }
+}
+
+/**
+ * EPIC 6B — STUDENT kendi ödevine teslim yükler (video/foto/dosya). Dosya
+ * içeriği base64 — boyut sınırı submitHomeworkSchema'da (bkz. validation.ts).
+ */
+export async function submitHomeworkTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ submissionId: string }>> {
+  const auth = requireRole(ctx, ["STUDENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.studentId) return fail("FORBIDDEN", "Öğrenci kimliği bulunamadı.");
+
+  const v = parseOrFail(submitHomeworkSchema, input);
+  if (!v.ok) return v;
+
+  const homework = await getHomework(ctx.tenantId, v.data.homeworkId);
+  if (!homework) return fail("NOT_FOUND", "Ödev bulunamadı");
+  if (homework.studentId !== ctx.studentId) {
+    return fail("FORBIDDEN", "Yalnızca kendi ödevinize teslim yükleyebilirsiniz.");
+  }
+
+  try {
+    const submission = await submitHomework({
+      tenantId: ctx.tenantId,
+      homeworkId: v.data.homeworkId,
+      studentId: ctx.studentId,
+      note: v.data.note,
+      fileName: v.data.fileName,
+      fileMimeType: v.data.fileMimeType,
+      fileData: v.data.fileData,
+    });
+    audit(ctx, "homework.submit", "HomeworkSubmission", submission.id, {
+      homeworkId: v.data.homeworkId,
+    });
+    return ok({ submissionId: submission.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "submitHomework failed");
+  }
+}
+
+/** `fileData` içermez (özet) — indirme için getHomeworkSubmissionFileTool kullanılmalı. */
+export async function listHomeworkSubmissionsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ submissions: HomeworkSubmission[] }>> {
+  const v = parseOrFail(z.object({ homeworkId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const homework = await getHomework(ctx.tenantId, v.data.homeworkId);
+  if (!homework) return fail("NOT_FOUND", "Ödev bulunamadı");
+  if (!canAccessStudent(ctx, homework.studentId)) {
+    return fail("FORBIDDEN", "Bu ödeve erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const ownership = assertTeacherOwnsStudent(ctx, homework.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+
+    const submissions = await listSubmissionsForHomework(ctx.tenantId, v.data.homeworkId);
+    return ok({ submissions });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listHomeworkSubmissions failed");
+  }
+}
+
+/** EPIC 6D — TEACHER kendi öğrencisinin teslimine geri bildirim yazar. */
+export async function reviewHomeworkSubmissionTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ submissionId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(reviewHomeworkSubmissionSchema, input);
+  if (!v.ok) return v;
+
+  const submission = await getSubmission(ctx.tenantId, v.data.submissionId);
+  if (!submission) return fail("NOT_FOUND", "Teslim bulunamadı");
+  const homework = await getHomework(ctx.tenantId, submission.homeworkId);
+  if (!homework || homework.teacherId !== ctx.teacherId) {
+    return fail("FORBIDDEN", "Yalnızca kendi öğrencinizin teslimine geri bildirim yazabilirsiniz.");
+  }
+
+  try {
+    const reviewed = await reviewSubmission(ctx.tenantId, v.data.submissionId, v.data.teacherFeedback);
+    if (!reviewed) return fail("NOT_FOUND", "Teslim bulunamadı");
+    audit(ctx, "homework.review", "HomeworkSubmission", v.data.submissionId, {});
+    return ok({ submissionId: v.data.submissionId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reviewHomeworkSubmission failed");
+  }
+}
+
+/**
+ * Dosya indirme rotası için — yalnızca sahiplik kontrolü geçen çağrılar
+ * `fileData`yı görür, asla ham/tahmin edilebilir bir URL üzerinden değil.
+ */
+export async function getHomeworkSubmissionFileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ fileName?: string; fileMimeType?: string; fileData?: string }>> {
+  const v = parseOrFail(z.object({ submissionId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const submission = await getSubmission(ctx.tenantId, v.data.submissionId);
+  if (!submission) return fail("NOT_FOUND", "Teslim bulunamadı");
+  if (!canAccessStudent(ctx, submission.studentId)) {
+    return fail("FORBIDDEN", "Bu dosyaya erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const ownership = assertTeacherOwnsStudent(ctx, submission.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+    if (!submission.fileData) return fail("NOT_FOUND", "Bu teslimde dosya yok");
+
+    return ok({
+      fileName: submission.fileName,
+      fileMimeType: submission.fileMimeType,
+      fileData: submission.fileData,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getHomeworkSubmissionFile failed");
+  }
+}
+
+/** EPIC 6B — TEACHER kendi öğrencilerine materyal/pratik videosu paylaşır. */
+export async function createTeachingMaterialTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ materialId: string }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  const v = parseOrFail(createTeachingMaterialSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const material = await createTeachingMaterial({
+      tenantId: ctx.tenantId,
+      teacherId: ctx.teacherId,
+      title: v.data.title,
+      description: v.data.description,
+      targetStudentType: v.data.targetStudentType,
+      targetInstrument: v.data.targetInstrument,
+      targetLevel: v.data.targetLevel,
+      fileName: v.data.fileName,
+      fileMimeType: v.data.fileMimeType,
+      fileData: v.data.fileData,
+    });
+    audit(ctx, "teaching_material.create", "TeachingMaterial", material.id, {});
+    return ok({ materialId: material.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTeachingMaterial failed");
+  }
+}
+
+/**
+ * Bir öğrencinin görebileceği materyaller — yalnızca KENDİ öğretmeninin
+ * paylaştığı VE hedefleme kriterlerine uyan materyaller (bkz.
+ * matchesMaterialAudience). `fileData` içermez (özet) — indirme için
+ * getTeachingMaterialFileTool kullanılmalı.
+ */
+export async function listTeachingMaterialsForStudentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ materials: TeachingMaterial[] }>> {
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (!canAccessStudent(ctx, v.data.studentId)) {
+    return fail("FORBIDDEN", "Bu öğrenciye erişiminiz yok");
+  }
+
+  try {
+    const data = await readData();
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+    const ownership = assertTeacherOwnsStudent(ctx, v.data.studentId, data.students);
+    if (!ownership.ok) return fail("FORBIDDEN", ownership.message);
+
+    const all = await listTeachingMaterialsForTeacher(ctx.tenantId, student.teacherId);
+    const materials = all.filter((m) => matchesMaterialAudience(m, student));
+    return ok({ materials });
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "listTeachingMaterialsForStudent failed"
+    );
+  }
+}
+
+/** EPIC 6D — TEACHER kendi paylaştığı materyallerin listesi. */
+export async function listTeachingMaterialsForTeacherTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ materials: TeachingMaterial[] }>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
+
+  try {
+    const materials = await listTeachingMaterialsForTeacher(ctx.tenantId, ctx.teacherId);
+    return ok({ materials });
+  } catch (e) {
+    return fail(
+      "INTERNAL_ERROR",
+      e instanceof Error ? e.message : "listTeachingMaterialsForTeacher failed"
+    );
+  }
+}
+
+/** Dosya indirme rotası için — hedefleme + sahiplik kontrolü burada yapılır. */
+export async function getTeachingMaterialFileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ fileName?: string; fileMimeType?: string; fileData?: string }>> {
+  const v = parseOrFail(z.object({ materialId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const material = await getTeachingMaterial(ctx.tenantId, v.data.materialId);
+  if (!material) return fail("NOT_FOUND", "Materyal bulunamadı");
+
+  if (ctx.role === "TEACHER") {
+    if (material.teacherId !== ctx.teacherId) return fail("FORBIDDEN", "Bu materyale erişiminiz yok");
+  } else if (ctx.role === "PARENT" || ctx.role === "STUDENT") {
+    if (!ctx.studentId) return fail("FORBIDDEN", "Bu materyale erişiminiz yok");
+    const data = await readData();
+    const student = data.students.find((s) => s.id === ctx.studentId);
+    if (
+      !student ||
+      student.teacherId !== material.teacherId ||
+      !matchesMaterialAudience(material, student)
+    ) {
+      return fail("FORBIDDEN", "Bu materyale erişiminiz yok");
+    }
+  } else if (ctx.role !== "SUPER_ADMIN" && ctx.role !== "SCHOOL_ADMIN" && ctx.role !== "AI_AGENT") {
+    return fail("FORBIDDEN", "Bu materyale erişiminiz yok");
+  }
+
+  if (!material.fileData) return fail("NOT_FOUND", "Bu materyalde dosya yok");
+  return ok({
+    fileName: material.fileName,
+    fileMimeType: material.fileMimeType,
+    fileData: material.fileData,
+  });
+}
+
+/**
+ * EPIC 6C (IMPLEMENTATION_PLAN.md) — PARENT/STUDENT kendi çocuğu/kendisi
+ * için öğretmen hakkında yapılandırılmış geri bildirim gönderir. Kamuya
+ * açık ortalama/sıralama asla oluşturulmaz (bkz. teacher-feedback.ts).
+ */
+export async function submitTeacherFeedbackTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedbackId: string }>> {
+  const auth = requireRole(ctx, ["PARENT", "STUDENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(submitTeacherFeedbackSchema, input);
+  if (!v.ok) return v;
+
+  if (ctx.studentId !== v.data.studentId) {
+    return fail("FORBIDDEN", "Yalnızca kendi çocuğunuz/kendiniz için geri bildirim gönderebilirsiniz.");
+  }
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+
+  try {
+    const feedback = await submitTeacherFeedback({
+      tenantId: ctx.tenantId,
+      teacherId: student.teacherId,
+      studentId: v.data.studentId,
+      submittedBy: ctx.userId,
+      submitterRole: ctx.role,
+      scores: v.data.scores,
+      comment: v.data.comment,
+    });
+    audit(ctx, "teacher_feedback.submit", "TeacherFeedback", feedback.id, {
+      teacherId: student.teacherId,
+    });
+    return ok({ feedbackId: feedback.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "submitTeacherFeedback failed");
+  }
+}
+
+/**
+ * Yalnızca SCHOOL_ADMIN/SUPER_ADMIN görebilir — öğretmenin KENDİ geri
+ * bildirimini görebileceği bir yol bilerek YAZILMADI (bkz. teacher-feedback.ts).
+ */
+export async function listTeacherFeedbackTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedback: TeacherFeedback[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ teacherId: z.string().min(1).optional() }), input);
+  if (!v.ok) return v;
+
+  try {
+    const feedback = await listTeacherFeedback(ctx.tenantId, v.data.teacherId);
+    return ok({ feedback });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listTeacherFeedback failed");
+  }
+}
+
 export async function resetDemoTool(
   ctx: ServiceContext
 ): Promise<ServiceResult<{ reset: true }>> {
@@ -1975,6 +2394,9 @@ export async function resetDemoTool(
     await clearAnnouncements(ctx.tenantId);
     await clearAssessments(ctx.tenantId);
     await clearAvailabilityRequests(ctx.tenantId);
+    await clearHomework(ctx.tenantId);
+    await clearTeachingMaterials(ctx.tenantId);
+    await clearTeacherFeedback(ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");

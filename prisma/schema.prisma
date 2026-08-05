@@ -30,6 +30,10 @@ model Tenant {
   announcements   Announcement[]
   lessonAssessments LessonAssessment[]
   teacherAvailabilityRequests TeacherAvailabilityRequest[]
+  homeworks           Homework[]
+  homeworkSubmissions HomeworkSubmission[]
+  teachingMaterials   TeachingMaterial[]
+  teacherFeedbacks    TeacherFeedback[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -571,6 +575,91 @@ model TeacherAvailabilityRequest {
   updatedAt            DateTime  @updatedAt
 
   @@index([tenantId, teacherId, status])
+}
+
+/// EPIC 6B (IMPLEMENTATION_PLAN.md) — öğretmenin bir öğrenciye verdiği ödev.
+model Homework {
+  id          String               @id
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacherId   String
+  studentId   String
+  title       String
+  description String
+  dueDate     DateTime
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  submissions HomeworkSubmission[]
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, teacherId])
+}
+
+/// Öğrencinin bir ödeve yaptığı teslim. Dosya küçük dosya/foto/kısa video
+/// için DB'de (base64) saklanır — EPIC 6 planının "(A) seçeneği": yeni bir
+/// obje depolama bağımlılığı (S3/R2) eklemeden, mevcut altyapıyla. Erişim
+/// ASLA herkese açık/tahmin edilebilir bir URL ile değil, oturum + sahiplik
+/// kontrolüyle yapılır (bkz. GET /api/v1/homework-submissions/[id]/file).
+model HomeworkSubmission {
+  id              String    @id
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  homework        Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  homeworkId      String
+  studentId       String
+  note            String?
+  fileName        String?
+  fileMimeType    String?
+  fileData        String?   @db.LongText
+  submittedAt     DateTime  @default(now())
+  teacherFeedback String?
+  reviewedAt      DateTime?
+
+  @@index([tenantId, homeworkId])
+  @@index([tenantId, studentId])
+}
+
+/// EPIC 6B — öğretmenin öğrenci türü/enstrüman/seviyeye (EPIC 4 alanları)
+/// hedefleyerek paylaştığı materyal/pratik videosu. Hedefleme alanlarının
+/// HEPSİ null ise öğretmenin TÜM öğrencilerine görünür.
+model TeachingMaterial {
+  id                String   @id
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacherId         String
+  title             String
+  description       String
+  targetStudentType String?
+  targetInstrument  String?
+  targetLevel       String?
+  fileName          String?
+  fileMimeType      String?
+  fileData          String?  @db.LongText
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId, teacherId])
+}
+
+/// EPIC 6C (IMPLEMENTATION_PLAN.md) — veli/öğrencinin öğretmen hakkında
+/// yapılandırılmış geri bildirimi. Kamuya açık ortalama/sıralama YOK;
+/// yalnızca SCHOOL_ADMIN/SUPER_ADMIN görür. Öğretmen kendi ortalamasını
+/// GÖRMEZ (ilk sürüm, kötüye kullanım riskini azaltmak için bilinçli karar).
+model TeacherFeedback {
+  id            String   @id
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacherId     String
+  studentId     String
+  submittedBy   String
+  submitterRole String
+  scores        Json
+  comment       String?
+  /// "pending" | "reviewed" | "actioned"
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, teacherId])
+  @@index([tenantId, status])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

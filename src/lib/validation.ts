@@ -327,3 +327,67 @@ export const reviewTeacherAvailabilityRequestSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
   reviewNote: z.string().optional(),
 });
+
+const STUDENT_TYPE_FOR_HOMEWORK = [
+  "Hobi",
+  "MEB",
+  "London College of Music Hazırlık",
+  "Konservatuvar Hazırlık",
+  "Güzel Sanatlar Lisesi Hazırlık",
+] as const;
+const INSTRUMENT_FOR_HOMEWORK = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
+
+/**
+ * EPIC 6B — küçük dosya/foto/kısa video için base64; ~2MB ham veri sınırı
+ * (base64 şişmesiyle ~2.7M karakter) — yeni bir obje depolama bağımlılığı
+ * eklemeden DB/JSON'da taşınabilir kalması için (bkz. IMPLEMENTATION_PLAN.md
+ * EPIC 6 "Dosya/video erişimi" bölümü, "(A) seçeneği").
+ */
+const fileUploadSchema = z.object({
+  fileName: z.string().min(1).max(200).optional(),
+  fileMimeType: z.string().min(1).max(100).optional(),
+  fileData: z.string().max(2_800_000).optional(),
+});
+
+/** EPIC 6B — TEACHER kendi öğrencisi için ödev oluşturur. */
+export const createHomeworkSchema = z.object({
+  studentId: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  dueDate: z.string().min(1),
+});
+
+/** EPIC 6B — STUDENT kendi ödevine teslim yükler. */
+export const submitHomeworkSchema = z
+  .object({
+    homeworkId: z.string().min(1),
+    note: z.string().max(2000).optional(),
+  })
+  .extend(fileUploadSchema.shape);
+
+/** EPIC 6D — TEACHER bir teslime geri bildirim yazar. */
+export const reviewHomeworkSubmissionSchema = z.object({
+  submissionId: z.string().min(1),
+  teacherFeedback: z.string().min(1),
+});
+
+/** EPIC 6B — TEACHER materyal/pratik videosu paylaşır. */
+export const createTeachingMaterialSchema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    targetStudentType: z.enum(STUDENT_TYPE_FOR_HOMEWORK).optional(),
+    targetInstrument: z.enum(INSTRUMENT_FOR_HOMEWORK).optional(),
+    targetLevel: z.string().min(1).max(100).optional(),
+  })
+  .extend(fileUploadSchema.shape);
+
+/** EPIC 6C — veli/öğrenci öğretmen hakkında yapılandırılmış geri bildirim gönderir. */
+export const submitTeacherFeedbackSchema = z.object({
+  studentId: z.string().min(1),
+  scores: z.record(z.string(), z.number().int().min(1).max(5)).refine(
+    (s) => Object.keys(s).length > 0,
+    { message: "En az bir puan gerekli" }
+  ),
+  comment: z.string().max(2000).optional(),
+});

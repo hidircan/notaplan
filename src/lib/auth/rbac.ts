@@ -25,7 +25,14 @@ export type Permission =
   | "assessments:read"
   | "assessments:write"
   | "availability:propose"
-  | "availability:review";
+  | "availability:review"
+  | "homework:read"
+  | "homework:write"
+  | "homework:submit"
+  | "materials:read"
+  | "materials:write"
+  | "teacher_feedback:submit"
+  | "teacher_feedback:read";
 
 const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -49,6 +56,9 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "assessments:read",
     "assessments:write",
     "availability:review",
+    "homework:read",
+    "materials:read",
+    "teacher_feedback:read",
   ],
   SCHOOL_ADMIN: [
     "attendance:write",
@@ -70,6 +80,9 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "assessments:read",
     "assessments:write",
     "availability:review",
+    "homework:read",
+    "materials:read",
+    "teacher_feedback:read",
   ],
   TEACHER: [
     "attendance:write",
@@ -84,6 +97,10 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "assessments:read",
     "assessments:write",
     "availability:propose",
+    "homework:read",
+    "homework:write",
+    "materials:read",
+    "materials:write",
   ],
   PARENT: [
     "students:read",
@@ -92,11 +109,16 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "communication:write",
     "announcements:read",
     "assessments:read",
+    "homework:read",
+    "materials:read",
+    "teacher_feedback:submit",
   ],
   /**
-   * EPIC 6A (IMPLEMENTATION_PLAN.md) — bilinçli olarak dar bir izin seti:
-   * yalnızca kendi verisini OKUR (canAccessStudent ile kapsamlanır),
-   * hiçbir şey YAZAMAZ (opt-out/mesajlaşma/ödeme veli veya admin kararıdır).
+   * EPIC 6A — bilinçli olarak dar bir izin seti: yalnızca kendi verisini
+   * OKUR (canAccessStudent ile kapsamlanır); opt-out/mesajlaşma/ödeme hâlâ
+   * veli veya admin kararıdır. EPIC 6B/6C ile İKİ dar YAZMA izni eklendi:
+   * kendi ödev teslimini yükleme ve öğretmen hakkında geri bildirim —
+   * ikisi de yalnızca kendi kaydına, tool katmanında ayrıca kapsamlanır.
    */
   STUDENT: [
     "students:read",
@@ -104,6 +126,10 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "notifications:read",
     "announcements:read",
     "assessments:read",
+    "homework:read",
+    "homework:submit",
+    "materials:read",
+    "teacher_feedback:submit",
   ],
   AI_AGENT: [
     "attendance:write",

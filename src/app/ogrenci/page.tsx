@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, CalendarDays, FileText, Home, Megaphone, Music2 } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Video } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { readData } from "@/lib/store";
 import { listAnnouncementsForUserTool } from "@/lib/services";
@@ -14,10 +14,10 @@ import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 export const dynamic = "force-dynamic";
 
 /**
- * EPIC 6A (IMPLEMENTATION_PLAN.md) — STUDENT rolü için "boş iskelet" portal.
- * Bilinçli olarak dar kapsamlı: yalnızca kendi programı, bildirimleri,
- * duyuruları ve gelişim raporuna bağlantı. Ödev/materyal/geri bildirim
- * (6B/6C/6D) bu turda YOK — ayrı, ayrıca incelenecek bir sonraki adım.
+ * EPIC 6A/6B (IMPLEMENTATION_PLAN.md) — STUDENT rolü portalı. 6A'da yalnızca
+ * program/bildirim/duyuru/gelişim raporuydu; 6B ile ödev ve materyal
+ * bağlantıları eklendi (kendi alt-sayfaları, bkz. /ogrenci/odevlerim ve
+ * /ogrenci/materyaller).
  */
 export default async function OgrenciPortalPage() {
   let session;
@@ -90,6 +90,32 @@ export default async function OgrenciPortalPage() {
           </p>
         </Card>
 
+        {student.studentType || student.level || student.targetExam ? (
+          <Card className="!p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Program bilgim</p>
+            <div className="mt-1 space-y-0.5 text-sm text-slate-600">
+              {student.studentType ? <p>Tür: {student.studentType}</p> : null}
+              {student.level ? <p>Seviye: {student.level}</p> : null}
+              {student.targetExam ? <p>Hedef sınav: {student.targetExam}</p> : null}
+            </div>
+          </Card>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/ogrenci/odevlerim">
+            <Card className="!p-4 hover:border-emerald-200">
+              <BookOpen className="h-4 w-4 text-emerald-600" />
+              <p className="mt-1 text-sm font-semibold text-slate-900">Ödevlerim</p>
+            </Card>
+          </Link>
+          <Link href="/ogrenci/materyaller">
+            <Card className="!p-4 hover:border-emerald-200">
+              <Video className="h-4 w-4 text-emerald-600" />
+              <p className="mt-1 text-sm font-semibold text-slate-900">Materyaller</p>
+            </Card>
+          </Link>
+        </div>
+
         <Link href={`/degerlendirme/rapor/${student.id}`}>
           <Card className="!p-4 hover:border-emerald-200">
             <div className="flex items-center gap-2">
@@ -149,7 +175,7 @@ export default async function OgrenciPortalPage() {
         </section>
 
         <p className="px-1 text-center text-[11px] text-slate-400">
-          Demo görünüm · Ödev/materyal ve öğretmen değerlendirme formu yakında ·{" "}
+          Demo görünüm ·{" "}
           <Link href="/panel" className="text-emerald-600">
             Yönetim paneli
           </Link>

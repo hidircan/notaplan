@@ -470,3 +470,78 @@ export interface AppData {
   teacherFeeRules: TeacherFeeRule[];
   teacherPayouts: TeacherPayout[];
 }
+
+/**
+ * EPIC 6B (IMPLEMENTATION_PLAN.md) — öğretmenin bir öğrenciye verdiği ödev.
+ * `AppData`'nın dışında, standalone modül olarak tutulur (bkz.
+ * src/lib/homework.ts) — Notification/Announcement/LessonAssessment ile
+ * aynı desen.
+ */
+export interface Homework {
+  id: string;
+  teacherId: string;
+  studentId: string;
+  title: string;
+  description: string;
+  /** ISO tarih */
+  dueDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Dosya içeriği küçük dosya/foto/kısa video için base64 olarak taşınır
+ * (bkz. Homework modelinin şema yorumu). Erişim yalnızca oturum + sahiplik
+ * kontrolüyle yapılan bir API rotası üzerinden yapılır, asla ham bir
+ * herkese açık URL ile değil.
+ */
+export interface HomeworkSubmission {
+  id: string;
+  homeworkId: string;
+  studentId: string;
+  note?: string;
+  fileName?: string;
+  fileMimeType?: string;
+  /** Yalnızca base64 gövde — yanıtlarda genelde eksiltilip yalnızca "dosya var mı" bilgisi taşınır. */
+  fileData?: string;
+  submittedAt: string;
+  teacherFeedback?: string;
+  reviewedAt?: string;
+}
+
+/**
+ * EPIC 6B — öğretmenin öğrenci türü/enstrüman/seviyeye (EPIC 4 alanları)
+ * hedefleyerek paylaştığı materyal/pratik videosu. Hedefleme alanlarının
+ * HEPSİ undefined ise öğretmenin TÜM öğrencilerine görünür.
+ */
+export interface TeachingMaterial {
+  id: string;
+  teacherId: string;
+  title: string;
+  description: string;
+  targetStudentType?: StudentType;
+  targetInstrument?: Instrument;
+  targetLevel?: string;
+  fileName?: string;
+  fileMimeType?: string;
+  fileData?: string;
+  createdAt: string;
+}
+
+/**
+ * EPIC 6C (IMPLEMENTATION_PLAN.md) — veli/öğrencinin öğretmen hakkında
+ * yapılandırılmış geri bildirimi. Kamuya açık ortalama/sıralama YOK.
+ */
+export type TeacherFeedbackStatus = "pending" | "reviewed" | "actioned";
+
+export interface TeacherFeedback {
+  id: string;
+  teacherId: string;
+  studentId: string;
+  submittedBy: string;
+  submitterRole: string;
+  scores: Record<string, number>;
+  comment?: string;
+  status: TeacherFeedbackStatus;
+  createdAt: string;
+}
