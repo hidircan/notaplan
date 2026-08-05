@@ -1007,11 +1007,13 @@ buna hazır (`stripPrivateNoteForRecipient` forward-compat).
 
 ## EPIC 6 — Öğrenci, veli, öğretmen portalı [P1/P2]
 
-**Durum:** 🟡 Kısmen tamamlandı — 6A (commit `042be50`) ve 6B (commit
-`8be124e`: Homework/HomeworkSubmission/TeachingMaterial/TeacherFeedback
-modelleri + tam backend + STUDENT portal UI) bitti. 6C (veli UI) ve 6D
-(öğretmen UI) aynı backend'i kullanarak PLANLANDI — bkz. aşağıdaki
-"Riskler" bölümündeki 5 adımlı bölünme, adım (1) ve (2) tamamlandı.
+**Durum:** 🟡 Kısmen tamamlandı — 6A (`042be50`), 6B (`8be124e`:
+Homework/HomeworkSubmission/TeachingMaterial/TeacherFeedback modelleri +
+tam backend + STUDENT portal UI + dosya erişimi), 6C (`c617c2c`: veli
+UI — ödev görünümü + öğretmen değerlendirme formu, yeni backend YOK)
+bitti. Yalnızca 6D (öğretmen UI: ödev/materyal oluşturma formu, teslim
+değerlendirme ekranı — TOOL'lar zaten 6B'de yazıldı) kaldı — bkz.
+aşağıdaki "Riskler" bölümündeki 5 adımlı bölünmenin son parçası.
 
 ### Mevcut durum
 `/veli` bugün TEK, sabit bir "veli" deneyimi (`session.studentId` ile
@@ -1134,11 +1136,27 @@ pratik değildi — diskte çalışır durumda, commit'e dahil edilmedi (EPIC 1/
 ile aynı gerekçe). `/ogrenci` ve `/panel/duyurular` doğrudan URL ile
 erişilebilir, yalnızca sidebar'da görünür değiller.
 
-**Henüz yapılmayan (6C/6D — ayrı turlarda, aynı 6B backend'i üzerine):**
-Veli portalına (`/veli`) ödev/materyal görünümü + öğretmen geri bildirim
-formu (6C); öğretmen portalına (`/ogretmen`) ödev/materyal oluşturma +
-teslim değerlendirme ekranı (6D). Çocuk hesabı yaş/onay politikası hâlâ bir
-ürün kararı, kod değişikliği değil (bkz. Açık kararlar).
+**Henüz yapılmayan (6D — ayrı bir turda, aynı 6B backend'i üzerine):**
+Öğretmen portalına (`/ogretmen`) ödev/materyal oluşturma formu + teslim
+değerlendirme ekranı. Çocuk hesabı yaş/onay politikası hâlâ bir ürün
+kararı, kod değişikliği değil (bkz. Açık kararlar).
+
+### Tamamlanan — 6C (uygulama özeti — commit `c617c2c`)
+- Yeni backend/model/tool/RBAC YOK — 6B'nin tool'ları aynen kullanıldı.
+- `/veli/odevler`: çocuğun ödevleri, teslim durumu, öğretmen geri bildirimi
+  — veli için SALT OKUNUR (yükleme yolu bilerek YOK, yalnızca öğrenci
+  yükleyebilir, EPIC 6B kararı).
+- `/veli/degerlendirme`: `submitTeacherFeedbackTool`'un formu — 4 kriter
+  (iletişim/sabır/alan bilgisi/ders planlaması) 1-5 puan + serbest metin
+  yorum. Sayfada açıkça "yalnızca okul yönetimi görür" ibaresi var —
+  backend garantisiyle (`listTeacherFeedbackTool` yalnızca admin) tutarlı.
+- `/veli`'ye bu iki sayfaya bağlantı kartları eklendi (dosyanın taşıdığı
+  önceki oturumdan kalma dark-mode/AssistantPageContext değişiklikleri
+  yine dokunulmadan izole edildi).
+- Yeni test YOK — yeni tool/şema/RBAC yüzeyi olmadığı için EPIC 6B'nin
+  733/733 testi değişmeden geçti.
+- Doğrulama: `typecheck`/`lint`/`test`/`prisma validate`/`build` hepsi
+  yeşil.
 
 ### Tamamlanan — 6B (uygulama özeti — commit `8be124e`)
 - `prisma/schema.prisma`: `Homework`/`HomeworkSubmission`/`TeachingMaterial`/
