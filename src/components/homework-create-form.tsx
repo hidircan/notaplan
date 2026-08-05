@@ -4,9 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label, Select } from "@/components/ui";
 
-export function HomeworkCreateForm({ students }: { students: { id: string; name: string }[] }) {
+export function HomeworkCreateForm({
+  students,
+  defaultStudentId,
+  lockStudent = false,
+}: {
+  students: { id: string; name: string }[];
+  /** Önceden seçili öğrenci (çalışma alanı gibi tek-öğrenci bağlamında). */
+  defaultStudentId?: string;
+  /** true ise öğrenci seçici gizlenir (yalnızca defaultStudentId kullanılır). */
+  lockStudent?: boolean;
+}) {
   const router = useRouter();
-  const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [studentId, setStudentId] = useState(defaultStudentId ?? students[0]?.id ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -54,16 +64,20 @@ export function HomeworkCreateForm({ students }: { students: { id: string; name:
 
   return (
     <form onSubmit={onSubmit} className="space-y-2">
-      <div>
-        <Label>Öğrenci</Label>
-        <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-          {students.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {lockStudent ? (
+        <input type="hidden" name="studentId" value={studentId} />
+      ) : (
+        <div>
+          <Label>Öğrenci</Label>
+          <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div>
         <Label>Başlık</Label>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Gam çalışması" />

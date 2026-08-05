@@ -11,7 +11,14 @@ import {
 import { readData } from "@/lib/store";
 import { requireSessionContext } from "@/lib/auth/session";
 import { findOwnStudent, ownStudentLessons } from "@/lib/teacher-portal-scope";
+import {
+  listHomeworkForStudentTool,
+  listHomeworkSubmissionsTool,
+  listTeachingMaterialsForStudentTool,
+} from "@/lib/services";
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { HomeworkCreateForm } from "@/components/homework-create-form";
+import { HomeworkReviewForm } from "@/components/homework-review-form";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 
@@ -84,6 +91,23 @@ export default async function TeacherStudentWorkspacePage({
     absent: attendances.filter((a) => a.status === "absent").length,
     cancelled: attendances.filter((a) => a.status === "cancelled_by_school").length,
   };
+
+  // Ödev / materyal — tool katmanı TEACHER sahipliğini zaten zorlar.
+  const homeworkResult = await listHomeworkForStudentTool(session, { studentId: student.id });
+  const homeworkList = homeworkResult.ok ? homeworkResult.data.homework : [];
+  const homeworkWithSubs = await Promise.all(
+    homeworkList.map(async (hw) => {
+      const subResult = await listHomeworkSubmissionsTool(session, { homeworkId: hw.id });
+      return {
+        homework: hw,
+        submissions: subResult.ok ? subResult.data.submissions : [],
+      };
+    })
+  );
+  const materialsResult = await listTeachingMaterialsForStudentTool(session, {
+    studentId: student.id,
+  });
+  const materials = materialsResult.ok ? materialsResult.data.materials : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
@@ -240,19 +264,124 @@ export default async function TeacherStudentWorkspacePage({
           )}
         </section>
 
-        {/* Placeholder sections — filled in later commits; anchors stay stable */}
         <section id="odevler" aria-labelledby="odevler-heading">
           <h2 id="odevler-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
             Ödevler
           </h2>
-          <EmptyState title="Ödevler yakında" description="Bu bölüm bir sonraki adımda doldurulacak." />
+
+          <Card className="mb-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-cyan-600">
+              Bu öğrenciye ödev ver
+            </p>
+            <HomeworkCreateForm
+              students={[{ id: student.id, name: student.name }]}
+              defaultStudentId={student.id}
+              lockStudent
+            />
+          </Card>
+
+          {homeworkWithSubs.length === 0 ? (
+            <EmptyState
+              title="Henüz ödev yok"
+              description="Yukarıdan bu öğrenciye ilk ödevi verebilirsiniz."
+            />
+          ) : (
+            <div className="space-y-2">
+              {homeworkWithSubs.map(({ homework: hw, submissions }) => (
+                <Card key={hw.id} className="!p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-slate-50">{hw.title}</p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{hw.description}</p>
+                      <p className="mt-1 text-xs text-slate-400">Son teslim: {formatDate(hw.dueDate)}</p>
+                    </div>
+                    <Badge status={submissions.length > 0 ? "completed" : "pending"}>
+                      {submissions.length > 0 ? "Teslim edildi" : "Bekliyor"}
+                    </Badge>
+                  </div>
+                  {submissions.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-800/50"
+                    >
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Teslim: {formatDateTime(sub.submittedAt)}
+                        {sub.fileName ? ` · ${sub.fileName}` : ""}
+                      </p>
+                      {sub.note ? (
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{sub.note}</p>
+                      ) : null}
+                      {sub.fileData ? (
+                        <a
+                          href={`/api/v1/homework-submissions/${sub.id}/file`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-xs font-medium text-cyan-700 hover:underline"
+                        >
+                          Dosyayı görüntüle
+                        </a>
+                      ) : null}
+                      {sub.teacherFeedback ? (
+                        <p className="mt-2 rounded-md bg-emerald-50 p-1.5 text-xs font-medium text-emerald-800">
+                          Geri bildirim: {sub.teacherFeedback}
+                        </p>
+                      ) : (
+                        <div className="mt-2">
+                          <HomeworkReviewForm submissionId={sub.id} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </Card>
+              ))}
+            </div>
+          )}
         </section>
 
         <section id="materyal" aria-labelledby="materyal-heading">
           <h2 id="materyal-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
             Materyal / müfredat
           </h2>
-          <EmptyState title="Materyaller yakında" description="Bu bölüm bir sonraki adımda doldurulacak." />
+
+          <Card className="mb-3 !p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Müfredat özeti</p>
+            <dl className="mt-2 grid grid-cols-2 gap-3 text-sm">
+              <ProfileField label="Program türü" value={student.studentType ?? "Belirtilmemiş"} />
+              <ProfileField label="Seviye" value={student.level ?? "Belirtilmemiş"} />
+              <ProfileField label="Hedef sınav" value={student.targetExam ?? "—"} />
+              <ProfileField
+                label="Enstrüman"
+                value={student.instruments.join(", ") || "—"}
+              />
+            </dl>
+            <p className="mt-3 text-xs text-slate-400">
+              Ayrıntılı materyal paylaşımı için{" "}
+              <Link href="/ogretmen/materyaller" className="font-medium text-cyan-700 hover:text-cyan-800">
+                Materyaller
+              </Link>{" "}
+              sayfasını kullanın (hedef kitle: tür / enstrüman / seviye).
+            </p>
+          </Card>
+
+          {materials.length === 0 ? (
+            <EmptyState
+              title="Bu öğrenciye görünen materyal yok"
+              description="Paylaştığınız materyaller tür, enstrüman veya seviye hedefine göre filtrelenir."
+            />
+          ) : (
+            <div className="space-y-2">
+              {materials.map((m) => (
+                <Card key={m.id} className="!p-4">
+                  <p className="font-medium text-slate-900 dark:text-slate-50">{m.title}</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{m.description}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {[m.targetStudentType, m.targetInstrument, m.targetLevel].filter(Boolean).join(" · ") ||
+                      "Tüm öğrencilere görünür"}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          )}
         </section>
 
         <section id="gelisim" aria-labelledby="gelisim-heading">
