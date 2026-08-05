@@ -20,15 +20,18 @@ import type { LessonCommunicationMessage } from "@/lib/whatsapp-templates";
 import type { LessonSlotSuggestion } from "@/lib/lesson-scheduling";
 import type { SeriesOccurrenceCheck } from "@/lib/lesson-series";
 import { Badge, Button, Card, Input, Label, Select } from "@/components/ui";
+import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { INSTRUMENTS, type Instrument, type Lesson, type Room, type Student, type Teacher } from "@/lib/types";
 import { dayName } from "@/lib/utils";
+import { DEFAULT_LESSON_DURATION_MINUTES, LESSON_DURATION_OPTIONS } from "@/lib/lesson-duration";
 
 type ProgramStudioProps = {
   students: Student[];
   teachers: Teacher[];
   rooms: Room[];
   branchNames: Record<string, string>;
-  lessonDurationMinutes: number;
+  /** "Tüm kurumlar" görünümünde false — yazma tek bir kuruma karşı yapılmalı. */
+  canCreate: boolean;
   workingHours: { start: string; end: string };
   days: string[];
   weekLessons: Lesson[];
@@ -53,12 +56,38 @@ function formatMinutes(min: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function slotStarts(workingHours: { start: string; end: string }) {
-  const startMin = parseHm(workingHours.start);
-  const endMin = parseHm(workingHours.end);
+function slotStarts(startMin: number, endMin: number) {
   const slots: number[] = [];
   for (let t = startMin; t < endMin; t += SLOT_MINUTES) slots.push(t);
   return slots;
+}
+
+function minutesOfDay(iso: string) {
+  const d = parseISO(iso);
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/**
+ * Takvim grid'inin dikey saat aralığı artık okulun mesai saatiyle sınırlı
+ * değil — Pazar veya mesai dışı planlanmış bir ders varsa grid o dersi de
+ * kapsayacak şekilde genişler, aksi halde okulun normal çalışma saati
+ * görünümü korunur. Saf fonksiyon — birim testlerinde kullanılır.
+ */
+export function computeGridWindow(
+  workingHours: { start: string; end: string },
+  lessons: { startAt: string; endAt: string }[]
+): { startMin: number; endMin: number } {
+  let startMin = parseHm(workingHours.start);
+  let endMin = parseHm(workingHours.end);
+  for (const lesson of lessons) {
+    const lessonStart = minutesOfDay(lesson.startAt);
+    const lessonEnd = lessonStart + differenceInMinutes(parseISO(lesson.endAt), parseISO(lesson.startAt));
+    startMin = Math.min(startMin, lessonStart);
+    endMin = Math.max(endMin, lessonEnd);
+  }
+  startMin = Math.floor(startMin / SLOT_MINUTES) * SLOT_MINUTES;
+  endMin = Math.ceil(endMin / SLOT_MINUTES) * SLOT_MINUTES;
+  return { startMin, endMin };
 }
 
 /** Sadece normal (telafi olmayan), planlanmış ve gelecekteki dersler taşınabilir/resize edilebilir. */
@@ -146,13 +175,13 @@ function LessonCardBody({
   const timeRange = `${format(parseISO(lesson.startAt), "HH:mm")}–${format(parseISO(lesson.endAt), "HH:mm")}`;
   return (
     <>
-      <p className="truncate font-semibold leading-tight text-slate-800" title={student?.name}>
+      <p className="truncate font-semibold leading-tight text-slate-800 dark:text-slate-200" title={student?.name}>
         {student?.name}
       </p>
-      <p className="truncate leading-tight text-slate-500">{timeRange}</p>
+      <p className="truncate leading-tight text-slate-500 dark:text-slate-400">{timeRange}</p>
       {tier !== "min" ? (
         <p
-          className="truncate leading-tight text-slate-500"
+          className="truncate leading-tight text-slate-500 dark:text-slate-400"
           title={`${teacher?.name ?? ""}${branchName ? ` · ${branchName}` : ""}`}
         >
           {teacher?.name}
@@ -199,6 +228,18 @@ export function resolveTeacherFilterForBranch(
   const teacher = teachers.find((t) => t.id === currentTeacherId);
   if (!teacher || (nextBranchId && teacher.branchId !== nextBranchId)) return "";
   return currentTeacherId;
+}
+
+/** Şube değişince geçersiz kalan oda seçimini sıfırlar. */
+export function resolveRoomFilterForBranch(
+  rooms: Room[],
+  nextBranchId: string,
+  currentRoomId: string
+): string {
+  if (!currentRoomId) return currentRoomId;
+  const room = rooms.find((r) => r.id === currentRoomId);
+  if (!room || (nextBranchId && room.branchId !== nextBranchId)) return "";
+  return currentRoomId;
 }
 
 export function studentsForBranch(students: Student[], filterBranchId: string): Student[] {
@@ -278,15 +319,15 @@ function FormModal({ title, onClose, children }: { title: string; onClose: () =>
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/40"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-4">
-          <h3 className="font-semibold text-slate-900">{title}</h3>
+        <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-4 dark:border-slate-800">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300"
             aria-label="Kapat"
           >
             <X className="h-5 w-5" />
@@ -307,7 +348,7 @@ export function ProgramStudio({
   teachers,
   rooms,
   branchNames,
-  lessonDurationMinutes,
+  canCreate,
   workingHours,
   days,
   weekLessons,
@@ -315,7 +356,8 @@ export function ProgramStudio({
 }: ProgramStudioProps) {
   const router = useRouter();
   const now = parseISO(todayIso);
-  const slots = slotStarts(workingHours);
+  const gridWindow = computeGridWindow(workingHours, weekLessons);
+  const slots = slotStarts(gridWindow.startMin, gridWindow.endMin);
   const windowStartMin = slots[0] ?? 0;
 
   const [activePanel, setActivePanel] = useState<ActivePanel>("none");
@@ -326,6 +368,8 @@ export function ProgramStudio({
   const [roomId, setRoomId] = useState("");
   const [instrument, setInstrument] = useState<Instrument>("Piyano");
   const [startAt, setStartAt] = useState("");
+  const [lessonBranchId, setLessonBranchId] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState<number>(DEFAULT_LESSON_DURATION_MINUTES);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<{
@@ -383,21 +427,26 @@ export function ProgramStudio({
     ? selectedStudent.instruments
     : INSTRUMENTS;
 
+  const lessonStudentOptions = studentsForBranch(
+    students.filter((s) => s.active),
+    lessonBranchId
+  );
   const teacherOptions = teacherOptionsFor(teachers, instrument, selectedStudent).filter(
-    (t) => !filterBranchId || t.branchId === filterBranchId
+    (t) => !lessonBranchId || t.branchId === lessonBranchId
   );
   const roomOptions = roomOptionsFor(rooms, instrument, selectedTeacher).filter(
-    (r) => !filterBranchId || r.branchId === filterBranchId
+    (r) => !lessonBranchId || r.branchId === lessonBranchId
   );
 
   // Tekrarlayan ders serisi paneli — tek ders panelinden bağımsız state.
+  const [seriesBranchId, setSeriesBranchId] = useState("");
   const [seriesStudentId, setSeriesStudentId] = useState("");
   const [seriesTeacherId, setSeriesTeacherId] = useState("");
   const [seriesRoomId, setSeriesRoomId] = useState("");
   const [seriesInstrument, setSeriesInstrument] = useState<Instrument>("Piyano");
   const [seriesWeekday, setSeriesWeekday] = useState(1);
   const [seriesStartTime, setSeriesStartTime] = useState("10:00");
-  const [seriesDuration, setSeriesDuration] = useState(lessonDurationMinutes);
+  const [seriesDuration, setSeriesDuration] = useState<number>(DEFAULT_LESSON_DURATION_MINUTES);
   const [seriesStartsOn, setSeriesStartsOn] = useState("");
   const [seriesEndsOn, setSeriesEndsOn] = useState("");
   const [seriesSkipConflicts, setSeriesSkipConflicts] = useState(false);
@@ -417,13 +466,16 @@ export function ProgramStudio({
   const seriesInstrumentOptions = seriesSelectedStudent?.instruments.length
     ? seriesSelectedStudent.instruments
     : INSTRUMENTS;
+  const seriesStudentOptions = studentsForBranch(
+    students.filter((s) => s.active),
+    seriesBranchId
+  );
   const seriesTeacherOptions = teacherOptionsFor(teachers, seriesInstrument, seriesSelectedStudent).filter(
-    (t) => !filterBranchId || t.branchId === filterBranchId
+    (t) => !seriesBranchId || t.branchId === seriesBranchId
   );
   const seriesRoomOptions = roomOptionsFor(rooms, seriesInstrument, seriesSelectedTeacher).filter(
-    (r) => !filterBranchId || r.branchId === filterBranchId
+    (r) => !seriesBranchId || r.branchId === seriesBranchId
   );
-  const seriesBranchId = rooms.find((r) => r.id === seriesRoomId)?.branchId ?? seriesSelectedTeacher?.branchId ?? "";
 
   function resetPanelState() {
     setFormError(null);
@@ -432,16 +484,22 @@ export function ProgramStudio({
   }
 
   function openPlanner(prefillStartAt?: string) {
+    if (!canCreate) {
+      setGridError("Ders eklemek için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     resetPanelState();
     setDetailLesson(null);
     setActivePanel("create");
     if (prefillStartAt) setStartAt(prefillStartAt);
+    if (filterBranchId) setLessonBranchId(filterBranchId);
     if (filterTeacherId) {
       const teacher = teachers.find((t) => t.id === filterTeacherId);
       if (teacher) {
         setTeacherId(filterTeacherId);
         setInstrument(teacher.instruments[0] ?? "Piyano");
         setRoomId("");
+        setLessonBranchId(teacher.branchId);
       }
     }
   }
@@ -458,6 +516,7 @@ export function ProgramStudio({
     if (student) {
       setInstrument(student.instruments[0] ?? "Piyano");
       setTeacherId(student.teacherId);
+      setLessonBranchId(student.branchId);
     }
   }
 
@@ -471,12 +530,34 @@ export function ProgramStudio({
     setRoomId("");
   }
 
+  /** Şube değişince o şubeyle uyumsuz kalan öğrenci/öğretmen/oda seçimi sıfırlanır. */
+  function selectLessonBranch(id: string) {
+    setLessonBranchId(id);
+    setStudentId((current) => resolveStudentFilterForBranch(students, id, current));
+    setTeacherId((current) => resolveTeacherFilterForBranch(teachers, id, current));
+    setRoomId((current) => resolveRoomFilterForBranch(rooms, id, current));
+  }
+
   function openSeriesPanel() {
+    if (!canCreate) {
+      setGridError("Ders eklemek için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     setSeriesError(null);
     setSeriesPreview(null);
     setSeriesSuccess(null);
     setDetailLesson(null);
     setActivePanel("series");
+    if (filterBranchId) setSeriesBranchId(filterBranchId);
+  }
+
+  /** Şube değişince o şubeyle uyumsuz kalan öğrenci/öğretmen/oda seçimi sıfırlanır. */
+  function selectSeriesBranch(id: string) {
+    setSeriesBranchId(id);
+    setSeriesPreview(null);
+    setSeriesStudentId((current) => resolveStudentFilterForBranch(students, id, current));
+    setSeriesTeacherId((current) => resolveTeacherFilterForBranch(teachers, id, current));
+    setSeriesRoomId((current) => resolveRoomFilterForBranch(rooms, id, current));
   }
 
   function selectSeriesStudent(id: string) {
@@ -486,6 +567,7 @@ export function ProgramStudio({
     if (student) {
       setSeriesInstrument(student.instruments[0] ?? "Piyano");
       setSeriesTeacherId(student.teacherId);
+      setSeriesBranchId(student.branchId);
     }
   }
 
@@ -504,8 +586,8 @@ export function ProgramStudio({
   async function handleSeriesPreview() {
     setSeriesError(null);
     setSeriesSuccess(null);
-    if (!seriesStudentId || !seriesTeacherId || !seriesRoomId || !seriesStartsOn || !seriesEndsOn) {
-      setSeriesError("Öğrenci, öğretmen, oda ve tarih aralığı zorunludur.");
+    if (!seriesBranchId || !seriesStudentId || !seriesTeacherId || !seriesRoomId || !seriesStartsOn || !seriesEndsOn) {
+      setSeriesError("Şube, öğrenci, öğretmen, oda ve tarih aralığı zorunludur.");
       return;
     }
     setSeriesPreviewLoading(true);
@@ -590,6 +672,7 @@ export function ProgramStudio({
   function applySuggestion(s: LessonSlotSuggestion) {
     setTeacherId(s.teacherId);
     setRoomId(s.roomId);
+    setLessonBranchId(s.branchId);
     setStartAt(toDatetimeLocalValue(s.startAt));
     setSuggestions(null);
   }
@@ -597,8 +680,8 @@ export function ProgramStudio({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!studentId || !teacherId || !roomId || !startAt) {
-      setFormError("Öğrenci, öğretmen, oda ve tarih/saat seçimi zorunludur.");
+    if (!lessonBranchId || !studentId || !teacherId || !roomId || !startAt) {
+      setFormError("Şube, öğrenci, öğretmen, oda ve tarih/saat seçimi zorunludur.");
       return;
     }
     setSubmitting(true);
@@ -608,6 +691,7 @@ export function ProgramStudio({
     fd.set("roomId", roomId);
     fd.set("instrument", instrument);
     fd.set("startAt", startAt);
+    fd.set("durationMinutes", String(durationMinutes));
     const result = await actionAddLesson(fd);
     setSubmitting(false);
     if (!result.ok) {
@@ -643,6 +727,10 @@ export function ProgramStudio({
   async function submitDetailMove(e: FormEvent) {
     e.preventDefault();
     if (!detailLesson) return;
+    if (!canCreate) {
+      setDetailError("Ders taşımak için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     setDetailSubmitting(true);
     setDetailError(null);
     const result = await actionUpdateLessonSchedule({
@@ -661,6 +749,10 @@ export function ProgramStudio({
 
   async function submitDetailCancel() {
     if (!detailLesson) return;
+    if (!canCreate) {
+      setDetailError("Ders iptal etmek için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     if (!window.confirm("Bu dersi iptal etmek istediğinize emin misiniz?")) return;
     setDetailSubmitting(true);
     setDetailError(null);
@@ -676,6 +768,10 @@ export function ProgramStudio({
 
   async function submitCancelSeriesFromLesson() {
     if (!detailLesson) return;
+    if (!canCreate) {
+      setDetailError("Seri iptali için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     if (
       !window.confirm(
         "Bu ders ve bu tarihten sonraki tüm seri dersleri iptal edilecek. Geçmiş dersler etkilenmez. Emin misiniz?"
@@ -696,6 +792,10 @@ export function ProgramStudio({
 
   async function submitCancelEntireSeries() {
     if (!detailLesson?.seriesId) return;
+    if (!canCreate) {
+      setDetailError("Seri iptali için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     if (
       !window.confirm(
         "Bu serinin tamamı iptal edilecek (geçmiş dersler korunur, gelecekteki tüm dersler iptal olur). Emin misiniz?"
@@ -715,6 +815,10 @@ export function ProgramStudio({
   }
 
   async function performMove(lessonId: string, newStartAtIso: string) {
+    if (!canCreate) {
+      setGridError("Ders taşımak için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     setGridError(null);
     const result = await actionUpdateLessonSchedule({ lessonId, startAt: newStartAtIso });
     if (!result.ok) {
@@ -738,6 +842,10 @@ export function ProgramStudio({
   function startResize(e: React.MouseEvent, lesson: Lesson) {
     e.preventDefault();
     e.stopPropagation();
+    if (!canCreate) {
+      setGridError("Ders süresini değiştirmek için üstteki kurum seçiciden tek bir kurum seçin.");
+      return;
+    }
     const duration = differenceInMinutes(parseISO(lesson.endAt), parseISO(lesson.startAt));
     resizeRef.current = { lessonId: lesson.id, startY: e.clientY, initialDuration: duration, currentDuration: duration };
     setResizePreview({ lessonId: lesson.id, duration });
@@ -781,16 +889,25 @@ export function ProgramStudio({
     <>
       <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div>
+          <Label>Şube</Label>
+          <Select value={lessonBranchId} onChange={(e) => selectLessonBranch(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {branchIds.map((id) => (
+              <option key={id} value={id}>
+                {branchNames[id] ?? id}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
           <Label>Öğrenci</Label>
           <Select value={studentId} onChange={(e) => selectStudent(e.target.value)} required>
             <option value="">Seçin…</option>
-            {students
-              .filter((s) => s.active)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+            {lessonStudentOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
           </Select>
         </div>
         <div>
@@ -827,11 +944,18 @@ export function ProgramStudio({
           </Select>
         </div>
         <div>
+          <Label>Süre</Label>
+          <Select value={durationMinutes} onChange={(e) => setDurationMinutes(Number(e.target.value))}>
+            {LESSON_DURATION_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {d} dakika
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
           <Label>Başlangıç tarihi/saati</Label>
           <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required />
-          <p className="mt-1 text-[11px] text-slate-400">
-            Süre: {lessonDurationMinutes} dk (okul ayarından otomatik, bitiş saati elle girilmez)
-          </p>
         </div>
         <div className="flex items-end gap-2">
           <Button type="button" variant="secondary" onClick={handleFindSlots} disabled={suggestLoading}>
@@ -851,11 +975,11 @@ export function ProgramStudio({
 
       {suggestions ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="mb-3 text-sm font-medium text-slate-700">
+          <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             Uygun saatler {suggestions.length === 0 ? "bulunamadı" : `(${suggestions.length})`}
           </p>
           {suggestions.length === 0 ? (
-            <p className="text-sm text-slate-500">Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.</p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {suggestions.map((s) => {
@@ -868,9 +992,9 @@ export function ProgramStudio({
                     onClick={() => applySuggestion(s)}
                     className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-violet-300 hover:bg-violet-50"
                   >
-                    <p className="font-semibold text-slate-900">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
-                    <p className="text-slate-600">{format(parseISO(s.startAt), "HH:mm")}</p>
-                    <p className="mt-1 text-slate-500">
+                    <p className="font-semibold text-slate-900 dark:text-slate-50">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
+                    <p className="text-slate-600 dark:text-slate-400">{format(parseISO(s.startAt), "HH:mm")}</p>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">
                       {teacher?.name} · {room?.name}
                     </p>
                     <p className="mt-1 text-[11px] text-violet-600">{s.reasons.join(" · ")}</p>
@@ -898,16 +1022,25 @@ export function ProgramStudio({
     <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div>
+          <Label>Şube</Label>
+          <Select value={seriesBranchId} onChange={(e) => selectSeriesBranch(e.target.value)} required>
+            <option value="">Seçin…</option>
+            {branchIds.map((id) => (
+              <option key={id} value={id}>
+                {branchNames[id] ?? id}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
           <Label>Öğrenci</Label>
           <Select value={seriesStudentId} onChange={(e) => selectSeriesStudent(e.target.value)} required>
             <option value="">Seçin…</option>
-            {students
-              .filter((s) => s.active)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+            {seriesStudentOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
           </Select>
         </div>
         <div>
@@ -949,9 +1082,6 @@ export function ProgramStudio({
               </option>
             ))}
           </Select>
-          {seriesBranchId ? (
-            <p className="mt-1 text-[11px] text-slate-400">Şube: {branchNames[seriesBranchId] ?? seriesBranchId}</p>
-          ) : null}
         </div>
         <div>
           <Label>Gün</Label>
@@ -982,18 +1112,20 @@ export function ProgramStudio({
           />
         </div>
         <div>
-          <Label>Süre (dk)</Label>
-          <Input
-            type="number"
-            min={15}
-            step={5}
+          <Label>Süre</Label>
+          <Select
             value={seriesDuration}
             onChange={(e) => {
-              setSeriesDuration(Number(e.target.value) || lessonDurationMinutes);
+              setSeriesDuration(Number(e.target.value));
               setSeriesPreview(null);
             }}
-            required
-          />
+          >
+            {LESSON_DURATION_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {d} dakika
+              </option>
+            ))}
+          </Select>
         </div>
         <div>
           <Label>Başlangıç tarihi</Label>
@@ -1042,7 +1174,7 @@ export function ProgramStudio({
 
       {seriesPreview ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-700">{seriesPreview.previewText}</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{seriesPreview.previewText}</p>
           {seriesPreview.conflictCount > 0 ? (
             <div className="mt-3">
               <p className="text-sm font-medium text-rose-700">{seriesPreview.conflictCount} tarihte çakışma var:</p>
@@ -1055,7 +1187,7 @@ export function ProgramStudio({
                     </p>
                   ))}
               </div>
-              <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+              <label className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                 <input
                   type="checkbox"
                   checked={seriesSkipConflicts}
@@ -1137,7 +1269,7 @@ export function ProgramStudio({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <h2 className="font-semibold text-slate-900">Haftalık program</h2>
+            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Haftalık program</h2>
             <p className="mt-0.5 hidden text-xs text-slate-400 lg:block">
               Dersi taşımak için sürükleyin · Süreyi değiştirmek için kartın altından uzatın
             </p>
@@ -1145,14 +1277,16 @@ export function ProgramStudio({
           <div
             role="group"
             aria-label="Takvim görünümü"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900"
           >
             <button
               type="button"
               aria-pressed={calendarView === "day"}
               onClick={() => setCalendarView("day")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                calendarView === "day" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                calendarView === "day"
+                  ? "bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
               Gün görünümü
@@ -1162,7 +1296,9 @@ export function ProgramStudio({
               aria-pressed={calendarView === "week"}
               onClick={() => setCalendarView("week")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                calendarView === "week" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                calendarView === "week"
+                  ? "bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
               Haftalık görünüm
@@ -1194,22 +1330,32 @@ export function ProgramStudio({
               </option>
             ))}
           </Select>
-          <Button variant="secondary" onClick={openSeriesPanel}>
+          <Button variant="secondary" onClick={openSeriesPanel} disabled={!canCreate}>
             Tekrarlayan ders oluştur
           </Button>
-          <Button onClick={() => openPlanner()}>Ders planla</Button>
+          <Button onClick={() => openPlanner()} disabled={!canCreate}>
+            Ders planla
+          </Button>
         </div>
       </div>
 
+      {!canCreate ? (
+        <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          &quot;Tüm kurumlar&quot; görünümündesiniz — yeni ders eklemek için üstteki kurum seçiciden tek bir kurum seçin.
+        </p>
+      ) : null}
+
       {visibleWeekLessons.length === 0 ? (
         <Card className="mb-4 border-dashed border-slate-200 bg-slate-50/60 text-center">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {filterBranchId || filterTeacherId || filterStudentId
               ? "Bu filtrelerle eşleşen ders yok."
               : "Bu hafta için planlanmış ders yok."}
           </p>
           <div className="mt-3 flex justify-center">
-            <Button onClick={() => openPlanner()}>Ders planla</Button>
+            <Button onClick={() => openPlanner()} disabled={!canCreate}>
+              Ders planla
+            </Button>
           </div>
         </Card>
       ) : null}
@@ -1258,12 +1404,12 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold ${
-                  today ? "bg-violet-50 text-violet-700" : "text-slate-600"
+                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold dark:border-slate-800 ${
+                  today ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" : "text-slate-600 dark:text-slate-400"
                 }`}
               >
                 {format(day, "EEEE", { locale: tr })}
-                <span className="ml-1 font-normal text-slate-400">{format(day, "d MMM", { locale: tr })}</span>
+                <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">{format(day, "d MMM", { locale: tr })}</span>
               </div>
             );
           })}
@@ -1274,7 +1420,7 @@ export function ProgramStudio({
             {slots.map((min) => (
               <div
                 key={min}
-                className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400"
+                className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500"
                 style={{ height: SLOT_HEIGHT_PX }}
               >
                 {min % 60 === 0 ? formatMinutes(min) : ""}
@@ -1292,7 +1438,7 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`relative flex-1 border-l border-slate-100 ${today ? "bg-violet-50/20" : ""}`}
+                className={`relative flex-1 border-l border-slate-100 dark:border-slate-800 ${today ? "bg-violet-50/20 dark:bg-violet-950/20" : ""}`}
                 style={{ height: totalHeight }}
               >
                 {slots.map((min, i) => {
@@ -1336,7 +1482,7 @@ export function ProgramStudio({
                   const height = Math.max((duration / SLOT_MINUTES) * SLOT_HEIGHT_PX - 2, SLOT_HEIGHT_PX - 2);
                   const lane = laneOf.get(lesson.id) ?? 0;
                   const widthPct = 100 / laneCount;
-                  const editable = canMoveOrResize(lesson, now);
+                  const editable = canMoveOrResize(lesson, now) && canCreate;
 
                   return (
                     <div
@@ -1348,7 +1494,7 @@ export function ProgramStudio({
                         setDragOverKey(null);
                       }}
                       onClick={() => openDetail(lesson)}
-                      className={`absolute z-10 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 text-[10px] shadow-sm ${
+                      className={`absolute z-10 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 text-[10px] shadow-sm dark:border-slate-700 dark:bg-slate-800 ${
                         editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-90"
                       }`}
                       style={{
@@ -1359,8 +1505,8 @@ export function ProgramStudio({
                         borderLeft: `3px solid ${teacher?.color ?? "#7c3aed"}`,
                       }}
                     >
-                      <p className="truncate font-semibold text-slate-800">{student?.name}</p>
-                      <p className="truncate text-slate-500">
+                      <p className="truncate font-semibold text-slate-800 dark:text-slate-200">{student?.name}</p>
+                      <p className="truncate text-slate-500 dark:text-slate-400">
                         {format(parseISO(lesson.startAt), "HH:mm")}–{format(parseISO(lesson.endAt), "HH:mm")}
                       </p>
                       <p className="truncate text-slate-400">
@@ -1399,7 +1545,7 @@ export function ProgramStudio({
             return (
               <Card key={dayIso} className={today ? "border-violet-200 bg-violet-50/30" : undefined}>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">{format(day, "EEEE d MMM", { locale: tr })}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{format(day, "EEEE d MMM", { locale: tr })}</p>
                   {today ? <Badge status="scheduled">Bugün</Badge> : null}
                 </div>
                 {dayLessons.length === 0 ? (
@@ -1487,23 +1633,40 @@ function DetailPanel({
   return (
     <Card className="mb-6 border-slate-300">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900">Ders detayı</h3>
-        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="Kapat">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-50">Ders detayı</h3>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:text-slate-300" aria-label="Kapat">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mb-3 text-sm text-slate-700">
-        <p className="font-medium text-slate-900">
+      <div className="mb-3 text-sm text-slate-700 dark:text-slate-300">
+        <p className="font-medium text-slate-900 dark:text-slate-50">
           {format(parseISO(lesson.startAt), "d MMMM yyyy · HH:mm", { locale: tr })} — {lesson.instrument}
         </p>
-        <p className="mt-1 text-slate-500">
+        <p className="mt-1 text-slate-500 dark:text-slate-400">
           {student?.name} · {teacher?.name} · {room?.name}
           {branchName ? ` · ${branchName}` : ""}
         </p>
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+          <LessonOpsBadges
+            studentAttended={lesson.studentAttended}
+            lessonProcessed={lesson.lessonProcessed}
+            opsMakeupFlag={lesson.opsMakeupFlag}
+          />
         </div>
+      </div>
+
+      <div className="mb-3 border-t border-slate-100 pt-3 dark:border-slate-700">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Hızlı aksiyonlar
+        </p>
+        <LessonOpsActions
+          lessonId={lesson.id}
+          studentAttended={lesson.studentAttended}
+          lessonProcessed={lesson.lessonProcessed}
+          opsMakeupFlag={lesson.opsMakeupFlag}
+        />
       </div>
 
       {isSeriesMember ? (
@@ -1566,13 +1729,13 @@ function DetailPanel({
 function CommunicationDraftCard({ label, msg }: { label: string; msg: LessonCommunicationMessage }) {
   const [markedSent, setMarkedSent] = useState(false);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-50">
         {msg.toName}
         {msg.toPhone ? ` · ${msg.toPhone}` : ""}
       </p>
-      <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700">
+      <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
         {msg.body}
       </pre>
       {msg.waLink ? (
@@ -1585,7 +1748,7 @@ function CommunicationDraftCard({ label, msg }: { label: string; msg: LessonComm
       ) : (
         <p className="mt-2 text-xs text-rose-600">{msg.missingPhoneReason ?? "Telefon numarası eksik."}</p>
       )}
-      <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+      <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
         <input type="checkbox" checked={markedSent} onChange={(e) => setMarkedSent(e.target.checked)} />
         Sistemde gönderildi olarak işaretle
       </label>

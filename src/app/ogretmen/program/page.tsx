@@ -16,6 +16,7 @@ import { Badge, Card } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 import { LessonLiveActions } from "@/components/lesson-live-actions";
+import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,9 @@ export default async function TeacherOwnProgramPage({
   if (session.role === "PARENT") redirect("/veli");
 
   const data = await readData();
-  const teacherId = session.teacherId || "t2";
-  const teacher = data.teachers.find((t) => t.id === teacherId) ?? data.teachers[0];
+  const teacherId = session.teacherId;
+  if (!teacherId) redirect("/login");
+  const teacher = data.teachers.find((t) => t.id === teacherId);
   if (!teacher) redirect("/login");
 
   const { week } = await searchParams;
@@ -155,11 +157,25 @@ export default async function TeacherOwnProgramPage({
                         <p className="text-slate-500 dark:text-slate-400">
                           {lesson.instrument} · {branch?.shortName ?? "—"} · {room?.name ?? "—"}
                         </p>
-                        <div className="mt-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
                           <Badge status={lesson.type === "makeup" ? "makeup" : liveStatus} />
+                          <LessonOpsBadges
+                            studentAttended={lesson.studentAttended}
+                            lessonProcessed={lesson.lessonProcessed}
+                            opsMakeupFlag={lesson.opsMakeupFlag}
+                          />
                         </div>
                         {today ? (
-                          <LessonLiveActions lessonId={lesson.id} displayStatus={liveStatus} />
+                          <>
+                            <LessonLiveActions lessonId={lesson.id} displayStatus={liveStatus} />
+                            <LessonOpsActions
+                              compact
+                              lessonId={lesson.id}
+                              studentAttended={lesson.studentAttended}
+                              lessonProcessed={lesson.lessonProcessed}
+                              opsMakeupFlag={lesson.opsMakeupFlag}
+                            />
+                          </>
                         ) : null}
                       </div>
                     );
