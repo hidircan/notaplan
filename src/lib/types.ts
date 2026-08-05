@@ -65,6 +65,18 @@ export interface Teacher {
   maxDailyLessons: number;
   active: boolean;
   color: string;
+  highSchool?: string;
+  university?: string;
+  graduationYear?: number;
+  birthDate?: string;
+  nationalIdCipher?: string;
+  nationalIdLast2?: string;
+  address?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  instrumentLevels?: TeacherInstrumentSkill[];
+  /** Haftalık ders saati eşiği — üstü nakit varsayılan, altı havale */
+  weeklyHoursThreshold?: number;
 }
 
 /**
@@ -134,6 +146,21 @@ export interface Student {
   specialNotes?: string;
   /** EPIC 1 — true ise veli otomatik tahsilat hatırlatmalarından çıkmıştır. */
   communicationOptOut?: boolean;
+  /** PRODUCT_BACKLOG — ISO date yyyy-MM-dd */
+  birthDate?: string;
+  address?: string;
+  /** AES-GCM cipher (base64); asla listede yok */
+  nationalIdCipher?: string;
+  nationalIdLast2?: string;
+  educationMethod?: EducationMethod;
+  lessonDurationMinutes?: LessonDurationPreference;
+  paymentMethod?: StudentPaymentMethod;
+  paymentAmount?: number;
+  /** Ayın günü (1–28) vade hedefi */
+  paymentDueDay?: number;
+  firstLessonAt?: string;
+  /** Soft-archive; hard delete yok */
+  archivedAt?: string;
 }
 
 /** EPIC 4 — öğrenci eğitim profili alanları, tek bir yerden güncellenir. */
@@ -147,6 +174,19 @@ export type StudentProfilePatch = Partial<
     | "targetExam"
     | "specialNotes"
     | "communicationOptOut"
+    | "birthDate"
+    | "address"
+    | "educationMethod"
+    | "lessonDurationMinutes"
+    | "paymentMethod"
+    | "paymentAmount"
+    | "paymentDueDay"
+    | "firstLessonAt"
+    | "archivedAt"
+    | "active"
+    | "nationalIdCipher"
+    | "nationalIdLast2"
+    | "educationMethod"
   >
 >;
 
@@ -161,6 +201,9 @@ export type StudentProfilePatch = Partial<
 export interface CollectionsSettings {
   frequencyLimitDays: number;
   autoSendEnabled: boolean;
+  /** PRODUCT_BACKLOG §2.2 — MEB → VakıfBank, diğer → Halkbank */
+  vakifbankIban?: string;
+  halkbankIban?: string;
 }
 
 export const DEFAULT_COLLECTIONS_SETTINGS: CollectionsSettings = {
@@ -580,5 +623,183 @@ export interface StudentCurriculumTopic {
   updatedBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+
+// ─── PRODUCT_BACKLOG expansions ───────────────────────────
+
+export type EducationMethod =
+  | "Suzuki"
+  | "Klasik"
+  | "LCM"
+  | "MEB"
+  | "Kurum İçi"
+  | "Diğer";
+
+export const EDUCATION_METHODS: EducationMethod[] = [
+  "Suzuki",
+  "Klasik",
+  "LCM",
+  "MEB",
+  "Kurum İçi",
+  "Diğer",
+];
+
+export type LessonDurationPreference = 30 | 40 | 50;
+
+export type StudentPaymentMethod = "credit_card" | "cash" | "transfer";
+
+export type InstrumentLevel = "Başlangıç" | "Orta" | "İleri";
+
+export type TeacherInstrumentSkill = {
+  instrument: Instrument;
+  level: InstrumentLevel;
+};
+
+export type SocialMediaConsentStatus =
+  | "granted"
+  | "denied"
+  | "withdrawn"
+  | "expired";
+
+export type SocialMediaScope =
+  | "photo"
+  | "video"
+  | "name"
+  | "voice"
+  | "website"
+  | "instagram"
+  | "other";
+
+export interface SocialMediaConsentEvent {
+  at: string;
+  byUserId: string;
+  action: string;
+  note?: string;
+}
+
+/** PRODUCT_BACKLOG §1.4 — sosyal medya izni + audit tarihçesi */
+export interface SocialMediaConsent {
+  id: string;
+  studentId: string;
+  status: SocialMediaConsentStatus;
+  representativeName: string;
+  relationship: string;
+  grantedAt: string;
+  scopes: SocialMediaScope[];
+  sourceDocumentRef?: string;
+  withdrawnAt?: string;
+  history: SocialMediaConsentEvent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ClosedDayKind = "public_holiday" | "custom";
+
+/** PRODUCT_BACKLOG §4.2 — kapalı gün (resmî tatil veya özel) */
+export interface ClosedDay {
+  id: string;
+  date: string; // yyyy-MM-dd
+  name: string;
+  kind: ClosedDayKind;
+  createdBy: string;
+  createdAt: string;
+}
+
+export type TrialLessonStatus =
+  | "planned"
+  | "attended"
+  | "considering"
+  | "awaiting_enrollment"
+  | "will_continue"
+  | "will_not_continue"
+  | "cancelled";
+
+/** PRODUCT_BACKLOG §5 — deneme dersi (öğrenciden ayrı pipeline) */
+export interface TrialLesson {
+  id: string;
+  name: string;
+  phone: string;
+  instrument: Instrument;
+  branchId: BranchId;
+  teacherId: string;
+  startAt: string;
+  endAt: string;
+  durationMinutes: number;
+  status: TrialLessonStatus;
+  convertedStudentId?: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DocumentTemplateKind =
+  | "student_enrollment_contract"
+  | "parent_social_media_consent"
+  | "kvkk"
+  | "teacher_contract"
+  | "teacher_info_form"
+  | "trial_form"
+  | "makeup_request"
+  | "payment_commitment"
+  | "petition"
+  | "custom";
+
+export type DocumentInstanceStatus =
+  | "draft"
+  | "printed"
+  | "sent_for_signature"
+  | "signed"
+  | "uploaded"
+  | "cancelled"
+  | "expired";
+
+export interface DocumentTemplate {
+  id: string;
+  kind: DocumentTemplateKind;
+  name: string;
+  bodyHtml: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** PRODUCT_BACKLOG §6 — evrak örneği; aynı basımda referans korunur */
+export interface DocumentInstance {
+  id: string;
+  templateId: string;
+  kind: DocumentTemplateKind;
+  /** Benzersiz referans — yeniden basımda aynı kalır */
+  reference: string;
+  status: DocumentInstanceStatus;
+  studentId?: string;
+  teacherId?: string;
+  trialLessonId?: string;
+  branchId?: BranchId;
+  /** Otomatik + elle alanlar */
+  fieldValues: Record<string, string>;
+  renderedHtml?: string;
+  printCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** MEB seviye 1–8; LCM serbest; diğer türlerde yok */
+export function isMebStudentType(t?: StudentType): boolean {
+  return t === "MEB";
+}
+
+export function isLcmStudentType(t?: StudentType): boolean {
+  return t === "London College of Music Hazırlık";
+}
+
+export function studentLevelVisible(t?: StudentType): boolean {
+  return isMebStudentType(t) || isLcmStudentType(t);
+}
+
+export function studentLevelRequired(t?: StudentType): boolean {
+  return isMebStudentType(t);
 }
 

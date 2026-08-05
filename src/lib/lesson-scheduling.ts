@@ -1,3 +1,4 @@
+import { isDateClosed } from "./closed-days";
 import { addDays, addMinutes, getDay, isBefore, setHours, setMinutes, startOfDay } from "date-fns";
 import type { AppData, Instrument } from "./types";
 import { validateLessonSlot, type ValidatedSlot } from "./makeup-engine";
@@ -123,4 +124,15 @@ export function suggestLessonSlots(
     if (unique.length >= maxSlots) break;
   }
   return unique;
+}
+
+
+/** PRODUCT_BACKLOG §4 — planlama kapalı gün/Pazartesi engeli */
+export function assertSchedulableDate(
+  startAtIso: string,
+  closedDays: { date: string }[] = []
+): { ok: true } | { ok: false; message: string } {
+  const r = isDateClosed(startAtIso, closedDays);
+  if (r.closed) return { ok: false, message: r.reason || "Bu tarihte planlama yapılamaz." };
+  return { ok: true };
 }

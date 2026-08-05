@@ -273,12 +273,12 @@ Her paket için minimum:
 
 | Paket | Durum | Commit / not |
 |-------|--------|----------------|
-| 0 Backlog belgesi | ✅ | Bu dosya |
-| 1 Hassas veri + yetki | ⏳ | |
-| 2 Öğrenci/öğretmen formları | ⏳ | |
-| 3 Tahsilat kuralları | ⏳ | |
-| 4 Program/yoklama/deneme | ⏳ | |
-| 5 Evraklar Faz 1 | ⏳ | |
-| 6 Evraklar Faz 2 | ⏳ | |
+| 0 Backlog belgesi | ✅ | `5646aa1` |
+| 1 Hassas veri + yetki | ✅ | PII AES-GCM, maskeleme, `pii:full`, reveal audit |
+| 2 Öğrenci/öğretmen model alanları | 🟡 kısmi | Types + schema + archive API; form UX sonraki |
+| 3 Tahsilat kuralları | 🟡 kısmi | Vade + IBAN çözümleme pure + tool |
+| 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers + deneme model/UI |
+| 5 Evraklar Faz 1 | ✅ iskelet | Şablon, referans, oluştur/yazdır API+UI |
+| 6 Evraklar Faz 2 | ⏳ | Yükleme/versiyon sonraki sprint |
 
 Durum güncellemeleri `WORK_PROGRESS.md` ve bu tablo ile senkron tutulur.
