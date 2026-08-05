@@ -7,13 +7,20 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { logger } from "./logger";
+import { KURUM_COOKIE, listAvailableKurumlar, pickInstitutionSelection } from "./institution/context";
+import { resolveWriteScope, WriteScopeDeniedError } from "./institution/write-scope";
+import { THEME_COOKIE, normalizeThemePreference } from "./theme";
+import { auditLog } from "./auth/audit";
+import { uid } from "./utils";
 import {
   cancelMakeupLessonTool,
   confirmMakeupLessonTool,
   createPaymentTool,
   createStudentTool,
   updateStudentProfileTool,
+  archiveStudentTool,
   createTeacherTool,
   createBranchTool,
   updateBranchTool,
@@ -87,16 +94,104 @@ function assertOk<T>(result: { ok: true; data: T } | { ok: false; error: { messa
   return result.data;
 }
 
+/**
+ * Her yazma aksiyonunun TEK giriş noktası. Hangi kurumda çalışılacağını
+ * (writeScope.tenantId) sunucu tarafında, taze oturum + cookie'den çözer —
+ * istemciden gelen hiçbir tenant id'sine güvenilmez (bkz. write-scope.ts).
+ * "Tüm kurumlar" görünümünde veya erişilemeyen bir kurumda YAZMA denenirse
+ * mutasyon hiç çalıştırılmadan reddedilir. Her çağrı, ham payload/mesaj
+ * içermeyen güvenli bir denetim (audit) kaydı bırakır: aktör, çözülen kurum,
+ * kapsam modu, aksiyon adı, sonuç.
+ */
 async function withAuthContext<T>(
+  actionName: string,
   fn: (ctx: ServiceContext) => Promise<T>
 ): Promise<T> {
   const ctx = await requireSessionContext();
-  return runWithTenantAsync(ctx.tenantId, () => fn(ctx));
+  const requestId = uid("audit");
+  const writeScope = await resolveWriteScope(ctx);
+
+  if (writeScope.mode !== "single") {
+    auditLog({
+      action: actionName,
+      requestId,
+      userId: ctx.userId,
+      tenantId: ctx.tenantId,
+      role: ctx.role,
+      outcome: "denied",
+      meta: { scopeMode: writeScope.mode },
+    });
+    throw new WriteScopeDeniedError(writeScope.reason);
+  }
+
+  try {
+    const result = await runWithTenantAsync(writeScope.tenantId, () => fn(ctx));
+    auditLog({
+      action: actionName,
+      requestId,
+      userId: ctx.userId,
+      tenantId: writeScope.tenantId,
+      role: ctx.role,
+      outcome: "success",
+      meta: { scopeMode: "single" },
+    });
+    return result;
+  } catch (error) {
+    auditLog({
+      action: actionName,
+      requestId,
+      userId: ctx.userId,
+      tenantId: writeScope.tenantId,
+      role: ctx.role,
+      outcome: "error",
+      meta: { scopeMode: "single" },
+    });
+    throw error;
+  }
+}
+
+/**
+ * Görünür kurum seçicinin tetiklediği aksiyon. Tercih yalnızca kullanıcının
+ * erişebildiği kurumlardan biriyse (veya "Tüm kurumlar" ise ve kullanıcı
+ * kurum sahibiyse) kabul edilir; geçersiz bir istekte sessizce varsayılana
+ * döner. Panel'in tamamı yeniden render edilir ki her ekran yeni seçime göre
+ * güncellensin.
+ */
+export async function actionSetKurum(selection: string): Promise<void> {
+  const ctx = await requireSessionContext();
+  const available = await listAvailableKurumlar(ctx);
+  const resolved = pickInstitutionSelection(ctx.role, ctx.tenantId, available, selection);
+  const jar = await cookies();
+  jar.set(KURUM_COOKIE, resolved, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Tema tercihi (Sistem/Açık/Koyu) — kimlik doğrulama veya kurum kapsamından
+ * TAMAMEN bağımsızdır; oturum gerektirmez (login ekranında da çalışsın diye)
+ * ve hiçbir yetki/kurum kararını etkilemez. Yalnızca görsel bir cookie'dir.
+ */
+export async function actionSetTheme(preference: string): Promise<void> {
+  const normalized = normalizeThemePreference(preference);
+  const jar = await cookies();
+  jar.set(THEME_COOKIE, normalized, {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/", "layout");
 }
 
 export async function actionMarkAttendance(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionMarkAttendance", async (ctx) => {
       assertOk(
         await markAttendanceTool(ctx, {
           lessonId: String(formData.get("lessonId") || ""),
@@ -117,7 +212,7 @@ export async function actionGenerateSuggestions(formData: FormData) {
   try {
     const rawMaxSlots = Number(formData.get("maxSlots"));
     const maxSlots = Number.isFinite(rawMaxSlots) && rawMaxSlots > 0 ? rawMaxSlots : undefined;
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionGenerateSuggestions", async (ctx) => {
       assertOk(
         await findAvailableSlotsTool(ctx, {
           requestId: String(formData.get("requestId") || ""),
@@ -135,7 +230,7 @@ export async function actionGenerateSuggestions(formData: FormData) {
 
 export async function actionConfirmSlot(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionConfirmSlot", async (ctx) => {
       const slotJson = String(formData.get("slot") || "");
       const slot = JSON.parse(slotJson);
       assertOk(
@@ -156,7 +251,7 @@ export async function actionConfirmSlot(formData: FormData) {
 
 export async function actionCancelMakeup(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionCancelMakeup", async (ctx) => {
       assertOk(
         await cancelMakeupLessonTool(ctx, {
           requestId: String(formData.get("requestId") || ""),
@@ -174,7 +269,7 @@ export async function actionCancelMakeup(formData: FormData) {
 
 export async function actionMarkPaymentPaid(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionMarkPaymentPaid", async (ctx) => {
       assertOk(
         await createPaymentTool(ctx, {
           paymentId: String(formData.get("paymentId") || ""),
@@ -191,7 +286,7 @@ export async function actionMarkPaymentPaid(formData: FormData) {
 
 export async function actionResetDemo() {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionResetDemo", async (ctx) => {
       assertOk(await resetDemoTool(ctx));
     });
     revalidateAll();
@@ -204,7 +299,7 @@ export async function actionResetDemo() {
 
 export async function actionAddStudent(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionAddStudent", async (ctx) => {
       assertOk(
         await createStudentTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -246,7 +341,7 @@ export async function actionUpdateStudentProfile(input: {
   specialNotes?: string;
 }): Promise<UpdateStudentProfileActionResult> {
   try {
-    const result = await withAuthContext((ctx) =>
+    const result = await withAuthContext("actionUpdateStudentProfile", (ctx) =>
       updateStudentProfileTool(ctx, input)
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -259,6 +354,27 @@ export async function actionUpdateStudentProfile(input: {
   }
 }
 
+export type ArchiveStudentActionResult = { ok: true } | { ok: false; message: string };
+
+/** Pasife alma/aktifleştirme — hard delete yok, tool katmanı SCHOOL_ADMIN/SUPER_ADMIN'e kısıtlar. */
+export async function actionArchiveStudent(input: {
+  studentId: string;
+  archived: boolean;
+}): Promise<ArchiveStudentActionResult> {
+  try {
+    const result = await withAuthContext("actionArchiveStudent", (ctx) =>
+      archiveStudentTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionArchiveStudent failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Öğrenci durumu güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
 export type UpdateCommunicationPreferenceActionResult = { ok: true } | { ok: false; message: string };
 
 /** EPIC 1 — veli kendi çocuğu için, admin herkes için çağırabilir (tool katmanı RBAC'ı uygular). */
@@ -267,7 +383,7 @@ export async function actionUpdateCommunicationPreference(input: {
   communicationOptOut: boolean;
 }): Promise<UpdateCommunicationPreferenceActionResult> {
   try {
-    const result = await withAuthContext((ctx) =>
+    const result = await withAuthContext("actionUpdateCommunicationPreference", (ctx) =>
       updateCommunicationPreferenceTool(ctx, input)
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -287,7 +403,7 @@ export async function actionUpdateCollectionsSettings(input: {
   autoSendEnabled: boolean;
 }): Promise<UpdateCollectionsSettingsActionResult> {
   try {
-    const result = await withAuthContext((ctx) =>
+    const result = await withAuthContext("actionUpdateCollectionsSettings", (ctx) =>
       updateCollectionsSettingsTool(ctx, input)
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -309,7 +425,7 @@ export async function actionMarkNotificationRead(
   notificationId: string
 ): Promise<MarkNotificationReadActionResult> {
   try {
-    const result = await withAuthContext((ctx) =>
+    const result = await withAuthContext("actionMarkNotificationRead", (ctx) =>
       markNotificationReadTool(ctx, { notificationId })
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -325,7 +441,7 @@ export async function actionMarkNotificationRead(
 
 export async function actionAddTeacher(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionAddTeacher", async (ctx) => {
       assertOk(
         await createTeacherTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -346,7 +462,7 @@ export async function actionAddTeacher(formData: FormData) {
 
 export async function actionAddBranch(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionAddBranch", async (ctx) => {
       assertOk(
         await createBranchTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -367,7 +483,7 @@ export async function actionAddBranch(formData: FormData) {
 
 export async function actionUpdateBranch(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionUpdateBranch", async (ctx) => {
       assertOk(
         await updateBranchTool(ctx, {
           branchId: String(formData.get("branchId") || ""),
@@ -397,107 +513,115 @@ export type ImportCommitActionResult =
 
 export async function actionPreviewBranchImport(csvText: string): Promise<ImportPreviewActionResult<BranchImportRow>> {
   try {
-    const result = await withAuthContext((ctx) => previewBranchImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionPreviewBranchImport", (ctx) => previewBranchImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, preview: result.data };
   } catch (error) {
     logger.error("actionPreviewBranchImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionCommitBranchImport(csvText: string): Promise<ImportCommitActionResult> {
   try {
-    const result = await withAuthContext((ctx) => commitBranchImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionCommitBranchImport", (ctx) => commitBranchImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, result: result.data };
   } catch (error) {
     logger.error("actionCommitBranchImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionPreviewTeacherImport(csvText: string): Promise<ImportPreviewActionResult<TeacherImportRow>> {
   try {
-    const result = await withAuthContext((ctx) => previewTeacherImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionPreviewTeacherImport", (ctx) => previewTeacherImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, preview: result.data };
   } catch (error) {
     logger.error("actionPreviewTeacherImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionCommitTeacherImport(csvText: string): Promise<ImportCommitActionResult> {
   try {
-    const result = await withAuthContext((ctx) => commitTeacherImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionCommitTeacherImport", (ctx) => commitTeacherImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, result: result.data };
   } catch (error) {
     logger.error("actionCommitTeacherImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionPreviewRoomImport(csvText: string): Promise<ImportPreviewActionResult<RoomImportRow>> {
   try {
-    const result = await withAuthContext((ctx) => previewRoomImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionPreviewRoomImport", (ctx) => previewRoomImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, preview: result.data };
   } catch (error) {
     logger.error("actionPreviewRoomImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionCommitRoomImport(csvText: string): Promise<ImportCommitActionResult> {
   try {
-    const result = await withAuthContext((ctx) => commitRoomImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionCommitRoomImport", (ctx) => commitRoomImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, result: result.data };
   } catch (error) {
     logger.error("actionCommitRoomImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionPreviewStudentImport(csvText: string): Promise<ImportPreviewActionResult<StudentImportRow>> {
   try {
-    const result = await withAuthContext((ctx) => previewStudentImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionPreviewStudentImport", (ctx) => previewStudentImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, preview: result.data };
   } catch (error) {
     logger.error("actionPreviewStudentImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionCommitStudentImport(csvText: string): Promise<ImportCommitActionResult> {
   try {
-    const result = await withAuthContext((ctx) => commitStudentImportTool(ctx, { csvText }));
+    const result = await withAuthContext("actionCommitStudentImport", (ctx) => commitStudentImportTool(ctx, { csvText }));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, result: result.data };
   } catch (error) {
     logger.error("actionCommitStudentImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionAddRoom(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionAddRoom", async (ctx) => {
       assertOk(
         await createRoomTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -527,15 +651,17 @@ export type LessonActionResult =
  */
 export async function actionAddLesson(formData: FormData): Promise<LessonActionResult> {
   try {
-    const result = await withAuthContext(async (ctx) => {
+    const result = await withAuthContext("actionAddLesson", async (ctx) => {
       const startAtRaw = String(formData.get("startAt") || "");
       const startAt = startAtRaw ? new Date(startAtRaw).toISOString() : "";
+      const durationRaw = formData.get("durationMinutes");
       const created = await createLessonTool(ctx, {
         studentId: String(formData.get("studentId") || ""),
         teacherId: String(formData.get("teacherId") || ""),
         roomId: String(formData.get("roomId") || ""),
         instrument: String(formData.get("instrument") || "Piyano"),
         startAt,
+        durationMinutes: durationRaw ? Number(durationRaw) : undefined,
       });
       if (!created.ok) {
         return { ok: false as const, message: created.error.message };
@@ -564,6 +690,7 @@ export async function actionAddLesson(formData: FormData): Promise<LessonActionR
   } catch (error) {
     logger.error("actionAddLesson failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ders planlanırken beklenmeyen bir hata oluştu." };
   }
 }
@@ -580,7 +707,7 @@ export async function actionSuggestLessonSlots(input: {
   maxSlots?: number;
 }): Promise<SuggestLessonSlotsResult> {
   try {
-    return await withAuthContext(async (ctx) => {
+    return await withAuthContext("actionSuggestLessonSlots", async (ctx) => {
       const result = await suggestLessonSlotsTool(ctx, input);
       if (!result.ok) return { ok: false as const, message: result.error.message };
       return { ok: true as const, suggestions: result.data.suggestions };
@@ -588,6 +715,7 @@ export async function actionSuggestLessonSlots(input: {
   } catch (error) {
     logger.error("actionSuggestLessonSlots failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Uygun saatler aranırken beklenmeyen bir hata oluştu." };
   }
 }
@@ -609,13 +737,14 @@ export async function actionUpdateLessonSchedule(input: {
   durationMinutes?: number;
 }): Promise<LessonUpdateActionResult> {
   try {
-    const result = await withAuthContext((ctx) => updateLessonScheduleTool(ctx, input));
+    const result = await withAuthContext("actionUpdateLessonSchedule", (ctx) => updateLessonScheduleTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, ...result.data };
   } catch (error) {
     logger.error("actionUpdateLessonSchedule failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ders güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
@@ -624,13 +753,14 @@ export type CancelLessonActionResult = { ok: true } | { ok: false; message: stri
 
 export async function actionCancelLesson(input: { lessonId: string }): Promise<CancelLessonActionResult> {
   try {
-    const result = await withAuthContext((ctx) => cancelLessonTool(ctx, input));
+    const result = await withAuthContext("actionCancelLesson", (ctx) => cancelLessonTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true };
   } catch (error) {
     logger.error("actionCancelLesson failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ders iptal edilirken beklenmeyen bir hata oluştu." };
   }
 }
@@ -656,12 +786,13 @@ export async function actionPreviewLessonSeries(
   input: LessonSeriesParamsInput
 ): Promise<PreviewLessonSeriesActionResult> {
   try {
-    const result = await withAuthContext((ctx) => previewLessonSeriesTool(ctx, input));
+    const result = await withAuthContext("actionPreviewLessonSeries", (ctx) => previewLessonSeriesTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, ...result.data };
   } catch (error) {
     logger.error("actionPreviewLessonSeries failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
   }
 }
@@ -679,7 +810,7 @@ export async function actionCreateLessonSeries(
   input: LessonSeriesParamsInput & { skipConflicts?: boolean }
 ): Promise<CreateLessonSeriesActionResult> {
   try {
-    const result = await withAuthContext((ctx) => createLessonSeriesTool(ctx, input));
+    const result = await withAuthContext("actionCreateLessonSeries", (ctx) => createLessonSeriesTool(ctx, input));
     if (!result.ok) {
       return {
         ok: false,
@@ -692,6 +823,7 @@ export async function actionCreateLessonSeries(
   } catch (error) {
     logger.error("actionCreateLessonSeries failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Seri oluşturulurken beklenmeyen bir hata oluştu." };
   }
 }
@@ -700,33 +832,35 @@ export type SeriesCancelActionResult = { ok: true; cancelledLessonIds: string[] 
 
 export async function actionCancelSeriesFromLesson(input: { lessonId: string }): Promise<SeriesCancelActionResult> {
   try {
-    const result = await withAuthContext((ctx) => cancelSeriesFromLessonTool(ctx, input));
+    const result = await withAuthContext("actionCancelSeriesFromLesson", (ctx) => cancelSeriesFromLessonTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, cancelledLessonIds: result.data.cancelledLessonIds };
   } catch (error) {
     logger.error("actionCancelSeriesFromLesson failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Seri iptal edilirken beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionCancelEntireSeries(input: { seriesId: string }): Promise<SeriesCancelActionResult> {
   try {
-    const result = await withAuthContext((ctx) => cancelEntireSeriesTool(ctx, input));
+    const result = await withAuthContext("actionCancelEntireSeries", (ctx) => cancelEntireSeriesTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, cancelledLessonIds: result.data.cancelledLessonIds };
   } catch (error) {
     logger.error("actionCancelEntireSeries failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Seri iptal edilirken beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionAddPayment(formData: FormData) {
   try {
-    await withAuthContext(async (ctx) => {
+    await withAuthContext("actionAddPayment", async (ctx) => {
       assertOk(
         await createPaymentRecordTool(ctx, {
           studentId: String(formData.get("studentId") || ""),
@@ -767,26 +901,28 @@ export type FeeRuleActionResult = { ok: true; rule: TeacherFeeRule } | { ok: fal
 
 export async function actionCreateFeeRule(input: CreateFeeRuleActionInput): Promise<FeeRuleActionResult> {
   try {
-    const result = await withAuthContext((ctx) => createFeeRuleTool(ctx, input));
+    const result = await withAuthContext("actionCreateFeeRule", (ctx) => createFeeRuleTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, rule: result.data.rule };
   } catch (error) {
     logger.error("actionCreateFeeRule failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ücret kuralı oluşturulurken beklenmeyen bir hata oluştu." };
   }
 }
 
 export async function actionUpdateFeeRule(input: UpdateFeeRuleActionInput): Promise<FeeRuleActionResult> {
   try {
-    const result = await withAuthContext((ctx) => updateFeeRuleTool(ctx, input));
+    const result = await withAuthContext("actionUpdateFeeRule", (ctx) => updateFeeRuleTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, rule: result.data.rule };
   } catch (error) {
     logger.error("actionUpdateFeeRule failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ücret kuralı güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
@@ -802,12 +938,13 @@ export async function actionComputeTeacherPayout(input: {
   periodEnd: string;
 }): Promise<ComputeTeacherPayoutActionResult> {
   try {
-    const result = await withAuthContext((ctx) => computeTeacherPayoutTool(ctx, input));
+    const result = await withAuthContext("actionComputeTeacherPayout", (ctx) => computeTeacherPayoutTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     return { ok: true, ...result.data };
   } catch (error) {
     logger.error("actionComputeTeacherPayout failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Hakediş hesaplanırken beklenmeyen bir hata oluştu." };
   }
 }
@@ -820,13 +957,14 @@ export async function actionCreateTeacherPayout(input: {
   periodEnd: string;
 }): Promise<TeacherPayoutActionResult> {
   try {
-    const result = await withAuthContext((ctx) => createTeacherPayoutTool(ctx, input));
+    const result = await withAuthContext("actionCreateTeacherPayout", (ctx) => createTeacherPayoutTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, payout: result.data.payout };
   } catch (error) {
     logger.error("actionCreateTeacherPayout failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Hakediş kaydı oluşturulurken beklenmeyen bir hata oluştu." };
   }
 }
@@ -836,13 +974,14 @@ export async function actionMarkTeacherPayoutPaid(input: {
   method?: string;
 }): Promise<TeacherPayoutActionResult> {
   try {
-    const result = await withAuthContext((ctx) => markTeacherPayoutPaidTool(ctx, input));
+    const result = await withAuthContext("actionMarkTeacherPayoutPaid", (ctx) => markTeacherPayoutPaidTool(ctx, input));
     if (!result.ok) return { ok: false, message: result.error.message };
     revalidateAll();
     return { ok: true, payout: result.data.payout };
   } catch (error) {
     logger.error("actionMarkTeacherPayoutPaid failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Hakediş ödendi olarak işaretlenirken beklenmeyen bir hata oluştu." };
   }
 }
@@ -855,7 +994,7 @@ export async function actionUpdateFeeRoundingMode(
   feeRoundingMode: FeeRoundingMode
 ): Promise<UpdateFeeRoundingModeActionResult> {
   try {
-    const result = await withAuthContext((ctx) =>
+    const result = await withAuthContext("actionUpdateFeeRoundingMode", (ctx) =>
       updateFeeRoundingModeTool(ctx, { feeRoundingMode })
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -864,6 +1003,7 @@ export async function actionUpdateFeeRoundingMode(
   } catch (error) {
     logger.error("actionUpdateFeeRoundingMode failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ücret yuvarlama politikası güncellenirken beklenmeyen bir hata oluştu." };
   }
 }

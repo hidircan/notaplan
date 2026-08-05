@@ -39,6 +39,17 @@ export function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
 }
 
+/** Doğum tarihinden bugüne göre yaş — saf fonksiyon, saat dilimi kaymasına karşı yerel gün kullanır. */
+export function computeAge(birthDateIso: string, now: Date = new Date()): number {
+  const birth = new Date(birthDateIso);
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 export function dayName(dayOfWeek: number) {
   const names = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
   return names[dayOfWeek] ?? "";
@@ -76,6 +87,10 @@ export function statusLabel(status: string) {
     in_progress: "Devam ediyor",
     delayed: "Başlamadı",
     rejected: "Reddedildi",
+    printed: "Yazdırıldı",
+    sent_for_signature: "İmzaya verildi",
+    signed: "İmzalandı",
+    uploaded: "Yüklendi",
   };
   return map[status] ?? status;
 }
@@ -110,6 +125,10 @@ export function statusColor(status: string) {
     in_progress: "bg-cyan-100 text-cyan-800",
     delayed: "bg-orange-100 text-orange-800",
     rejected: "bg-rose-100 text-rose-800",
+    printed: "bg-sky-100 text-sky-800",
+    sent_for_signature: "bg-amber-100 text-amber-800",
+    signed: "bg-emerald-100 text-emerald-800",
+    uploaded: "bg-emerald-100 text-emerald-800",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }

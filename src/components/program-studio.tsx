@@ -36,6 +36,8 @@ type ProgramStudioProps = {
   days: string[];
   weekLessons: Lesson[];
   todayIso: string;
+  /** Öğrenci detayından "Programda Aç" ile gelinirse başlangıç öğrenci filtresi. */
+  initialStudentFilter?: string;
 };
 
 const SLOT_MINUTES = 30;
@@ -353,6 +355,7 @@ export function ProgramStudio({
   days,
   weekLessons,
   todayIso,
+  initialStudentFilter,
 }: ProgramStudioProps) {
   const router = useRouter();
   const now = parseISO(todayIso);
@@ -404,7 +407,7 @@ export function ProgramStudio({
   // etkiler; sunucu/yetki/global şube bağlamı bu sprintin kapsamı dışında.
   const [filterBranchId, setFilterBranchId] = useState("");
   const [filterTeacherId, setFilterTeacherId] = useState("");
-  const [filterStudentId, setFilterStudentId] = useState("");
+  const [filterStudentId, setFilterStudentId] = useState(initialStudentFilter ?? "");
 
   const branchIds = Object.keys(branchNames).sort((a, b) =>
     (branchNames[a] ?? "").localeCompare(branchNames[b] ?? "", "tr")

@@ -29,9 +29,9 @@ function resolveWeekStart(weekParam?: string): Date {
 export default async function ProgramPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{ week?: string; studentId?: string }>;
 }) {
-  const { week } = await searchParams;
+  const { week, studentId } = await searchParams;
   let session;
   try {
     session = await requireSessionContext();
@@ -112,6 +112,7 @@ export default async function ProgramPage({
         days={days.map((d) => d.toISOString())}
         weekLessons={weekLessons}
         todayIso={new Date().toISOString()}
+        initialStudentFilter={studentId}
       />
 
       <Card className="mt-6">
