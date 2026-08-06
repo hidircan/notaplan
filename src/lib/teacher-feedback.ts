@@ -67,6 +67,7 @@ function mapDb(f: DbTeacherFeedback): StoredFeedback {
     continueWithTeacher: (f.continueWithTeacher as TeacherFeedback["continueWithTeacher"]) ?? undefined,
     comment: f.comment ?? undefined,
     status: f.status as TeacherFeedbackStatus,
+    sharedWithTeacher: f.sharedWithTeacher,
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
   };
@@ -83,6 +84,7 @@ function toPublic(f: StoredFeedback): TeacherFeedback {
     continueWithTeacher: f.continueWithTeacher,
     comment: f.comment,
     status: f.status,
+    sharedWithTeacher: f.sharedWithTeacher,
     createdAt: f.createdAt,
     updatedAt: f.updatedAt,
   };
@@ -210,6 +212,7 @@ export async function submitTeacherFeedback(
     continueWithTeacher: input.continueWithTeacher,
     comment: input.comment,
     status: "pending",
+    sharedWithTeacher: false,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -298,6 +301,70 @@ export async function updateTeacherFeedbackStatus(
   next[idx] = updated;
   await saveAll(next);
   return toPublic(updated);
+}
+
+/** Yönetici bir yorumu öğretmenin anonim özetinde paylaşmayı seçer/geri alır. */
+export async function setTeacherFeedbackShared(
+  tenantId: string,
+  id: string,
+  shared: boolean
+): Promise<TeacherFeedback | null> {
+  if (isDbMode) {
+    const { prisma } = await import("./db");
+    const existing = await getByIdDb(tenantId, id);
+    if (!existing) return null;
+    const row = await prisma.teacherFeedback.update({ where: { id }, data: { sharedWithTeacher: shared } });
+    return toPublic(mapDb(row));
+  }
+  const all = await loadAll();
+  const idx = all.findIndex((f) => f.id === id && f.tenantId === tenantId);
+  if (idx < 0) return null;
+  const updated: StoredFeedback = { ...all[idx]!, sharedWithTeacher: shared, updatedAt: new Date().toISOString() };
+  const next = [...all];
+  next[idx] = updated;
+  await saveAll(next);
+  return toPublic(updated);
+}
+
+export type TeacherFeedbackSummary = {
+  responseCount: number;
+  eligible: boolean;
+  criteriaAverages: Record<TeacherFeedbackCriterionKey, number> | null;
+  continueDistribution: Record<"yes" | "unsure" | "no", number> | null;
+  sharedComments: string[];
+};
+
+/**
+ * Öğretmenin GÖREBİLECEĞİ tek görünüm — ham kayıt/kimlik YOK, yalnızca
+ * eşik sağlanınca (bkz. TEACHER_FEEDBACK_MIN_ANONYMOUS_RESPONSES) kriter
+ * ortalamaları + devam tercihi dağılımı + yönetimin paylaşmayı seçtiği
+ * yorumlar (kimliksiz düz metin).
+ */
+export async function computeTeacherFeedbackSummary(
+  tenantId: string,
+  teacherId: string
+): Promise<TeacherFeedbackSummary> {
+  const all = await listTeacherFeedback(tenantId, teacherId);
+  const responseCount = all.length;
+  const eligible = responseCount >= TEACHER_FEEDBACK_MIN_ANONYMOUS_RESPONSES;
+  if (!eligible) {
+    return { responseCount, eligible: false, criteriaAverages: null, continueDistribution: null, sharedComments: [] };
+  }
+
+  const criteriaAverages = {} as Record<TeacherFeedbackCriterionKey, number>;
+  for (const { key } of TEACHER_FEEDBACK_CRITERIA) {
+    const sum = all.reduce((s, f) => s + (f.scores[key] ?? 0), 0);
+    criteriaAverages[key] = Math.round((sum / responseCount) * 10) / 10;
+  }
+
+  const continueDistribution = { yes: 0, unsure: 0, no: 0 };
+  for (const f of all) {
+    if (f.continueWithTeacher) continueDistribution[f.continueWithTeacher] += 1;
+  }
+
+  const sharedComments = all.filter((f) => f.sharedWithTeacher && f.comment).map((f) => f.comment!);
+
+  return { responseCount, eligible: true, criteriaAverages, continueDistribution, sharedComments };
 }
 
 async function clearFeedbackDb(tenantId: string): Promise<void> {

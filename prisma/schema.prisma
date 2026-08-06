@@ -686,6 +686,8 @@ model TeacherFeedback {
   comment       String?
   /// "pending" | "reviewed" | "actioned" | "archived"
   status        String   @default("pending")
+  /// Yönetici bu yorumu öğretmenin anonim özetinde paylaşmayı SEÇTİYSE true.
+  sharedWithTeacher Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

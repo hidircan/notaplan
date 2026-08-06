@@ -117,6 +117,8 @@ import {
   findTeacherFeedbackThisMonth,
   getTeacherFeedbackById,
   updateTeacherFeedbackStatus,
+  setTeacherFeedbackShared,
+  computeTeacherFeedbackSummary,
 } from "../teacher-feedback";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
@@ -220,7 +222,7 @@ import {
   toCurriculumSummary,
   getCurriculumTopic,
 } from "../curriculum";
-import type { StudentCurriculumTopic, DocumentInstance } from "../types";
+import type { StudentCurriculumTopic, DocumentInstance, TeacherFeedbackStatus } from "../types";
 import { createTrialLesson, listTrialLessons, updateTrialLessonStatus, getTrialLesson } from "../trial-lessons";
 import {
   listTemplates,
@@ -2512,6 +2514,158 @@ export async function listTeacherFeedbackTool(
     return ok({ feedback });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listTeacherFeedback failed");
+  }
+}
+
+export type MaskedTeacherFeedback = Omit<TeacherFeedback, "studentId" | "submittedBy">;
+
+const feedbackReviewFiltersSchema = z.object({
+  teacherId: z.string().min(1).optional(),
+  status: z.enum(["pending", "reviewed", "actioned", "archived"]).optional(),
+  sourceType: z.enum(["STUDENT", "PARENT"]).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+/**
+ * Yönetici inceleme ekranının ana veri kaynağı — ham öğrenci kimliği
+ * (studentId/submittedBy) VARSAYILAN OLARAK maskelenir. Kimlik yalnızca
+ * `revealTeacherFeedbackIdentityTool` ile, gerekçeli ve audit'li biçimde
+ * açılabilir.
+ */
+export async function listTeacherFeedbackForReviewTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedback: MaskedTeacherFeedback[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(feedbackReviewFiltersSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const all = await listTeacherFeedback(ctx.tenantId, v.data.teacherId);
+    const filtered = all.filter((f) => {
+      if (v.data.status && f.status !== v.data.status) return false;
+      if (v.data.sourceType && f.submitterRole !== v.data.sourceType) return false;
+      if (v.data.from && f.createdAt < v.data.from) return false;
+      if (v.data.to && f.createdAt > v.data.to) return false;
+      return true;
+    });
+    const masked = filtered.map(({ studentId: _s, submittedBy: _b, ...rest }) => {
+      void _s;
+      void _b;
+      return rest;
+    });
+    return ok({ feedback: masked });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listTeacherFeedbackForReview failed");
+  }
+}
+
+const revealTeacherFeedbackIdentitySchema = z.object({
+  feedbackId: z.string().min(1),
+  reason: z.string().min(5, "Gerekçe en az 5 karakter olmalı").max(500),
+});
+
+/**
+ * Ham öğrenci kimliğini açar — yalnızca gerekçeli ve audit'li. Her çağrı
+ * `teacher_feedback.reveal_identity` olarak, gerekçe metniyle birlikte
+ * denetim kaydına yazılır.
+ */
+export async function revealTeacherFeedbackIdentityTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string; studentName: string; submittedBy: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(revealTeacherFeedbackIdentitySchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const feedback = await getTeacherFeedbackById(ctx.tenantId, v.data.feedbackId);
+    if (!feedback) return fail("NOT_FOUND", "Geri bildirim bulunamadı");
+
+    const data = await readData();
+    const student = data.students.find((s) => s.id === feedback.studentId);
+
+    audit(ctx, "teacher_feedback.reveal_identity", "TeacherFeedback", feedback.id, {
+      reason: v.data.reason,
+    });
+
+    return ok({
+      studentId: feedback.studentId,
+      studentName: student?.name ?? "Bilinmeyen öğrenci",
+      submittedBy: feedback.submittedBy,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "revealTeacherFeedbackIdentity failed");
+  }
+}
+
+/** Yönetici durum yönetimi: İncelendi / Aksiyon Alındı / Arşivlendi. */
+export async function updateTeacherFeedbackStatusTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedbackId: string; status: TeacherFeedbackStatus }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({ feedbackId: z.string().min(1), status: z.enum(["pending", "reviewed", "actioned", "archived"]) }),
+    input
+  );
+  if (!v.ok) return v;
+
+  try {
+    const feedback = await updateTeacherFeedbackStatus(ctx.tenantId, v.data.feedbackId, v.data.status);
+    if (!feedback) return fail("NOT_FOUND", "Geri bildirim bulunamadı");
+    audit(ctx, "teacher_feedback.status_change", "TeacherFeedback", feedback.id, { status: v.data.status });
+    return ok({ feedbackId: feedback.id, status: feedback.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTeacherFeedbackStatus failed");
+  }
+}
+
+/** Yönetici bir yorumu öğretmenin anonim özetinde paylaşmayı seçer/geri alır. */
+export async function setTeacherFeedbackSharedTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedbackId: string; sharedWithTeacher: boolean }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ feedbackId: z.string().min(1), shared: z.boolean() }), input);
+  if (!v.ok) return v;
+
+  try {
+    const feedback = await setTeacherFeedbackShared(ctx.tenantId, v.data.feedbackId, v.data.shared);
+    if (!feedback) return fail("NOT_FOUND", "Geri bildirim bulunamadı");
+    audit(ctx, "teacher_feedback.set_shared", "TeacherFeedback", feedback.id, { shared: v.data.shared });
+    return ok({ feedbackId: feedback.id, sharedWithTeacher: feedback.sharedWithTeacher });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setTeacherFeedbackShared failed");
+  }
+}
+
+/**
+ * Öğretmenin GÖREBİLECEĞİ TEK yol — yalnızca kendi (ctx.teacherId) özeti,
+ * yalnızca eşik sağlanınca (bkz. TEACHER_FEEDBACK_MIN_ANONYMOUS_RESPONSES),
+ * hiçbir ham kayıt/kimlik asla dönmez.
+ */
+export async function getOwnTeacherFeedbackSummaryTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<Awaited<ReturnType<typeof computeTeacherFeedbackSummary>>>> {
+  const auth = requireRole(ctx, ["TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kaydı bulunamadı");
+
+  try {
+    const summary = await computeTeacherFeedbackSummary(ctx.tenantId, ctx.teacherId);
+    return ok(summary);
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getOwnTeacherFeedbackSummary failed");
   }
 }
 

@@ -104,6 +104,14 @@ export default async function TeacherDetailPage({
       <PageHeader
         title={teacher.name}
         description={`${branch?.shortName ?? "—"} · ${teacher.instruments.join(", ")}`}
+        actions={
+          <Link
+            href={`/panel/ogretmenler/${teacher.id}/geri-bildirim`}
+            className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+          >
+            Geri Bildirim İncelemesi →
+          </Link>
+        }
       />
 
       <Card className="mb-6 !p-4">

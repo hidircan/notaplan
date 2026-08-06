@@ -614,6 +614,8 @@ export interface TeacherFeedback {
   continueWithTeacher?: TeacherFeedbackContinuePreference;
   comment?: string;
   status: TeacherFeedbackStatus;
+  /** Yönetici bu yorumu öğretmenin anonim özetinde paylaşmayı SEÇTİYSE true. */
+  sharedWithTeacher: boolean;
   createdAt: string;
   updatedAt: string;
 }

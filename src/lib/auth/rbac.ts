@@ -33,6 +33,7 @@ export type Permission =
   | "materials:write"
   | "teacher_feedback:submit"
   | "teacher_feedback:read"
+  | "teacher_feedback:summary"
   | "curriculum:read"
   | "curriculum:write"
   | "pii:full"
@@ -125,6 +126,7 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     "documents:read",
     "trials:read",
     "trials:write",
+    "teacher_feedback:summary",
   ],
   PARENT: [
     "students:read",

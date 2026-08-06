@@ -304,6 +304,17 @@ export default async function OgretmenPortalPage() {
         </section>
 
         <section>
+          <Link href="/ogretmen/geri-bildirim">
+            <Card className="!p-4 transition hover:border-cyan-200">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geri Bildirim Özeti</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Anonim, toplulaştırılmış — yeterli yanıt olduğunda görünür
+              </p>
+            </Card>
+          </Link>
+        </section>
+
+        <section>
           <h2 className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Yaklaşan seanslar</h2>
           <div className="space-y-2">
             {weekLessons.map((l) => {
