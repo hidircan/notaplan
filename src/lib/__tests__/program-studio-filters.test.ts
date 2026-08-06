@@ -8,6 +8,7 @@ import {
   resolveStudentFilterForBranch,
   lessonCardTier,
   computeGridWindow,
+  lessonAccessibleLabel,
 } from "../../components/program-studio";
 import type { Lesson, Room, Student, Teacher } from "../types";
 
@@ -264,5 +265,32 @@ describe("lessonCardTier", () => {
   it("yeterli yükseklikte enstrüman/şube satırının da eklendiği 'full' katmanı döner", () => {
     expect(lessonCardTier(46)).toBe("full");
     expect(lessonCardTier(100)).toBe("full");
+  });
+});
+
+describe("lessonAccessibleLabel — ders kartının erişilebilir açıklaması", () => {
+  it("öğrenci, saat, öğretmen, enstrüman, oda ve şubeyi tek cümlede birleştirir", () => {
+    const l = lesson({ startAt: "2026-08-04T11:00:00+03:00", endAt: "2026-08-04T11:40:00+03:00" });
+    const label = lessonAccessibleLabel(l, student({}), teacher({}), room({}), "Erzene Şubesi");
+    expect(label).toBe("Zeynep Arslan · 11:00–11:40 · Nilüfer Acar · Piyano · Stüdyo 1 · Erzene Şubesi");
+  });
+
+  it("telafi dersinde 'Telafi dersi' etiketini ekler", () => {
+    const l = lesson({ type: "makeup" });
+    const label = lessonAccessibleLabel(l, student({}), teacher({}));
+    expect(label).toContain("Telafi dersi");
+  });
+
+  it("normal (telafi olmayan) derste 'Telafi dersi' etiketini eklemez", () => {
+    const l = lesson({ type: "regular" });
+    const label = lessonAccessibleLabel(l, student({}), teacher({}));
+    expect(label).not.toContain("Telafi");
+  });
+
+  it("eksik alanlar (öğrenci/öğretmen/oda/şube bulunamadı) sessizce atlanır, boş segment üretmez", () => {
+    const l = lesson({});
+    const label = lessonAccessibleLabel(l);
+    expect(label).not.toMatch(/·\s*·/); // ardışık ayraç yok — hiçbir boş segment yok
+    expect(label).toContain("Öğrenci bilinmiyor");
   });
 });
