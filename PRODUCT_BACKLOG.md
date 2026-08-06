@@ -283,6 +283,20 @@ Her paket için minimum:
 
 Durum güncellemeleri `WORK_PROGRESS.md` ve bu tablo ile senkron tutulur.
 
+## 12. Öğrenci Filtre Menüsü + Öğretmen Değerlendirmesi + Ders Programı
+    Görsel Yenilemesi (2026-08-06)
+
+Ayrıntılar için `WORK_PROGRESS.md`'deki aynı başlıklı bölüme bakın. Özet:
+öğrenci listesi filtreleri sade, listeli/açılır "Filtreler" menüsüne
+dönüştürüldü (chip yığını yerine); öğrenci portalına gizli/güvenli öğretmen
+değerlendirmesi eklendi (5 zorunlu kriter, aynı ay güncelleme kuralı,
+yönetici incelemesi maskeli kimlikle + gerekçeli reveal, öğretmene yalnız
+≥3 yanıtta anonim özet); Ders Programı ızgarası çizgi/tipografi/hiyerarşi
+açısından yeniden tasarlandı (sticky başlıklar, saat çizgisi vurgusu,
+büyük öğrenci adı, Geldi/İşlendi/Telafi rozetleri artık takvim kartlarında
+da görünüyor). Gerçek bir güvenlik açığı (`veli/degerlendirme` sayfasının
+`session.studentId || "s1"` varsayılanı) bu oturumda bulunup düzeltildi.
+
 ## 11. Kişi Detay Ekranları + Liste Filtreleri + Evraklar UX + Ders Programı
     Okunabilirliği + Kurumsal Tema Tercihleri (2026-08-05)
 

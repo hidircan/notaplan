@@ -1,4 +1,98 @@
 
+## Session — Öğrenci Filtre Menüsü + Öğretmen Değerlendirmesi + Ders
+    Programı Görsel Yenilemesi (2026-08-06)
+
+Aynı repo, önceki oturumun devamı — çalışma ağacı bu sefer temizdi (önceki
+sprintin tamamı commit'lenmişti); yalnızca AI/Collections/kurum-selector
+grubuna ait ~87 dosya hâlâ uncommitted, hiçbiri değişmedi.
+
+**1. Öğrenci filtre menüsü:** `students-table.tsx` yeniden yazıldı — 7
+ayrı chip-grubu satırı yerine tek bir "Filtreler" popover/bottom-sheet
+(masaüstünde dropdown, mobilde tam genişlik), liste mantığıyla (filtre
+adı solda, "Tümü"/seçili özet sağda, tıklayınca checkbox listesi açılır),
+6'dan fazla seçeneği olan gruplarda (öğretmen/şube/paket) filtre-içi arama.
+Aktif filtre sayısı rozeti, kaldırılabilir chip'ler, "Filtreleri Temizle".
+Varsayılan durum filtresi "Tümü"den "Aktif"e çekildi — pasif öğrenciler
+artık gerçekten varsayılan gizli (eskiden `?status=all` gibi davranıyordu).
+Sonuç metni "Toplam X öğrenci" / "X öğrenciden Y öğrenci gösteriliyor"
+olarak ayrıştırıldı. URL query state, tenant/RBAC kapsamı, telefon/not
+listede yok, paket yalnız isim — hepsi korundu.
+
+**2. Öğrenci → öğretmen değerlendirmesi:** Mevcut `teacher-feedback.ts`
+altyapısı (EPIC 6C) paralel model yazılmadan genişletildi — scores artık
+5 zorunlu sabit kriter (clarity/communication/effectiveness/motivation/
+punctuality, serbest Record değil), opsiyonel `continueWithTeacher`
+(yes/unsure/no), yorum 1000 karaktere indirildi. **Aynı ay tekrar kuralı:**
+aynı tenant+studentId+teacherId için cari ayda ikinci gönderim yeni satır
+YARATMAZ, mevcut kaydı GÜNCELLER (`{feedback, updated}` döner). Yeni
+`/ogrenci/degerlendirme` (+ paylaşılan `TeacherFeedbackCards`/
+`TeacherFeedbackForm`, `/veli/degerlendirme` de aynı bileşenleri kullanır)
+— değerlendirilebilir öğretmen listesi tamamen sunucuda, öğrencinin GERÇEK
+ders kayıtlarından (son 90 gün + mevcut atanmış öğretmen) türetilir, URL/ID
+manipülasyonuyla aşılamaz. **Yönetici inceleme** (`/panel/ogretmenler/
+[teacherId]/geri-bildirim`): ham öğrenci kimliği VARSAYILAN maskeli
+(`listTeacherFeedbackForReviewTool` studentId/submittedBy hiç döndürmez),
+kimlik yalnızca gerekçeli (min 5 karakter) + audit'li `revealTeacherFeedbackIdentityTool`
+ile açılır; durum yönetimi (Bekliyor/İncelendi/Aksiyon Alındı/Arşivlendi)
++ yorum paylaşım seçimi (`sharedWithTeacher`). **Öğretmen özeti**
+(`/ogretmen/geri-bildirim`): yalnızca ≥3 anonim yanıtta görünür kriter
+ortalaması + devam tercihi dağılımı + yönetimin paylaşmayı seçtiği
+yorumlar — ham kayıt/kimlik asla yok, ayrı `teacher_feedback:summary`
+RBAC izniyle yalnız TEACHER rolüne açık. **Gerçek güvenlik bulgusu:**
+`veli/degerlendirme/page.tsx` eskiden `session.studentId || "s1"` sonra
+`?? data.students[0]` düşüyordu — studentId'si eksik/boş bir veli oturumu
+sessizce sabit demo öğrenciyi ya da kurumun İLK öğrencisini görüyordu;
+fail-closed'a çevrildi (eksikse login'e yönlendir).
+
+**3. Ders Programı görsel yenilemesi:** Yalnızca CSS/hiyerarşi — hiçbir
+iş kuralı değişmedi (Pazartesi/10:00/30-40-50dk/filtreler/drag-drop/
+Geldi-İşlendi-Telafi hepsi aynı testlerle doğrulandı). Gün başlıkları +
+saat ekseni artık sticky; tam saat çizgileri yarım saatten belirgin şekilde
+daha koyu (eskiden hepsi aynı soluk tondaydı); tüm grid renkleri kurumsal
+token'lara taşındı, altın rengi yalnızca bugün/hover/drag vurgusunda
+kullanılıyor (yapısal çizgilerde asla). Hafta ızgarasındaki ders kartı
+artık gün-görünümüyle aynı `LessonCardBody`/`lessonCardTier`'ı kullanıyor
+(öğrenci adı en baskın, saat ikincil, öğretmen/enstrüman üçüncül) — eskiden
+kendi kopya markup'ı vardı ve hiç tier mantığı kullanmıyordu. Geldi/İşlendi/
+Telafi (`LessonOpsBadges`) artık her iki takvim görünümündeki kartlarda da
+görünür (eskiden yalnızca ayrı bir mobil listede). Yeni, saf `lessonAccessibleLabel()`
+her ders kartına tek cümlelik erişilebilir açıklama üretiyor; hafta
+ızgarası kartları artık `role="button"` + `tabIndex` + Enter/Space ile
+klavye erişilebilir (eskiden yalnızca tıklanabilir `<div>`'di).
+
+**Bilinen/bildirilen boşluklar:** (a) ders kartı piksel-pozisyon
+matematiği ayrı bir saf fonksiyona çıkarılıp test edilmedi — girdileri
+(computeGridWindow, createLessonTool süre testleri) zaten test edilmiş
+basit aritmetik; (b) bu repoda hiç component-render test altyapısı yok
+(React Testing Library vb.) — rozet görünürlüğü gibi görsel iddialar
+curl+grep ile sunucu render'ında doğrulandı, otomatik component testi
+değil; (c) `computeTeacherFeedbackSummary`'nin "yönetimin seçtiği anonim
+yapıcı önerileri" kuralı yeni bir `sharedWithTeacher` alanı gerektirdi —
+aynı, henüz hiç uygulanmamış migration dosyasına eklendi (ikinci migration
+açılmadı).
+
+**Doğrulama:** typecheck/lint/`prisma validate`/build temiz, tam test
+suite'i 849/850 yeşil (819 önceki oturumdan + bu oturumda +19 yeni test
+[document-instances hariç, bkz. önceki oturum] — tam liste: 4 filtre menüsü
+sırasında yeni test yok [UI-only], 2+1 model genişletme, 15 review/summary,
+4 lessonAccessibleLabel). Tek başarısızlık, beş ayrı commit'te not edilen
+önceden var olan, ilgisiz bir tarih-kayması flake'i (`lesson-series-tools.test.ts`
+— sabit gün-offsetli bir seed dersi artık duvar saati ilerledikçe
+Pazartesi'ye denk geliyor ve önceki sprintin Monday-block validasyonu onu
+doğru şekilde reddediyor); dokunulmadı, kapsam dışı. Dev server + gerçek
+oturum (4 rol) ile: tüm admin/portal ekranları 200, yeni admin-only
+rotalarda (öğrenci/öğretmen detay, Evraklar, geri-bildirim incelemesi,
+eskiden `/panel/gorunum-ayarlari`) STUDENT/TEACHER/PARENT 307; `/gorunum-ayarlari`
+(taşınmış hâliyle) 4 rolde de 200; `/panel/gorunum-ayarlari` artık 404
+(taşındı, yeniden izinlendirilmedi); Program ekranı tam 6 gün sütunu
+gösteriyor (Pazartesi yok); öğretmen değerlendirmesi uçtan uca (gönder →
+güncelle → aynı feedbackId, admin görür maskeli → gerekçeyle reveal eder →
+durum/paylaşım değiştirir → öğretmen 403/boş görür eşik altında) curl ile
+doğrulandı.
+
+**Dokunulmadan bırakılanlar:** aynı ~87 dosyalık AI/Collections/kurum-
+selector grubu (önceki oturumdaki gibi) hiç değişmedi/commit'e alınmadı.
+
 ## Session — Kişi Detay Ekranları + Liste Filtreleri + Evraklar UX +
     Ders Programı Okunabilirliği + Kurumsal Tema Tercihleri (2026-08-05)
 
