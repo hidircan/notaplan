@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { actionAddPayment } from "@/lib/actions";
 import { Button, Input, Label, PageHeader, Select, StatCard } from "@/components/ui";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, isOutstandingPaymentStatus } from "@/lib/utils";
 import { PaymentsTable, type PaymentRow } from "@/components/payments-table";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
@@ -24,7 +24,7 @@ export default async function OdemelerPage() {
 
   const collected = payments.filter((p) => p.status === "paid").reduce((s, p) => s + p.paidAmount, 0);
   const outstanding = payments
-    .filter((p) => p.status !== "paid")
+    .filter((p) => isOutstandingPaymentStatus(p.status))
     .reduce((s, p) => s + (p.amount - p.paidAmount), 0);
   const overdue = payments.filter((p) => p.status === "overdue").length;
 

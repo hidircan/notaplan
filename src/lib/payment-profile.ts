@@ -20,6 +20,9 @@ export function computeStudentPaymentSummary(payments: Payment[]): StudentPaymen
   let openCount = 0;
 
   for (const p of payments) {
+    // "voided" (ders iptaliyle geri alınmış otomatik tahsilat) hiç borç/tahsilat
+    // sayılmaz — özet toplamlarına hiç girmez, yalnızca geçmişte görünür kalır.
+    if (p.status === "voided") continue;
     totalBilled += p.amount;
     totalCollected += p.paidAmount;
     const due = Math.max(p.amount - p.paidAmount, 0);

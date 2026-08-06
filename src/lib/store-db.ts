@@ -61,7 +61,7 @@ import { addDays } from "date-fns";
 import { requireTenantId, tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
 import { getBootstrapUsersForSeed } from "./auth/users";
-import { uid } from "./utils";
+import { uid, isOutstandingPaymentStatus } from "./utils";
 
 function tenantId(): string {
   return tryTenantId() ?? DEFAULT_TENANT_ID;
@@ -242,6 +242,8 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       paidAt: payment.paidAt?.toISOString() ?? undefined,
       description: payment.description,
       method: payment.method ?? undefined,
+      lessonId: payment.lessonId ?? undefined,
+      source: (payment.source as import("./types").PaymentSource | undefined) ?? "manual",
     })),
     teacherFeeRules: school.teacherFeeRules.map((rule) => ({
       id: rule.id,
@@ -278,7 +280,7 @@ export function getDashboardStats(data: AppData) {
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + p.paidAmount, 0);
   const revenueDue = data.payments
-    .filter((p) => p.status !== "paid")
+    .filter((p) => isOutstandingPaymentStatus(p.status))
     .reduce((s, p) => s + (p.amount - p.paidAmount), 0);
   const today = new Date().toISOString().slice(0, 10);
   const todayLessons = data.lessons.filter((l) => l.startAt.startsWith(today));
@@ -477,6 +479,8 @@ export async function seedDatabase(seed: AppData) {
           paidAt: payment.paidAt ? new Date(payment.paidAt) : undefined,
           description: payment.description,
           method: payment.method,
+          lessonId: payment.lessonId,
+          source: payment.source ?? "manual",
         },
       })
     )

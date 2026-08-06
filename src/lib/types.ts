@@ -48,7 +48,7 @@ export type MakeupStatus =
   | "completed"
   | "expired"
   | "cancelled";
-export type PaymentStatus = "paid" | "pending" | "overdue" | "partial";
+export type PaymentStatus = "paid" | "pending" | "overdue" | "partial" | "voided";
 export type LessonType = "regular" | "makeup" | "trial" | "group";
 
 /** Haftalık müsaitlik penceresi: 0=Pazar ... 6=Cumartesi */
@@ -428,6 +428,8 @@ export interface MakeupSlot {
   reasons: string[];
 }
 
+export type PaymentSource = "manual" | "lesson_ops";
+
 export interface Payment {
   id: string;
   studentId: string;
@@ -438,6 +440,10 @@ export interface Payment {
   paidAt?: string;
   description: string;
   method?: string;
+  /** Otomatik ders bazlı tahsilatın kaynak dersi — manuel/paket ödemelerde yok. */
+  lessonId?: string;
+  /** "manual" (varsayılan) | "lesson_ops" (Geldi/İşlendi otomatik oluşturdu) */
+  source?: PaymentSource;
 }
 
 /**

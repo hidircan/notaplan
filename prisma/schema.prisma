@@ -446,10 +446,15 @@ model Payment {
   paidAt      DateTime?
   description String
   method      String?
+  /// Otomatik ders bazlı tahsilatın kaynak dersi — manuel/paket ödemelerde NULL.
+  lessonId    String?
+  /// "manual" (varsayılan, mevcut tüm kayıtlar) | "lesson_ops" (Geldi/İşlendi otomatik oluşturdu)
+  source      String    @default("manual")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([tenantId])
+  @@index([tenantId, lessonId])
 }
 
 model PaymentFollowUpCase {

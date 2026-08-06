@@ -27,6 +27,11 @@ export function formatTime(iso: string) {
   return format(parseISO(iso), "HH:mm", { locale: tr });
 }
 
+/** "voided" (ders iptaliyle geri alınmış otomatik tahsilat) asla bekleyen/borç sayılmaz — "paid" da değildir ama açık borç da değildir. */
+export function isOutstandingPaymentStatus(status: string): boolean {
+  return status !== "paid" && status !== "voided";
+}
+
 export function formatMoney(amount: number, currency = "TRY") {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -71,6 +76,7 @@ export function statusLabel(status: string) {
     paid: "Ödendi",
     overdue: "Gecikmiş",
     partial: "Kısmi",
+    voided: "İptal edildi",
     scheduled: "Planlandı",
     no_show: "Gelmedi",
     regular: "Normal",
@@ -111,6 +117,7 @@ export function statusColor(status: string) {
     suggested: "bg-sky-100 text-sky-800",
     awaiting_info: "bg-orange-100 text-orange-800",
     partial: "bg-amber-100 text-amber-800",
+    voided: "bg-stone-200 text-stone-600",
     late: "bg-orange-100 text-orange-800",
     scheduled: "bg-indigo-100 text-indigo-800",
     /* Telafi her yerde kırmızı — LessonOpsBadges ile aynı anlam/renk dili. */

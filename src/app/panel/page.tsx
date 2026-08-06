@@ -14,7 +14,7 @@ import {
 import { Badge, Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { getDashboardStats } from "@/lib/store";
 import { actionResetDemo } from "@/lib/actions";
-import { formatDateTime, formatMoney, formatTime } from "@/lib/utils";
+import { formatDateTime, formatMoney, formatTime, isOutstandingPaymentStatus } from "@/lib/utils";
 import { buildDemoMessages } from "@/lib/whatsapp-templates";
 import { computeSetupProgress } from "@/lib/setup-progress";
 import { computeTeacherPayoutOverview } from "@/lib/teacher-payout-overview";
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
     .slice(0, 4);
 
   // Bugünün aksiyonları — yalnızca gerçekten aksiyon gerektiren kalemler
-  const unpaidPayments = data.payments.filter((p) => p.status !== "paid");
+  const unpaidPayments = data.payments.filter((p) => isOutstandingPaymentStatus(p.status));
   const totalOutstanding = unpaidPayments.reduce(
     (sum, p) => sum + Math.max(p.amount - p.paidAmount, 0),
     0

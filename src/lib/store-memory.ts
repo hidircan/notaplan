@@ -62,7 +62,7 @@ import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
 import type { StudentImportRow } from "./import/students";
 import type { ImportCommitResult } from "./import/commit-result";
-import { uid } from "./utils";
+import { uid, isOutstandingPaymentStatus } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
 const g = globalThis as unknown as { __notaplanByTenant?: Record<string, AppData> };
@@ -648,7 +648,7 @@ export function getDashboardStats(data: AppData) {
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + p.paidAmount, 0);
   const revenueDue = data.payments
-    .filter((p) => p.status !== "paid")
+    .filter((p) => isOutstandingPaymentStatus(p.status))
     .reduce((s, p) => s + (p.amount - p.paidAmount), 0);
   const today = new Date().toISOString().slice(0, 10);
   const todayLessons = data.lessons.filter((l) => l.startAt.startsWith(today));
