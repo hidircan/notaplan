@@ -181,6 +181,27 @@ export function lessonCardTier(heightPx: number): "min" | "compact" | "full" {
   return "full";
 }
 
+/** Ders kartının erişilebilir açıklaması — ekran okuyucu için tüm bağlamı tek cümlede verir. */
+export function lessonAccessibleLabel(
+  lesson: Lesson,
+  student?: Student,
+  teacher?: Teacher,
+  room?: Room,
+  branchName?: string
+): string {
+  const timeRange = `${format(parseISO(lesson.startAt), "HH:mm")}–${format(parseISO(lesson.endAt), "HH:mm")}`;
+  const parts = [
+    student?.name ?? "Öğrenci bilinmiyor",
+    timeRange,
+    teacher?.name,
+    lesson.instrument,
+    room?.name,
+    branchName,
+    lesson.type === "makeup" ? "Telafi dersi" : undefined,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 function LessonCardBody({
   student,
   teacher,
@@ -197,13 +218,24 @@ function LessonCardBody({
   const timeRange = `${format(parseISO(lesson.startAt), "HH:mm")}–${format(parseISO(lesson.endAt), "HH:mm")}`;
   return (
     <>
-      <p className="truncate font-semibold leading-tight text-slate-800 dark:text-slate-200" title={student?.name}>
+      <p
+        className={`truncate font-bold leading-tight text-[var(--color-text)] ${
+          tier === "full" ? "text-[13px]" : "text-[11px]"
+        }`}
+        title={student?.name}
+      >
         {student?.name}
       </p>
-      <p className="truncate leading-tight text-slate-500 dark:text-slate-400">{timeRange}</p>
+      <p
+        className={`truncate font-medium leading-tight text-[var(--color-text-muted)] ${
+          tier === "full" ? "text-[11px]" : "text-[10px]"
+        }`}
+      >
+        {timeRange}
+      </p>
       {tier !== "min" ? (
         <p
-          className="truncate leading-tight text-slate-500 dark:text-slate-400"
+          className="truncate text-[10px] leading-tight text-[var(--color-text-muted)]"
           title={`${teacher?.name ?? ""}${branchName ? ` · ${branchName}` : ""}`}
         >
           {teacher?.name}
@@ -211,7 +243,7 @@ function LessonCardBody({
         </p>
       ) : null}
       {tier === "full" ? (
-        <p className="truncate text-[9px] leading-tight text-slate-400" title={lesson.instrument}>
+        <p className="truncate text-[9px] leading-tight text-[var(--color-text-muted)]" title={lesson.instrument}>
           {lesson.instrument}
         </p>
       ) : null}
@@ -1387,8 +1419,8 @@ export function ProgramStudio({
       ) : null}
 
       {visibleWeekLessons.length === 0 ? (
-        <Card className="mb-4 border-dashed border-slate-200 bg-slate-50/60 text-center">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <Card className="mb-4 border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] text-center">
+          <p className="text-sm text-[var(--color-text-muted)]">
             {filterBranchId || filterTeacherId || filterStudentId
               ? "Bu filtrelerle eşleşen ders yok."
               : "Bu hafta için planlanmış ders yok."}
@@ -1436,9 +1468,9 @@ export function ProgramStudio({
       ) : null}
 
       {calendarView === "week" ? (
-      <div className="overflow-x-auto">
-        <div className="flex">
-          <div className="w-14 shrink-0" />
+      <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--color-border-strong)] bg-[var(--color-surface)]">
+        <div className="flex sticky top-0 z-30 bg-[var(--color-surface)]">
+          <div className="w-16 shrink-0 border-b border-r border-[var(--color-border-strong)]" />
           {visibleDays.map((dayIso) => {
             const day = parseISO(dayIso);
             const today = isSameDay(day, now);
@@ -1446,17 +1478,17 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`flex-1 border-b border-slate-100 p-2 text-xs font-semibold dark:border-slate-800 ${
+                className={`flex-1 border-b border-l border-[var(--color-border-strong)] px-2 py-2.5 text-[13px] font-bold ${
                   holidayName
                     ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
                     : today
-                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                      : "text-slate-600 dark:text-slate-400"
+                      ? "bg-[var(--color-primary-soft)] text-[var(--color-primary-soft-text)]"
+                      : "text-[var(--color-text)]"
                 }`}
                 title={holidayName ?? undefined}
               >
                 {format(day, "EEEE", { locale: tr })}
-                <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">{format(day, "d MMM", { locale: tr })}</span>
+                <span className="ml-1 font-normal text-[var(--color-text-muted)]">{format(day, "d MMM", { locale: tr })}</span>
                 {holidayName ? <span className="ml-1 font-normal">· Resmî tatil</span> : null}
               </div>
             );
@@ -1464,16 +1496,23 @@ export function ProgramStudio({
         </div>
 
         <div className="flex">
-          <div className="w-14 shrink-0">
-            {slots.map((min) => (
-              <div
-                key={min}
-                className="border-r border-slate-50 pr-2 text-right text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500"
-                style={{ height: SLOT_HEIGHT_PX }}
-              >
-                {min % 60 === 0 ? formatMinutes(min) : ""}
-              </div>
-            ))}
+          <div className="sticky left-0 z-20 w-16 shrink-0 bg-[var(--color-surface)]">
+            {slots.map((min) => {
+              const onHour = min % 60 === 0;
+              return (
+                <div
+                  key={min}
+                  className={`border-r pr-2 text-right ${
+                    onHour
+                      ? "border-[var(--color-border-strong)] text-[13px] font-semibold text-[var(--color-text)]"
+                      : "border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)]"
+                  }`}
+                  style={{ height: SLOT_HEIGHT_PX }}
+                >
+                  {onHour ? formatMinutes(min) : min % 30 === 0 ? formatMinutes(min) : ""}
+                </div>
+              );
+            })}
           </div>
 
           {visibleDays.map((dayIso) => {
@@ -1486,12 +1525,13 @@ export function ProgramStudio({
             return (
               <div
                 key={dayIso}
-                className={`relative flex-1 border-l border-slate-100 dark:border-slate-800 ${today ? "bg-amber-50/20 dark:bg-amber-950/20" : ""}`}
+                className={`relative flex-1 border-l border-[var(--color-border-strong)] ${today ? "bg-[var(--color-primary-soft)]/30" : ""}`}
                 style={{ height: totalHeight }}
               >
                 {slots.map((min, i) => {
                   const key = `${dayIso}|${min}`;
                   const isDragOver = dragOverKey === key;
+                  const onHour = min % 60 === 0;
                   return (
                     <button
                       key={min}
@@ -1506,8 +1546,12 @@ export function ProgramStudio({
                         e.preventDefault();
                         handleDrop(dayIso, min);
                       }}
-                      className={`absolute left-0 right-0 border-b border-dashed text-[10px] text-transparent hover:border-amber-300 hover:text-amber-500 ${
-                        isDragOver ? "border-amber-400 bg-amber-100/60" : "border-slate-50"
+                      className={`absolute left-0 right-0 border-b text-[10px] text-transparent hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]/40 hover:text-[var(--color-primary)] ${
+                        isDragOver
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+                          : onHour
+                            ? "border-[var(--color-border-strong)]"
+                            : "border-dashed border-[var(--color-border)]"
                       }`}
                       style={{ top: i * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
                       aria-label={`${format(day, "d MMM", { locale: tr })} ${formatMinutes(min)} — ders planla`}
@@ -1532,6 +1576,9 @@ export function ProgramStudio({
                   const widthPct = 100 / laneCount;
                   const editable = canMoveOrResize(lesson, now) && canCreate;
 
+                  const tier = lessonCardTier(height);
+                  const room = rooms.find((r) => r.id === lesson.roomId);
+
                   return (
                     <div
                       key={lesson.id}
@@ -1542,7 +1589,16 @@ export function ProgramStudio({
                         setDragOverKey(null);
                       }}
                       onClick={() => openDetail(lesson)}
-                      className={`absolute z-10 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 text-[10px] shadow-sm dark:border-slate-700 dark:bg-slate-800 ${
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openDetail(lesson);
+                        }
+                      }}
+                      aria-label={lessonAccessibleLabel(lesson, student, teacher, room, branchNames[lesson.branchId])}
+                      className={`absolute z-10 overflow-hidden rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-1.5 text-[10px] shadow-[var(--shadow-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-focus-ring)] ${
                         editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-90"
                       }`}
                       style={{
@@ -1553,15 +1609,26 @@ export function ProgramStudio({
                         borderLeft: `3px solid ${teacher?.color ?? "#A56A00"}`,
                       }}
                     >
-                      <p className="truncate font-semibold text-slate-800 dark:text-slate-200">{student?.name}</p>
-                      <p className="truncate text-slate-500 dark:text-slate-400">
-                        {format(parseISO(lesson.startAt), "HH:mm")}–{format(parseISO(lesson.endAt), "HH:mm")}
-                      </p>
-                      <p className="truncate text-slate-400">
-                        {teacher?.name} · {branchNames[lesson.branchId] ?? ""}
-                      </p>
-                      <p className="truncate text-slate-400">{lesson.instrument}</p>
-                      <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+                      <LessonCardBody
+                        student={student}
+                        teacher={teacher}
+                        lesson={lesson}
+                        branchName={branchNames[lesson.branchId]}
+                        tier={tier}
+                      />
+                      {tier !== "min" ? (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-0.5">
+                          <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
+                        </div>
+                      ) : null}
+                      {tier === "full" &&
+                      (lesson.studentAttended || lesson.lessonProcessed || lesson.opsMakeupFlag) ? (
+                        <LessonOpsBadges
+                          studentAttended={lesson.studentAttended}
+                          lessonProcessed={lesson.lessonProcessed}
+                          opsMakeupFlag={lesson.opsMakeupFlag}
+                        />
+                      ) : null}
                       {editable ? (
                         <div
                           draggable={false}
@@ -1591,24 +1658,29 @@ export function ProgramStudio({
               .filter((l) => isSameDay(parseISO(l.startAt), day))
               .sort((a, b) => a.startAt.localeCompare(b.startAt));
             return (
-              <Card key={dayIso} className={today ? "border-amber-200 bg-amber-50/30" : undefined}>
+              <Card
+                key={dayIso}
+                className={today ? "border-[var(--color-primary)]/40 bg-[var(--color-primary-soft)]/30" : undefined}
+              >
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{format(day, "EEEE d MMM", { locale: tr })}</p>
+                  <p className="text-[15px] font-bold text-[var(--color-text)]">{format(day, "EEEE d MMM", { locale: tr })}</p>
                   {today ? <Badge status="scheduled">Bugün</Badge> : null}
                 </div>
                 {dayLessons.length === 0 ? (
-                  <p className="text-xs text-slate-400">Boş</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">Bu gün için planlanmış ders yok.</p>
                 ) : (
                   <div className="space-y-2">
                     {dayLessons.map((lesson) => {
                       const student = students.find((s) => s.id === lesson.studentId);
                       const teacher = teachers.find((t) => t.id === lesson.teacherId);
+                      const room = rooms.find((r) => r.id === lesson.roomId);
                       return (
                         <button
                           key={lesson.id}
                           type="button"
                           onClick={() => openDetail(lesson)}
-                          className="block w-full rounded-lg border border-slate-100 bg-slate-50 p-2 text-left text-xs hover:border-amber-200"
+                          aria-label={lessonAccessibleLabel(lesson, student, teacher, room, branchNames[lesson.branchId])}
+                          className="block w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] p-2.5 text-left text-xs hover:border-[var(--color-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-focus-ring)]"
                           style={{ borderLeft: `3px solid ${teacher?.color ?? "#A56A00"}` }}
                         >
                           <LessonCardBody
@@ -1618,9 +1690,16 @@ export function ProgramStudio({
                             branchName={branchNames[lesson.branchId]}
                             tier="full"
                           />
-                          <div className="mt-1">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
                             <Badge status={lesson.type === "makeup" ? "makeup" : lesson.status} />
                           </div>
+                          {lesson.studentAttended || lesson.lessonProcessed || lesson.opsMakeupFlag ? (
+                            <LessonOpsBadges
+                              studentAttended={lesson.studentAttended}
+                              lessonProcessed={lesson.lessonProcessed}
+                              opsMakeupFlag={lesson.opsMakeupFlag}
+                            />
+                          ) : null}
                         </button>
                       );
                     })}
