@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
+import { ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 
 export type StudentRow = {
@@ -24,12 +25,9 @@ export type StudentRow = {
   paymentStatus: "paid" | "overdue" | "partial" | "pending" | "none";
 };
 
-const STATUS_FILTERS = [
-  { value: "all", label: "Tümü" },
-  { value: "active", label: "Aktif" },
-  { value: "inactive", label: "Pasif" },
-] as const;
+type StatusFilter = "active" | "inactive" | "all";
 
+const STATUS_LABELS: Record<StatusFilter, string> = { active: "Aktif", inactive: "Pasif", all: "Tümü" };
 const PAYMENT_LABELS: Record<StudentRow["paymentStatus"], string> = {
   paid: "Güncel",
   overdue: "Gecikmiş",
@@ -37,57 +35,35 @@ const PAYMENT_LABELS: Record<StudentRow["paymentStatus"], string> = {
   pending: "Bekliyor",
   none: "Kayıt yok",
 };
+const PAYMENT_VALUES: StudentRow["paymentStatus"][] = ["paid", "overdue", "partial", "pending", "none"];
+
+type FilterGroup = {
+  key: string;
+  label: string;
+  type: "multi" | "status" | "dateRange";
+  options?: string[];
+};
 
 function toggleInList(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-function ChipGroup({
-  label,
-  options,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  options: string[];
-  selected: string[];
-  onToggle: (value: string) => void;
-}) {
-  if (options.length === 0) return null;
-  return (
-    <div>
-      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">{label}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((opt) => {
-          const active = selected.includes(opt);
-          return (
-            <button
-              key={opt}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onToggle(opt)}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-                active
-                  ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary-soft-text)]"
-                  : "border-[var(--color-border-strong)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
-              }`}
-            >
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+function uniqueSorted(values: (string | undefined)[]): string[] {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b, "tr"));
 }
 
 export function StudentsTable({ rows }: { rows: StudentRow[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [optionSearch, setOptionSearch] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const search = searchParams.get("q") ?? "";
-  const statusFilter = (searchParams.get("status") ?? "all") as (typeof STATUS_FILTERS)[number]["value"];
+  // Pasif öğrenciler varsayılan gizli — yalnız durum filtresiyle görünür.
+  const statusFilter = (searchParams.get("status") ?? "active") as StatusFilter;
   const typeFilter = searchParams.getAll("type");
   const branchFilter = searchParams.getAll("branch");
   const packageFilter = searchParams.getAll("package");
@@ -106,7 +82,7 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
 
   function setSingle(key: string, value: string) {
     updateParams((params) => {
-      if (value && value !== "all" && value !== "") params.set(key, value);
+      if (value && value !== "") params.set(key, value);
       else params.delete(key);
     });
   }
@@ -119,9 +95,37 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
     });
   }
 
+  function removeOne(key: string, value: string, current: string[]) {
+    updateParams((params) => {
+      params.delete(key);
+      current.filter((v) => v !== value).forEach((v) => params.append(key, v));
+    });
+  }
+
   function clearAll() {
     router.replace(pathname, { scroll: false });
   }
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setOpenGroup(null);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setOpenGroup(null);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   const branchOptions = useMemo(() => uniqueSorted(rows.map((r) => r.branchName)), [rows]);
   const typeOptions = useMemo(() => uniqueSorted(rows.map((r) => r.studentType)), [rows]);
@@ -130,54 +134,130 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
   const methodOptions = useMemo(() => uniqueSorted(rows.map((r) => r.educationMethod)), [rows]);
   const levelOptions = useMemo(() => uniqueSorted(rows.map((r) => r.level)), [rows]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (query && !row.name.toLowerCase().includes(query)) return false;
-      if (statusFilter === "active" && !row.active) return false;
-      if (statusFilter === "inactive" && row.active) return false;
-      if (typeFilter.length && !(row.studentType && typeFilter.includes(row.studentType))) return false;
-      if (branchFilter.length && !(row.branchName && branchFilter.includes(row.branchName))) return false;
-      if (packageFilter.length && !packageFilter.includes(row.packageName)) return false;
-      if (teacherFilter.length && !(row.teacherName && teacherFilter.includes(row.teacherName))) return false;
-      if (methodFilter.length && !(row.educationMethod && methodFilter.includes(row.educationMethod))) return false;
-      if (levelFilter.length && !(row.level && levelFilter.includes(row.level))) return false;
-      if (paymentFilter.length && !paymentFilter.includes(row.paymentStatus)) return false;
-      if (enrolledFrom && (!row.enrollmentStartDate || row.enrollmentStartDate < enrolledFrom)) return false;
-      if (enrolledTo && (!row.enrollmentStartDate || row.enrollmentStartDate > enrolledTo)) return false;
-      return true;
-    });
-  }, [
-    rows,
-    search,
-    statusFilter,
-    typeFilter,
-    branchFilter,
-    packageFilter,
-    teacherFilter,
-    methodFilter,
-    levelFilter,
-    paymentFilter,
-    enrolledFrom,
-    enrolledTo,
-  ]);
+  const groups: FilterGroup[] = [
+    { key: "status", label: "Durum", type: "status" },
+    { key: "type", label: "Öğrenci türü", type: "multi", options: typeOptions },
+    { key: "branch", label: "Şube", type: "multi", options: branchOptions },
+    { key: "teacher", label: "Öğretmen", type: "multi", options: teacherOptions },
+    { key: "method", label: "Eğitim metodu", type: "multi", options: methodOptions },
+    { key: "package", label: "Paket", type: "multi", options: packageOptions },
+    { key: "level", label: "MEB/LCM seviye", type: "multi", options: levelOptions },
+    { key: "payment", label: "Ödeme durumu", type: "multi", options: PAYMENT_VALUES.map((v) => PAYMENT_LABELS[v]) },
+    { key: "enrollment", label: "Kayıt tarihi", type: "dateRange" },
+  ];
 
-  const anyFilterActive =
-    Boolean(search) ||
-    statusFilter !== "all" ||
-    typeFilter.length > 0 ||
-    branchFilter.length > 0 ||
-    packageFilter.length > 0 ||
-    teacherFilter.length > 0 ||
-    methodFilter.length > 0 ||
-    levelFilter.length > 0 ||
-    paymentFilter.length > 0 ||
-    Boolean(enrolledFrom) ||
-    Boolean(enrolledTo);
+  function selectedFor(key: string): string[] {
+    if (key === "type") return typeFilter;
+    if (key === "branch") return branchFilter;
+    if (key === "teacher") return teacherFilter;
+    if (key === "method") return methodFilter;
+    if (key === "package") return packageFilter;
+    if (key === "level") return levelFilter;
+    if (key === "payment") return paymentFilter.map((p) => PAYMENT_LABELS[p as StudentRow["paymentStatus"]] ?? p);
+    return [];
+  }
+
+  function summaryFor(group: FilterGroup): string {
+    if (group.type === "status") return statusFilter === "active" ? "Aktif" : STATUS_LABELS[statusFilter];
+    if (group.type === "dateRange") {
+      if (!enrolledFrom && !enrolledTo) return "Tümü";
+      return `${enrolledFrom || "…"} – ${enrolledTo || "…"}`;
+    }
+    const selected = selectedFor(group.key);
+    if (selected.length === 0) return "Tümü";
+    if (selected.length === 1) return selected[0]!;
+    return `${selected.length} seçili`;
+  }
+
+  function toggleOption(group: FilterGroup, option: string) {
+    if (group.key === "payment") {
+      const paymentValue = PAYMENT_VALUES.find((v) => PAYMENT_LABELS[v] === option) ?? option;
+      toggleMulti("payment", paymentValue, paymentFilter);
+      return;
+    }
+    toggleMulti(group.key, option, selectedFor(group.key));
+  }
+
+  const activeGroupCount =
+    (statusFilter !== "active" ? 1 : 0) +
+    (typeFilter.length ? 1 : 0) +
+    (branchFilter.length ? 1 : 0) +
+    (teacherFilter.length ? 1 : 0) +
+    (methodFilter.length ? 1 : 0) +
+    (packageFilter.length ? 1 : 0) +
+    (levelFilter.length ? 1 : 0) +
+    (paymentFilter.length ? 1 : 0) +
+    (enrolledFrom || enrolledTo ? 1 : 0);
+
+  const filterQuery = search.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (filterQuery && !row.name.toLowerCase().includes(filterQuery)) return false;
+    if (statusFilter === "active" && !row.active) return false;
+    if (statusFilter === "inactive" && row.active) return false;
+    if (typeFilter.length && !(row.studentType && typeFilter.includes(row.studentType))) return false;
+    if (branchFilter.length && !(row.branchName && branchFilter.includes(row.branchName))) return false;
+    if (packageFilter.length && !packageFilter.includes(row.packageName)) return false;
+    if (teacherFilter.length && !(row.teacherName && teacherFilter.includes(row.teacherName))) return false;
+    if (methodFilter.length && !(row.educationMethod && methodFilter.includes(row.educationMethod))) return false;
+    if (levelFilter.length && !(row.level && levelFilter.includes(row.level))) return false;
+    if (paymentFilter.length && !paymentFilter.includes(row.paymentStatus)) return false;
+    if (enrolledFrom && (!row.enrollmentStartDate || row.enrollmentStartDate < enrolledFrom)) return false;
+    if (enrolledTo && (!row.enrollmentStartDate || row.enrollmentStartDate > enrolledTo)) return false;
+    return true;
+  });
+
+  const anyFilterActive = Boolean(search) || activeGroupCount > 0;
+
+  // Aktif filtreler için kaldırılabilir chip listesi.
+  type Chip = { key: string; value: string; label: string; onRemove: () => void };
+  const multiChipDefs: { key: string; label: string; values: string[] }[] = [
+    { key: "type", label: "Tür", values: typeFilter },
+    { key: "branch", label: "Şube", values: branchFilter },
+    { key: "teacher", label: "Öğretmen", values: teacherFilter },
+    { key: "method", label: "Metod", values: methodFilter },
+    { key: "package", label: "Paket", values: packageFilter },
+    { key: "level", label: "Seviye", values: levelFilter },
+  ];
+  const chips: Chip[] = [
+    ...(statusFilter !== "active"
+      ? [{ key: "status", value: statusFilter, label: `Durum: ${STATUS_LABELS[statusFilter]}`, onRemove: () => setSingle("status", "active") }]
+      : []),
+    ...multiChipDefs.flatMap((def) =>
+      def.values.map((value) => ({
+        key: def.key,
+        value,
+        label: `${def.label}: ${value}`,
+        onRemove: () => removeOne(def.key, value, def.values),
+      }))
+    ),
+    ...paymentFilter.map((value) => ({
+      key: "payment",
+      value,
+      label: `Ödeme: ${PAYMENT_LABELS[value as StudentRow["paymentStatus"]] ?? value}`,
+      onRemove: () => removeOne("payment", value, paymentFilter),
+    })),
+    ...(enrolledFrom || enrolledTo
+      ? [
+          {
+            key: "enrollment",
+            value: "range",
+            label: `Kayıt: ${enrolledFrom || "…"} – ${enrolledTo || "…"}`,
+            onRemove: () =>
+              updateParams((params) => {
+                params.delete("from");
+                params.delete("to");
+              }),
+          },
+        ]
+      : []),
+  ];
+
+  const openGroupDef = groups.find((g) => g.key === openGroup);
+  const filteredOptions = openGroupDef?.options?.filter((o) => o.toLowerCase().includes(optionSearch.toLowerCase())) ?? [];
 
   return (
     <>
-      <Card className="mb-4 space-y-3">
+      <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <input
             type="text"
@@ -187,69 +267,201 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
             aria-label="Ad soyada göre ara"
             className="w-full max-w-xs rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]/30 sm:w-auto"
           />
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => setSingle("status", filter.value)}
-                className={`rounded-[var(--radius-md)] px-3 py-1.5 text-xs font-medium ${
-                  statusFilter === filter.value
-                    ? "bg-[var(--color-text)] text-white"
-                    : "border border-[var(--color-border-strong)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
-                }`}
+
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen((v) => !v);
+                setOpenGroup(null);
+              }}
+              aria-expanded={menuOpen}
+              aria-haspopup="true"
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-primary)]"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Filtreler
+              {activeGroupCount > 0 ? (
+                <span className="ml-1 rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {activeGroupCount}
+                </span>
+              ) : null}
+            </button>
+
+            {menuOpen ? (
+              <div
+                role="dialog"
+                aria-label="Filtreler"
+                className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-md)] sm:absolute sm:inset-auto sm:top-full sm:bottom-auto sm:mt-2 sm:w-80 sm:rounded-[var(--radius-lg)]"
               >
-                {filter.label}
-              </button>
-            ))}
+                {openGroup && openGroupDef ? (
+                  <div>
+                    <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenGroup(null);
+                          setOptionSearch("");
+                        }}
+                        aria-label="Geri"
+                        className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                      >
+                        <ChevronRight className="h-4 w-4 rotate-180" aria-hidden />
+                      </button>
+                      <p className="text-sm font-semibold text-[var(--color-text)]">{openGroupDef.label}</p>
+                    </div>
+
+                    {openGroupDef.type === "status" ? (
+                      <ul role="listbox" aria-label={openGroupDef.label} className="p-2">
+                        {(["active", "all", "inactive"] as StatusFilter[]).map((value) => (
+                          <li key={value}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={statusFilter === value}
+                              onClick={() => setSingle("status", value)}
+                              className="flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2 text-left text-sm hover:bg-[var(--color-surface-muted)]"
+                            >
+                              <span className="text-[var(--color-text)]">{STATUS_LABELS[value]}</span>
+                              {statusFilter === value ? <span className="text-[var(--color-primary)]">✓</span> : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : openGroupDef.type === "dateRange" ? (
+                      <div className="space-y-2 p-3">
+                        <label className="block text-xs text-[var(--color-text-muted)]">
+                          Başlangıç
+                          <input
+                            type="date"
+                            value={enrolledFrom}
+                            onChange={(e) => setSingle("from", e.target.value)}
+                            className="mt-1 w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                          />
+                        </label>
+                        <label className="block text-xs text-[var(--color-text-muted)]">
+                          Bitiş
+                          <input
+                            type="date"
+                            value={enrolledTo}
+                            onChange={(e) => setSingle("to", e.target.value)}
+                            className="mt-1 w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <div>
+                        {(openGroupDef.options?.length ?? 0) > 6 ? (
+                          <div className="px-3 pt-2">
+                            <input
+                              type="text"
+                              value={optionSearch}
+                              onChange={(e) => setOptionSearch(e.target.value)}
+                              placeholder={`${openGroupDef.label} içinde ara...`}
+                              aria-label={`${openGroupDef.label} içinde ara`}
+                              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]/30"
+                            />
+                          </div>
+                        ) : null}
+                        <ul role="listbox" aria-multiselectable="true" aria-label={openGroupDef.label} className="max-h-64 overflow-y-auto p-2">
+                          {filteredOptions.length === 0 ? (
+                            <li className="px-3 py-2 text-sm text-[var(--color-text-muted)]">Sonuç yok.</li>
+                          ) : (
+                            filteredOptions.map((opt) => {
+                              const checked = selectedFor(openGroupDef.key).includes(opt);
+                              return (
+                                <li key={opt}>
+                                  <label className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm hover:bg-[var(--color-surface-muted)]">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleOption(openGroupDef, opt)}
+                                      className="h-4 w-4 accent-[var(--color-primary)]"
+                                    />
+                                    <span className="text-[var(--color-text)]">{opt}</span>
+                                  </label>
+                                </li>
+                              );
+                            })
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2.5">
+                      <p className="text-sm font-semibold text-[var(--color-text)]">Filtreler</p>
+                      <button type="button" onClick={() => setMenuOpen(false)} aria-label="Kapat" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] sm:hidden">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <ul role="list" className="p-2">
+                      {groups.map((group) => (
+                        <li key={group.key}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenGroup(group.key);
+                              setOptionSearch("");
+                            }}
+                            className="flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2.5 text-left text-sm hover:bg-[var(--color-surface-muted)]"
+                          >
+                            <span className="text-[var(--color-text)]">{group.label}</span>
+                            <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
+                              <span className="max-w-[9rem] truncate text-xs">{summaryFor(group)}</span>
+                              <ChevronRight className="h-4 w-4" aria-hidden />
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {anyFilterActive ? (
+                      <div className="border-t border-[var(--color-border)] p-2">
+                        <button
+                          type="button"
+                          onClick={clearAll}
+                          className="w-full rounded-[var(--radius-md)] px-3 py-2 text-center text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]"
+                        >
+                          Filtreleri Temizle
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-[var(--color-text-muted)]">Kayıt tarihi:</label>
-            <input
-              type="date"
-              value={enrolledFrom}
-              onChange={(e) => setSingle("from", e.target.value)}
-              className="rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-xs text-[var(--color-text)]"
-              aria-label="Kayıt tarihi başlangıç"
-            />
-            <span className="text-xs text-[var(--color-text-muted)]">–</span>
-            <input
-              type="date"
-              value={enrolledTo}
-              onChange={(e) => setSingle("to", e.target.value)}
-              className="rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-xs text-[var(--color-text)]"
-              aria-label="Kayıt tarihi bitiş"
-            />
-          </div>
+
+          {chips.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {chips.map((chip) => (
+                <button
+                  key={`${chip.key}-${chip.value}`}
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]"
+                >
+                  {chip.label}
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {anyFilterActive ? (
             <button
               type="button"
               onClick={clearAll}
-              className="ml-auto rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]"
+              className="ml-auto hidden text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-danger)] sm:inline"
             >
               Filtreleri Temizle
             </button>
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <ChipGroup label="Öğrenci türü" options={typeOptions} selected={typeFilter} onToggle={(v) => toggleMulti("type", v, typeFilter)} />
-          <ChipGroup label="Şube" options={branchOptions} selected={branchFilter} onToggle={(v) => toggleMulti("branch", v, branchFilter)} />
-          <ChipGroup label="Öğretmen" options={teacherOptions} selected={teacherFilter} onToggle={(v) => toggleMulti("teacher", v, teacherFilter)} />
-          <ChipGroup label="Eğitim metodu" options={methodOptions} selected={methodFilter} onToggle={(v) => toggleMulti("method", v, methodFilter)} />
-          <ChipGroup label="Paket" options={packageOptions} selected={packageFilter} onToggle={(v) => toggleMulti("package", v, packageFilter)} />
-          <ChipGroup label="MEB/LCM seviye" options={levelOptions} selected={levelFilter} onToggle={(v) => toggleMulti("level", v, levelFilter)} />
-          <ChipGroup
-            label="Ödeme durumu"
-            options={["paid", "overdue", "partial", "pending", "none"]}
-            selected={paymentFilter}
-            onToggle={(v) => toggleMulti("payment", v, paymentFilter)}
-          />
-        </div>
-
-        <p className="text-xs font-medium text-[var(--color-text-muted)]">
-          Toplam {rows.length} öğrenci
-          {anyFilterActive ? ` · Filtre sonucu ${filtered.length}` : ""}
+        <p className="mt-3 text-xs font-medium text-[var(--color-text-muted)]">
+          {anyFilterActive ? `${rows.length} öğrenciden ${filtered.length} öğrenci gösteriliyor` : `Toplam ${rows.length} öğrenci`}
         </p>
       </Card>
 
@@ -310,8 +522,4 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
       </Card>
     </>
   );
-}
-
-function uniqueSorted(values: (string | undefined)[]): string[] {
-  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b, "tr"));
 }
