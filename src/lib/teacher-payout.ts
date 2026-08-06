@@ -1,6 +1,7 @@
 import { differenceInMinutes, format, parseISO } from "date-fns";
 import type { AppData, BranchId, Instrument, TeacherFeeRule, TeacherPayout } from "./types";
 import { uid } from "./utils";
+import { isLessonProcessedForPayout } from "./lesson-ops";
 
 /** ISO tarih/saat girdisinden gün-hassasiyetli, yerel takvim anahtarı üretir — saat dilimi kaymasına karşı güvenli. */
 function toDayKey(iso: string): string {
@@ -179,6 +180,7 @@ export type TeacherEarningsLineIssue = "missing-fee-rule" | "missing-student" | 
 export type TeacherEarningsLine = {
   lessonId: string;
   lessonDate: string;
+  studentId: string;
   studentName?: string;
   branchName?: string;
   instrument: Instrument;
@@ -255,7 +257,7 @@ export function computeTeacherEarningsForPeriod(
 
   for (const lesson of data.lessons) {
     if (lesson.teacherId !== teacherId) continue;
-    if (lesson.status !== "completed") continue;
+    if (!isLessonProcessedForPayout(lesson)) continue;
     const dayKey = toDayKey(lesson.startAt);
     if (dayKey < startKey || dayKey > endKey) continue;
     if (seen.has(lesson.id)) continue;
@@ -287,6 +289,7 @@ export function computeTeacherEarningsForPeriod(
     lines.push({
       lessonId: lesson.id,
       lessonDate: lesson.startAt,
+      studentId: lesson.studentId,
       studentName: student?.name,
       branchName: branch?.name,
       instrument: lesson.instrument,

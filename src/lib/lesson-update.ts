@@ -81,6 +81,15 @@ export function applyLessonScheduleUpdate(
   return { ok: true, data: { ...data, lessons }, lesson: updatedLesson };
 }
 
+/**
+ * ÖNCELİK 3 — bir ders iptal edildiğinde, o dersin (Geldi işaretlenmişse
+ * ama henüz İşlendi'ye geçip "completed"e düşmediği için hâlâ iptal
+ * edilebilir durumdaki) otomatik ders ücreti varsa ve HENÜZ ÖDENMEMİŞSE
+ * (paidAmount henüz sıfırsa; kısmi/hiç ödeme yoksa) "voided" olarak
+ * işaretlenir — asılı, artık geçersiz bir borç olarak kalmaz. Zaten
+ * ödenmiş bir tahsilat asla otomatik geri alınmaz (gerçek para hareketi
+ * var — bu yalnızca manuel/yönetici müdahalesiyle ele alınır).
+ */
 export function applyLessonCancel(data: AppData, lessonId: string): LessonUpdateResult {
   const found = findEditableLesson(data, lessonId);
   if (!found.ok) return found;
@@ -88,5 +97,10 @@ export function applyLessonCancel(data: AppData, lessonId: string): LessonUpdate
 
   const updatedLesson: Lesson = { ...lesson, status: "cancelled" };
   const lessons = data.lessons.map((l) => (l.id === lesson.id ? updatedLesson : l));
-  return { ok: true, data: { ...data, lessons }, lesson: updatedLesson };
+  const payments = data.payments.map((p) =>
+    p.lessonId === lessonId && p.source === "lesson_ops" && p.status !== "paid" && p.status !== "voided" && p.paidAmount === 0
+      ? { ...p, status: "voided" as const }
+      : p
+  );
+  return { ok: true, data: { ...data, lessons, payments }, lesson: updatedLesson };
 }

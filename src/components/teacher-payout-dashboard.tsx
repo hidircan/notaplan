@@ -181,7 +181,18 @@ export function TeacherPayoutDashboard({
                     <tr key={line.lessonId} className="border-b border-slate-50 dark:border-slate-800">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(line.lessonDate)}</td>
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
-                        {line.studentName ?? "—"}
+                        <Link
+                          href={`/panel/ogrenciler/${line.studentId}`}
+                          className="hover:text-amber-600 hover:underline"
+                        >
+                          {line.studentName ?? "—"}
+                        </Link>
+                        <Link
+                          href={`/panel/program?studentId=${line.studentId}`}
+                          className="block text-[11px] font-normal text-amber-700 hover:underline"
+                        >
+                          Kaynak ders →
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{line.branchName ?? "—"}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{line.instrument}</td>

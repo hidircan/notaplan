@@ -18,6 +18,9 @@ export type PaymentRow = {
   amount: number;
   paidAmount: number;
   status: PaymentStatus;
+  /** ÖNCELİK 3 — otomatik ders bazlı tahsilatın kaynak dersi; manuel/paket ödemelerde yok. */
+  lessonId?: string;
+  lessonDate?: string;
 };
 
 type StatusFilter = "all" | PaymentStatus;
@@ -28,6 +31,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "overdue", label: "Gecikmiş" },
   { value: "partial", label: "Kısmi ödeme" },
   { value: "paid", label: "Ödendi" },
+  { value: "voided", label: "İptal edildi" },
 ];
 
 export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite: boolean }) {
@@ -134,6 +138,14 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                     {p.method ? (
                       <span className="block text-xs text-slate-400">{p.method}</span>
                     ) : null}
+                    {p.lessonId ? (
+                      <Link
+                        href={`/panel/program?studentId=${p.studentId}`}
+                        className="mt-0.5 block text-xs font-medium text-amber-700 hover:underline"
+                      >
+                        Kaynak ders{p.lessonDate ? `: ${formatDate(p.lessonDate)}` : ""} →
+                      </Link>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">
@@ -148,7 +160,11 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                     <Badge status={p.status} />
                   </td>
                   <td className="px-4 py-3">
-                    {p.status !== "paid" ? (
+                    {p.status === "voided" ? (
+                      <span className="text-xs text-slate-400">
+                        Ders iptal edildiği için tahsilat iptal edildi.
+                      </span>
+                    ) : p.status !== "paid" ? (
                       canWrite ? (
                         <form action={actionMarkPaymentPaid}>
                           <input type="hidden" name="paymentId" value={p.id} />

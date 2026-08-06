@@ -323,6 +323,11 @@ export default async function StudentDetailPage({
                   <div>
                     <p className="font-medium text-[var(--color-text)]">{p.description}</p>
                     <p className="text-xs text-[var(--color-text-muted)]">Vade: {formatDate(p.dueDate)}</p>
+                    {p.lessonId ? (
+                      <a href="#program" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
+                        Kaynak ders →
+                      </a>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{formatMoney(p.amount - p.paidAmount)}</span>

@@ -1305,6 +1305,13 @@ export async function cancelLesson(lessonId: string): Promise<AppData> {
     data: { status: "cancelled" },
   });
   if (updateResult.count === 0) throw new Error(CONCURRENT_UPDATE_MESSAGE);
+
+  // Ödenmemiş, ders bazlı otomatik tahsilatı iptal et (bkz. applyLessonCancel).
+  await prisma.payment.updateMany({
+    where: { lessonId, tenantId: tid, source: "lesson_ops", paidAmount: 0, status: { notIn: ["paid", "voided"] } },
+    data: { status: "voided" },
+  });
+
   return readData();
 }
 

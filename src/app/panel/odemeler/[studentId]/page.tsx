@@ -133,7 +133,17 @@ export default async function StudentPaymentProfilePage({
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{p.description}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
+                    {p.description}
+                    {p.lessonId ? (
+                      <Link
+                        href={`/panel/program?studentId=${p.studentId}`}
+                        className="mt-0.5 block text-xs font-normal text-amber-700 hover:underline"
+                      >
+                        Kaynak ders →
+                      </Link>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">{formatMoney(p.amount)}</td>
                   <td className="px-4 py-3">{formatMoney(p.paidAmount)}</td>
