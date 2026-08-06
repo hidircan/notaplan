@@ -589,18 +589,33 @@ export interface TeachingMaterial {
  * EPIC 6C (IMPLEMENTATION_PLAN.md) — veli/öğrencinin öğretmen hakkında
  * yapılandırılmış geri bildirimi. Kamuya açık ortalama/sıralama YOK.
  */
-export type TeacherFeedbackStatus = "pending" | "reviewed" | "actioned";
+export type TeacherFeedbackStatus = "pending" | "reviewed" | "actioned" | "archived";
+
+/** Zorunlu 1–5 kriterler — sabit anahtar seti (bkz. TEACHER_FEEDBACK_CRITERIA). */
+export type TeacherFeedbackCriterionKey =
+  | "clarity"
+  | "communication"
+  | "effectiveness"
+  | "motivation"
+  | "punctuality";
+
+export type TeacherFeedbackContinuePreference = "yes" | "unsure" | "no";
+
+export type TeacherFeedbackSourceType = "STUDENT" | "PARENT";
 
 export interface TeacherFeedback {
   id: string;
   teacherId: string;
   studentId: string;
   submittedBy: string;
+  /** Kaynak türü ayrımı — mevcut modelin submitterRole'ünden türetilir (STUDENT/PARENT). */
   submitterRole: string;
-  scores: Record<string, number>;
+  scores: Record<TeacherFeedbackCriterionKey, number>;
+  continueWithTeacher?: TeacherFeedbackContinuePreference;
   comment?: string;
   status: TeacherFeedbackStatus;
   createdAt: string;
+  updatedAt: string;
 }
 
 /**

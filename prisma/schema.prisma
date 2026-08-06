@@ -681,13 +681,17 @@ model TeacherFeedback {
   submittedBy   String
   submitterRole String
   scores        Json
+  /// "yes" | "unsure" | "no"
+  continueWithTeacher String?
   comment       String?
-  /// "pending" | "reviewed" | "actioned"
+  /// "pending" | "reviewed" | "actioned" | "archived"
   status        String   @default("pending")
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([tenantId, teacherId])
   @@index([tenantId, status])
+  @@index([tenantId, studentId, teacherId])
 }
 
 /// Recurring autonomous workflow state — per-workflow singleton

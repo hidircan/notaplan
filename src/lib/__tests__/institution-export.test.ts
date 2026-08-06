@@ -126,7 +126,7 @@ function fullExtraFixture(): StandaloneExportData {
         studentId: "s1",
         submittedBy: "u1",
         submitterRole: "PARENT",
-        scores: { iletisim: 5 },
+        scores: { clarity: 5, communication: 5, effectiveness: 5, motivation: 5, punctuality: 5 }, updatedAt: new Date().toISOString(),
         status: "pending",
         createdAt: new Date().toISOString(),
       },
@@ -224,7 +224,7 @@ describe("buildInstitutionExport — CSV doğruluğu", () => {
 
   it("teacherFeedback CSV'si puanları JSON olarak taşır", () => {
     const out = buildInstitutionExport(data, ["teacherFeedback"], fullExtraFixture());
-    expect(out.teacherFeedback).toContain("iletisim");
+    expect(out.teacherFeedback).toContain("clarity");
   });
 });
 
@@ -380,7 +380,7 @@ describe("EPIC 0/12 — standalone export listeleri tenant'a kapalıdır (cross-
       studentId: "sA",
       submittedBy: "uA",
       submitterRole: "PARENT",
-      scores: { iletisim: 5 },
+      scores: { clarity: 5, communication: 5, effectiveness: 5, motivation: 5, punctuality: 5 },
     });
     await submitTeacherFeedback({
       tenantId: TENANT_B,
@@ -388,7 +388,7 @@ describe("EPIC 0/12 — standalone export listeleri tenant'a kapalıdır (cross-
       studentId: "sB",
       submittedBy: "uB",
       submitterRole: "PARENT",
-      scores: { iletisim: 3 },
+      scores: { clarity: 3, communication: 3, effectiveness: 3, motivation: 3, punctuality: 3 },
     });
     const resultA = await listTeacherFeedback(TENANT_A);
     expect(resultA).toHaveLength(1);

@@ -114,6 +114,9 @@ import {
   clearTeacherFeedback,
   listTeacherFeedback,
   submitTeacherFeedback,
+  findTeacherFeedbackThisMonth,
+  getTeacherFeedbackById,
+  updateTeacherFeedbackStatus,
 } from "../teacher-feedback";
 import { formatMoney } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
@@ -2427,14 +2430,15 @@ export async function getTeachingMaterialFileTool(
 export async function submitTeacherFeedbackTool(
   ctx: ServiceContext,
   input: unknown
-): Promise<ServiceResult<{ feedbackId: string }>> {
+): Promise<ServiceResult<{ feedbackId: string; updated: boolean }>> {
   const auth = requireRole(ctx, ["PARENT", "STUDENT"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
   const v = parseOrFail(submitTeacherFeedbackSchema, input);
   if (!v.ok) return v;
 
-  if (ctx.studentId !== v.data.studentId) {
+  // Fail-closed: ctx.studentId eksikse (beklenmez ama) hiçbir öğrenciye eşleşmez.
+  if (!ctx.studentId || ctx.studentId !== v.data.studentId) {
     return fail("FORBIDDEN", "Yalnızca kendi çocuğunuz/kendiniz için geri bildirim gönderebilirsiniz.");
   }
 
@@ -2443,21 +2447,49 @@ export async function submitTeacherFeedbackTool(
   if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
 
   try {
-    const feedback = await submitTeacherFeedback({
+    const { feedback, updated } = await submitTeacherFeedback({
       tenantId: ctx.tenantId,
       teacherId: student.teacherId,
       studentId: v.data.studentId,
       submittedBy: ctx.userId,
       submitterRole: ctx.role,
       scores: v.data.scores,
+      continueWithTeacher: v.data.continueWithTeacher,
       comment: v.data.comment,
     });
-    audit(ctx, "teacher_feedback.submit", "TeacherFeedback", feedback.id, {
+    audit(ctx, updated ? "teacher_feedback.update" : "teacher_feedback.submit", "TeacherFeedback", feedback.id, {
       teacherId: student.teacherId,
     });
-    return ok({ feedbackId: feedback.id });
+    return ok({ feedbackId: feedback.id, updated });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "submitTeacherFeedback failed");
+  }
+}
+
+/**
+ * Öğrencinin bu öğretmen için cari ayda zaten bir kaydı olup olmadığı —
+ * formun "Değerlendir" mi "Değerlendirmeyi Güncelle" mi göstereceğine karar
+ * verir. Yalnızca kendi kaydını görebilir (ham veri, ama yalnız kendisininki).
+ */
+export async function getOwnTeacherFeedbackThisMonthTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ feedback: TeacherFeedback | null }>> {
+  const auth = requireRole(ctx, ["PARENT", "STUDENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ studentId: z.string().min(1), teacherId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  if (!ctx.studentId || ctx.studentId !== v.data.studentId) {
+    return fail("FORBIDDEN", "Yalnızca kendi çocuğunuz/kendiniz için geri bildirim görüntüleyebilirsiniz.");
+  }
+
+  try {
+    const feedback = await findTeacherFeedbackThisMonth(ctx.tenantId, v.data.studentId, v.data.teacherId);
+    return ok({ feedback });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getOwnTeacherFeedback failed");
   }
 }
 

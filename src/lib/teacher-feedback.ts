@@ -6,17 +6,36 @@
  * Gizlilik kararı (plan'ın "Gizlilik kararı" bölümü): kamuya açık ortalama/
  * sıralama YOK, öğretmen kendi geri bildirimini GÖRMEZ — bu modül yalnızca
  * SCHOOL_ADMIN/SUPER_ADMIN'e açık `listTeacherFeedbackTool` tarafından
- * okunur, öğretmene özel bir okuma yolu bilerek YAZILMADI.
+ * okunur. Öğretmene özel bir okuma yolu YALNIZCA anonim/toplulaştırılmış
+ * özet (bkz. `teacher-feedback-summary.ts`) üzerinden açılır — ham kayıt
+ * asla değil.
+ *
+ * Aynı ay tekrar kuralı: aynı tenant+studentId+teacherId için, cari takvim
+ * ayı içinde zaten bir kayıt varsa, `submitTeacherFeedback` yeni bir satır
+ * YARATMAZ — mevcut kaydı GÜNCELLER (updatedAt ilerler, createdAt sabit
+ * kalır). Böylece bir öğrenci aynı öğretmeni ayda yalnızca bir kez
+ * "değerlendirebilir" — ikinci giriş "Değerlendirmeyi Güncelle"dir.
  */
 
 import path from "path";
 import { isDbMode, resolveDataDir } from "./config";
 import { uid } from "./utils";
 import type { TeacherFeedback as DbTeacherFeedback } from "@prisma/client";
-import type { TeacherFeedback, TeacherFeedbackStatus } from "./types";
+import type { TeacherFeedback, TeacherFeedbackCriterionKey, TeacherFeedbackStatus } from "./types";
 
 const FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "teacher-feedback.json");
 export const TEACHER_FEEDBACK_FILE_PATH = FILE;
+
+export const TEACHER_FEEDBACK_CRITERIA: { key: TeacherFeedbackCriterionKey; label: string }[] = [
+  { key: "clarity", label: "Dersi anlaşılır anlatma" },
+  { key: "communication", label: "İletişim ve saygı" },
+  { key: "effectiveness", label: "Ders verimliliği" },
+  { key: "motivation", label: "Öğrenciyi motive etme" },
+  { key: "punctuality", label: "Ders düzeni / zamanında başlama" },
+];
+
+/** Öğretmen özetinin görünmesi için gereken en az anonim yanıt sayısı. */
+export const TEACHER_FEEDBACK_MIN_ANONYMOUS_RESPONSES = 3;
 
 type StoredFeedback = TeacherFeedback & { tenantId: string };
 
@@ -44,10 +63,12 @@ function mapDb(f: DbTeacherFeedback): StoredFeedback {
     studentId: f.studentId,
     submittedBy: f.submittedBy,
     submitterRole: f.submitterRole,
-    scores: f.scores as Record<string, number>,
+    scores: f.scores as Record<TeacherFeedbackCriterionKey, number>,
+    continueWithTeacher: (f.continueWithTeacher as TeacherFeedback["continueWithTeacher"]) ?? undefined,
     comment: f.comment ?? undefined,
     status: f.status as TeacherFeedbackStatus,
     createdAt: f.createdAt.toISOString(),
+    updatedAt: f.updatedAt.toISOString(),
   };
 }
 
@@ -59,10 +80,17 @@ function toPublic(f: StoredFeedback): TeacherFeedback {
     submittedBy: f.submittedBy,
     submitterRole: f.submitterRole,
     scores: f.scores,
+    continueWithTeacher: f.continueWithTeacher,
     comment: f.comment,
     status: f.status,
     createdAt: f.createdAt,
+    updatedAt: f.updatedAt,
   };
+}
+
+/** UTC değil, sunucu yerel takvim ayı — "yyyy-MM" biçiminde tek karşılaştırma anahtarı. */
+function monthKey(iso: string): string {
+  return iso.slice(0, 7);
 }
 
 export type SubmitTeacherFeedbackInput = {
@@ -71,12 +99,51 @@ export type SubmitTeacherFeedbackInput = {
   studentId: string;
   submittedBy: string;
   submitterRole: string;
-  scores: Record<string, number>;
+  scores: Record<TeacherFeedbackCriterionKey, number>;
+  continueWithTeacher?: TeacherFeedback["continueWithTeacher"];
   comment?: string;
 };
 
-async function submitFeedbackDb(input: SubmitTeacherFeedbackInput): Promise<TeacherFeedback> {
+export type SubmitTeacherFeedbackResult = { feedback: TeacherFeedback; updated: boolean };
+
+async function findThisMonthDb(
+  tenantId: string,
+  studentId: string,
+  teacherId: string,
+  now: Date
+): Promise<DbTeacherFeedback | null> {
   const { prisma } = await import("./db");
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return prisma.teacherFeedback.findFirst({
+    where: {
+      tenantId,
+      studentId,
+      teacherId,
+      createdAt: { gte: monthStart, lt: nextMonthStart },
+    },
+  });
+}
+
+async function submitFeedbackDb(
+  input: SubmitTeacherFeedbackInput,
+  now: Date
+): Promise<SubmitTeacherFeedbackResult> {
+  const { prisma } = await import("./db");
+  const existing = await findThisMonthDb(input.tenantId, input.studentId, input.teacherId, now);
+  if (existing) {
+    const row = await prisma.teacherFeedback.update({
+      where: { id: existing.id },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        scores: input.scores as any,
+        continueWithTeacher: input.continueWithTeacher ?? null,
+        comment: input.comment ?? null,
+        submitterRole: input.submitterRole,
+      },
+    });
+    return { feedback: toPublic(mapDb(row)), updated: true };
+  }
   const row = await prisma.teacherFeedback.create({
     data: {
       id: uid("tfb"),
@@ -87,18 +154,51 @@ async function submitFeedbackDb(input: SubmitTeacherFeedbackInput): Promise<Teac
       submitterRole: input.submitterRole,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       scores: input.scores as any,
+      continueWithTeacher: input.continueWithTeacher ?? null,
       comment: input.comment ?? null,
       status: "pending",
     },
   });
-  return toPublic(mapDb(row));
+  return { feedback: toPublic(mapDb(row)), updated: false };
 }
 
+/**
+ * Aynı ay tekrar kuralını (bkz. dosya başı) uygular — sonuçtaki `updated`
+ * alanı çağırana "yeni kayıt mı, güncelleme mi" bilgisini taşır (audit/UI
+ * mesajı için).
+ */
 export async function submitTeacherFeedback(
-  input: SubmitTeacherFeedbackInput
-): Promise<TeacherFeedback> {
-  if (isDbMode) return submitFeedbackDb(input);
+  input: SubmitTeacherFeedbackInput,
+  now: Date = new Date()
+): Promise<SubmitTeacherFeedbackResult> {
+  if (isDbMode) return submitFeedbackDb(input, now);
+
   const all = await loadAll();
+  const nowIso = now.toISOString();
+  const currentMonth = monthKey(nowIso);
+  const existingIdx = all.findIndex(
+    (f) =>
+      f.tenantId === input.tenantId &&
+      f.studentId === input.studentId &&
+      f.teacherId === input.teacherId &&
+      monthKey(f.createdAt) === currentMonth
+  );
+
+  if (existingIdx >= 0) {
+    const updated: StoredFeedback = {
+      ...all[existingIdx]!,
+      scores: input.scores,
+      continueWithTeacher: input.continueWithTeacher,
+      comment: input.comment,
+      submitterRole: input.submitterRole,
+      updatedAt: nowIso,
+    };
+    const next = [...all];
+    next[existingIdx] = updated;
+    await saveAll(next);
+    return { feedback: toPublic(updated), updated: true };
+  }
+
   const record: StoredFeedback = {
     id: uid("tfb"),
     tenantId: input.tenantId,
@@ -107,12 +207,37 @@ export async function submitTeacherFeedback(
     submittedBy: input.submittedBy,
     submitterRole: input.submitterRole,
     scores: input.scores,
+    continueWithTeacher: input.continueWithTeacher,
     comment: input.comment,
     status: "pending",
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso,
+    updatedAt: nowIso,
   };
   await saveAll([...all, record]);
-  return toPublic(record);
+  return { feedback: toPublic(record), updated: false };
+}
+
+/** Öğrencinin bu öğretmen için cari ayda zaten bir kaydı var mı — form "Güncelle" moduna geçsin diye. */
+export async function findTeacherFeedbackThisMonth(
+  tenantId: string,
+  studentId: string,
+  teacherId: string,
+  now: Date = new Date()
+): Promise<TeacherFeedback | null> {
+  if (isDbMode) {
+    const row = await findThisMonthDb(tenantId, studentId, teacherId, now);
+    return row ? toPublic(mapDb(row)) : null;
+  }
+  const all = await loadAll();
+  const currentMonth = monthKey(now.toISOString());
+  const found = all.find(
+    (f) =>
+      f.tenantId === tenantId &&
+      f.studentId === studentId &&
+      f.teacherId === teacherId &&
+      monthKey(f.createdAt) === currentMonth
+  );
+  return found ? toPublic(found) : null;
 }
 
 async function listForTeacherDb(tenantId: string, teacherId?: string): Promise<TeacherFeedback[]> {
@@ -135,6 +260,44 @@ export async function listTeacherFeedback(
     .filter((f) => f.tenantId === tenantId && (!teacherId || f.teacherId === teacherId))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map(toPublic);
+}
+
+async function getByIdDb(tenantId: string, id: string): Promise<DbTeacherFeedback | null> {
+  const { prisma } = await import("./db");
+  return prisma.teacherFeedback.findFirst({ where: { id, tenantId } });
+}
+
+export async function getTeacherFeedbackById(tenantId: string, id: string): Promise<TeacherFeedback | null> {
+  if (isDbMode) {
+    const row = await getByIdDb(tenantId, id);
+    return row ? toPublic(mapDb(row)) : null;
+  }
+  const all = await loadAll();
+  const found = all.find((f) => f.id === id && f.tenantId === tenantId);
+  return found ? toPublic(found) : null;
+}
+
+/** Yönetici durum güncellemesi: İncelendi / Aksiyon Alındı / Arşivlendi. */
+export async function updateTeacherFeedbackStatus(
+  tenantId: string,
+  id: string,
+  status: TeacherFeedbackStatus
+): Promise<TeacherFeedback | null> {
+  if (isDbMode) {
+    const { prisma } = await import("./db");
+    const existing = await getByIdDb(tenantId, id);
+    if (!existing) return null;
+    const row = await prisma.teacherFeedback.update({ where: { id }, data: { status } });
+    return toPublic(mapDb(row));
+  }
+  const all = await loadAll();
+  const idx = all.findIndex((f) => f.id === id && f.tenantId === tenantId);
+  if (idx < 0) return null;
+  const updated: StoredFeedback = { ...all[idx]!, status, updatedAt: new Date().toISOString() };
+  const next = [...all];
+  next[idx] = updated;
+  await saveAll(next);
+  return toPublic(updated);
 }
 
 async function clearFeedbackDb(tenantId: string): Promise<void> {

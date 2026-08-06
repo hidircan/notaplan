@@ -391,14 +391,25 @@ export const createTeachingMaterialSchema = z
   })
   .extend(fileUploadSchema.shape);
 
-/** EPIC 6C — veli/öğrenci öğretmen hakkında yapılandırılmış geri bildirim gönderir. */
+/**
+ * EPIC 6C — veli/öğrenci öğretmen hakkında yapılandırılmış geri bildirim
+ * gönderir. Beş kriter ZORUNLU ve sabit (bkz. TEACHER_FEEDBACK_CRITERIA) —
+ * rastgele anahtarlı bir Record değil, tam olarak bu beş alan.
+ */
+const teacherFeedbackScoreSchema = z.number().int().min(1).max(5);
+
 export const submitTeacherFeedbackSchema = z.object({
   studentId: z.string().min(1),
-  scores: z.record(z.string(), z.number().int().min(1).max(5)).refine(
-    (s) => Object.keys(s).length > 0,
-    { message: "En az bir puan gerekli" }
-  ),
-  comment: z.string().max(2000).optional(),
+  scores: z.object({
+    clarity: teacherFeedbackScoreSchema,
+    communication: teacherFeedbackScoreSchema,
+    effectiveness: teacherFeedbackScoreSchema,
+    motivation: teacherFeedbackScoreSchema,
+    punctuality: teacherFeedbackScoreSchema,
+  }),
+  continueWithTeacher: z.enum(["yes", "unsure", "no"]).optional(),
+  /** Güvenli düz metin; HTML asla render edilmez (bkz. UI katmanı). */
+  comment: z.string().max(1000).optional(),
 });
 
 /** Müfredat konu durumu */

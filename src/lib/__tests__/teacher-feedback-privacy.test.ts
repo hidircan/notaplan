@@ -23,7 +23,7 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
 
 const VALID_FEEDBACK = {
   studentId: "s1",
-  scores: { iletisim: 5, sabir: 4, alanBilgisi: 5 },
+  scores: { clarity: 5, communication: 4, effectiveness: 5, motivation: 5, punctuality: 4 },
   comment: "Çok iyi bir öğretmen",
 };
 
@@ -65,11 +65,49 @@ describe("EPIC 6C — submitTeacherFeedbackTool: yalnızca kendi çocuğu/kendis
 
   it("puan aralığı dışı (0 veya 6) VALIDATION_ERROR döner", async () => {
     const result = await submitTeacherFeedbackTool(ctx({ role: "PARENT", studentId: "s1" }), {
-      studentId: "s1",
-      scores: { iletisim: 6 },
+      ...VALID_FEEDBACK,
+      scores: { ...VALID_FEEDBACK.scores, clarity: 6 },
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("beş kriterden biri eksikse VALIDATION_ERROR döner", async () => {
+    const { punctuality: _omit, ...incompleteScores } = VALID_FEEDBACK.scores;
+    void _omit;
+    const result = await submitTeacherFeedbackTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      scores: incompleteScores,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("EPIC 6C — aynı ay tekrar kuralı: ikinci gönderim yeni kayıt değil, güncelleme", () => {
+  it("aynı ay içinde aynı öğrenci+öğretmen için ikinci gönderim mevcut kaydı günceller", async () => {
+    const first = await submitTeacherFeedbackTool(ctx({ role: "PARENT", studentId: "s1" }), VALID_FEEDBACK);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.data.updated).toBe(false);
+
+    const second = await submitTeacherFeedbackTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      ...VALID_FEEDBACK,
+      scores: { ...VALID_FEEDBACK.scores, clarity: 2 },
+      comment: "Güncellenmiş yorum",
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.data.updated).toBe(true);
+    expect(second.data.feedbackId).toBe(first.data.feedbackId);
+
+    const listed = await listTeacherFeedbackTool(ctx({ role: "SCHOOL_ADMIN", studentId: undefined }), {});
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    // Aynı ay içinde tek kayıt kalmalı — çift kayıt yok.
+    expect(listed.data.feedback).toHaveLength(1);
+    expect(listed.data.feedback[0].scores.clarity).toBe(2);
+    expect(listed.data.feedback[0].comment).toBe("Güncellenmiş yorum");
   });
 });
 
