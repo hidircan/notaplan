@@ -1428,6 +1428,35 @@ export async function applyLessonOpsFlagLive(
     }
   }
 
+  // Ders bazlı otomatik tahsilat (ÖNCELİK 3) — pure sonuçtaki payments dizisi
+  // bu lessonId için en fazla bir yeni satır içerebilir (createLessonPaymentIfMissing
+  // zaten çift oluşturmayı engelliyor); burada yalnızca DB'de henüz yoksa yazılır.
+  const payment = result.data.payments.find((p) => p.lessonId === lessonId);
+  if (payment) {
+    const exists = await prisma.payment.findFirst({ where: { lessonId, tenantId: tid } });
+    if (!exists) {
+      const les = await prisma.lesson.findFirst({ where: { id: lessonId, tenantId: tid } });
+      const student = await prisma.student.findFirst({ where: { id: payment.studentId, tenantId: tid } });
+      if (les && student) {
+        await prisma.payment.create({
+          data: {
+            id: payment.id,
+            tenantId: tid,
+            studentId: payment.studentId,
+            schoolId: student.schoolId,
+            amount: payment.amount,
+            paidAmount: payment.paidAmount,
+            status: payment.status,
+            dueDate: new Date(payment.dueDate),
+            description: payment.description,
+            lessonId: payment.lessonId,
+            source: payment.source ?? "lesson_ops",
+          },
+        });
+      }
+    }
+  }
+
   const next = await readData();
   const nextLesson = next.lessons.find((l) => l.id === lessonId)!;
   return { ok: true, alreadySet: false, data: next, lesson: nextLesson, message: result.message };

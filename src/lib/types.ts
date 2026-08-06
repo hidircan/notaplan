@@ -204,11 +204,20 @@ export interface CollectionsSettings {
   /** PRODUCT_BACKLOG §2.2 — MEB → VakıfBank, diğer → Halkbank */
   vakifbankIban?: string;
   halkbankIban?: string;
+  /**
+   * Telafi (opsMakeupFlag) işaretlenmesi TEK BAŞINA yeni tahsilat/hakediş
+   * yaratsın mı? Varsayılan false — Telafi işareti mali sonuç doğurmaz;
+   * yalnızca telafi dersinin GERÇEKLEŞTİĞİ gün Geldi/İşlendi işaretlenirse
+   * o GERÇEK ders tarihi üzerinden ücret/hakediş oluşur (applyLessonOpsFlag,
+   * "attended"/"processed" dallarında, telafi dersinin KENDİ lessonId'siyle).
+   */
+  telafiChargesOnFlag?: boolean;
 }
 
 export const DEFAULT_COLLECTIONS_SETTINGS: CollectionsSettings = {
   frequencyLimitDays: 3,
   autoSendEnabled: false,
+  telafiChargesOnFlag: false,
 };
 
 /** EPIC 1 — uygulama içi bildirim (veli portalı, admin panel bildirim çanı). */

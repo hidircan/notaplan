@@ -202,6 +202,11 @@ export default async function KurulumPage() {
                 data.settings.collectionsSettings?.autoSendEnabled ??
                 DEFAULT_COLLECTIONS_SETTINGS.autoSendEnabled
               }
+              telafiChargesOnFlag={
+                data.settings.collectionsSettings?.telafiChargesOnFlag ??
+                DEFAULT_COLLECTIONS_SETTINGS.telafiChargesOnFlag ??
+                false
+              }
             />
           </div>
         </div>
