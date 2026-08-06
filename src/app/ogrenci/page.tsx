@@ -172,6 +172,14 @@ export default async function OgrenciPortalPage() {
               <p className="mt-0.5 text-xs text-slate-500">Konu hedefleri ve ilerleme özeti</p>
             </Card>
           </Link>
+          <Link href="/ogrenci/degerlendirme" className="col-span-2">
+            <Card className="!p-4 hover:border-emerald-200">
+              <p className="text-sm font-semibold text-slate-900">Öğretmen Değerlendirmesi</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Yalnızca okul yönetimi görür — öğretmene kimliğiniz gösterilmez
+              </p>
+            </Card>
+          </Link>
         </div>
 
         <Link href={`/degerlendirme/rapor/${student.id}`}>

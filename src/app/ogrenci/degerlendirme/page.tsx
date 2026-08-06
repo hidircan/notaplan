@@ -1,42 +1,40 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { readData } from "@/lib/store";
 import { requireSessionContext } from "@/lib/auth/session";
+import { readData } from "@/lib/store";
 import { getOwnTeacherFeedbackThisMonthTool } from "@/lib/services";
 import { TeacherFeedbackCards, type EligibleTeacher } from "@/components/teacher-feedback-cards";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+/** Değerlendirmeye "yakın geçmiş" sayılan pencere. */
 const RECENT_LESSON_WINDOW_DAYS = 90;
 
-/**
- * EPIC 6C (IMPLEMENTATION_PLAN.md) — velinin öğretmen hakkında yapılandırılmış
- * geri bildirim gönderdiği form. Kamuya açık ortalama/sıralama YOK; yalnızca
- * SCHOOL_ADMIN/SUPER_ADMIN görür (bkz. src/lib/teacher-feedback.ts).
- */
-export default async function ParentTeacherFeedbackPage() {
+export default async function StudentTeacherFeedbackPage() {
   let session;
   try {
     session = await requireSessionContext();
   } catch {
-    redirect("/login?next=/veli/degerlendirme");
+    redirect("/login?next=/ogrenci/degerlendirme");
   }
   if (session.role === "TEACHER") redirect("/ogretmen");
-  if (session.role === "STUDENT") redirect("/ogrenci/degerlendirme");
-
-  // Fail-closed: session.studentId eksikse rastgele bir öğrenciye
-  // (eskiden "s1" varsayılanına, hatta data.students[0]'a) ASLA düşme —
-  // bu, veli hesabının hangi öğrenciye bağlı olmadığını bilmediği bir
-  // veri sızıntısı senaryosuydu.
-  const studentId = session.studentId;
-  if (!studentId) redirect("/login");
+  if (session.role === "PARENT") redirect("/veli");
+  if (session.role !== "STUDENT" && session.role !== "SCHOOL_ADMIN" && session.role !== "SUPER_ADMIN") {
+    redirect("/login?next=/ogrenci/degerlendirme");
+  }
 
   const data = await readData();
+  const studentId = session.studentId;
+  if (!studentId) redirect("/login");
   const student = data.students.find((s) => s.id === studentId);
   if (!student) redirect("/login");
 
+  // Değerlendirilebilir öğretmenler: mevcut atanmış öğretmen + son
+  // RECENT_LESSON_WINDOW_DAYS içinde bu öğrenciyle dersi olan öğretmenler.
+  // URL/ID manipülasyonuyla ilişkisiz bir öğretmen asla bu listeye giremez
+  // — liste tamamen sunucuda, öğrencinin GERÇEK ders kayıtlarından türetilir.
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - RECENT_LESSON_WINDOW_DAYS);
   const recentLessons = data.lessons.filter(
@@ -71,21 +69,21 @@ export default async function ParentTeacherFeedbackPage() {
   eligibleTeachers.sort((a, b) => a.name.localeCompare(b.name, "tr"));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
-      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50">
+      <header className="border-b border-emerald-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
-            <ArrowLeft className="h-4 w-4" /> Geri
+          <Link href="/ogrenci" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
           </Link>
           <p className="text-sm font-semibold text-slate-900">Öğretmen değerlendirmesi</p>
-          <span className="w-10" />
+          <span className="w-10" aria-hidden />
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <p className="px-1 text-xs text-slate-500">
           Bu geri bildirim yalnızca okul yönetimi tarafından görüntülenir; öğretmenin kendisine veya başka
-          bir veliye gösterilmez.
+          bir öğrenciye/veliye gösterilmez. Kamuya açık bir puanlama veya sıralama değildir.
         </p>
         <TeacherFeedbackCards studentId={student.id} teachers={eligibleTeachers} />
       </main>

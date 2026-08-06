@@ -76,6 +76,7 @@ export {
   listTeachingMaterialsForTeacherTool,
   getTeachingMaterialFileTool,
   submitTeacherFeedbackTool,
+  getOwnTeacherFeedbackThisMonthTool,
   listTeacherFeedbackTool,
   resetDemoTool,
   createCurriculumTopicTool,
