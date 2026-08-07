@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui";
+import { resolveSafeReturnTo } from "@/lib/safe-return-to";
 import { WeekDatePicker } from "@/components/week-date-picker";
 import { ProgramStudio } from "@/components/program-studio";
 import { ProgramTermYearNav, type ProgramTerm } from "@/components/program-term-year-nav";
@@ -32,9 +33,19 @@ function resolveWeekStart(weekParam?: string): Date {
 export default async function ProgramPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; studentId?: string; progTerm?: string; progYear?: string }>;
+  searchParams: Promise<{
+    week?: string;
+    studentId?: string;
+    progTerm?: string;
+    progYear?: string;
+    returnTo?: string;
+  }>;
 }) {
-  const { week, studentId, progTerm, progYear } = await searchParams;
+  const { week, studentId, progTerm, progYear, returnTo } = await searchParams;
+  // Ödemeler → Kaynak ders → Ödemelere geri dön: yalnızca allowlist edilmiş,
+  // uygulama-içi bir panel yoluysa (bkz. resolveSafeReturnTo) geri dönüş
+  // butonu render edilir — sahte/harici bir returnTo sessizce yok sayılır.
+  const safeReturnTo = resolveSafeReturnTo(returnTo);
   const selectedTerm: ProgramTerm = progTerm === "yaz" ? "yaz" : "guz";
   const parsedYear = progYear ? Number(progYear) : NaN;
   const selectedAcademicYearStart = Number.isFinite(parsedYear) ? parsedYear : currentAcademicAnchorYear(selectedTerm);
@@ -73,6 +84,14 @@ export default async function ProgramPage({
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <AssistantPageContext entity={{ kind: "page", label: "Ders Programı" }} />
+      {safeReturnTo ? (
+        <Link
+          href={safeReturnTo}
+          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+        >
+          <ArrowLeft className="h-4 w-4" /> Ödemelere geri dön
+        </Link>
+      ) : null}
       <PageHeader
         title="Ders programı"
         description="Öğretmen ve stüdyo bazında haftalık ders görünümü."

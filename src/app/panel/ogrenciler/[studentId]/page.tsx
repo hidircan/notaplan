@@ -321,6 +321,7 @@ export default async function StudentDetailPage({
           studentId={studentId}
           termType={student.termType ?? "guz"}
           canEdit={session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN"}
+          studentActive={student.active}
         />
       </section>
 

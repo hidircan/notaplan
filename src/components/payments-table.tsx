@@ -140,7 +140,9 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                     ) : null}
                     {p.lessonId ? (
                       <Link
-                        href={`/panel/program?studentId=${p.studentId}`}
+                        href={`/panel/program?studentId=${p.studentId}&returnTo=${encodeURIComponent(
+                          `/panel/odemeler/${p.studentId}`
+                        )}`}
                         className="mt-0.5 block text-xs font-medium text-amber-700 hover:underline"
                       >
                         Kaynak ders{p.lessonDate ? `: ${formatDate(p.lessonDate)}` : ""} →

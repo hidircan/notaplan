@@ -7,15 +7,37 @@
  * seçebilir. Satırlar `name` prop'uyla verilen gizli bir input'a JSON dizisi
  * olarak yazılır (bkz. TeacherInstrumentsField ile aynı desen); boş bırakılırsa
  * createTeacherTool'daki mevcut varsayılan müsaitliğe (Pzt–Cum 10–18/16) düşülür.
+ *
+ * Pazar (dayOfWeek=0) dahil TÜM günler seçilebilir; herhangi bir gün için
+ * (Pazar dahil) BİRDEN FAZLA saat aralığı bloğu eklenebilir (ör. Pazar
+ * 09:00–12:00 + 15:00–18:00) — bu yüzden model "gün başına tek satır" değil,
+ * serbest bir blok LİSTESİDİR (her blok kendi gün seçicisine sahiptir).
+ * `dayName` (src/lib/utils.ts) ile aynı 0=Pazar..6=Cumartesi eşlemesi kullanılır
+ * — JS `Date.getDay()` ve backend `teacherAvailabilityWindowSchema` ile birebir
+ * aynı. Aynı gün içindeki bloklar arasında çakışma (overlap) engellenir.
  */
 
 import { useState } from "react";
 import { dayName } from "@/lib/utils";
-import { Input } from "@/components/ui";
+import { Select, Input } from "@/components/ui";
+import { Plus, Trash2 } from "lucide-react";
 
 export type AvailabilityWindowRow = { dayOfWeek: number; start: string; end: string };
 
-const WEEKDAYS = [1, 2, 3, 4, 5, 6]; // Pzt–Cts (Pazar hariç, mevcut varsayılanla tutarlı)
+/** Pzt(1)..Cts(6),Paz(0) — mevcut varsayılan sıralamayla tutarlı, Pazar sona eklendi. */
+const DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0];
+
+const DEFAULT_ROWS: AvailabilityWindowRow[] = [
+  { dayOfWeek: 1, start: "10:00", end: "18:00" },
+  { dayOfWeek: 2, start: "10:00", end: "18:00" },
+  { dayOfWeek: 3, start: "10:00", end: "18:00" },
+  { dayOfWeek: 4, start: "10:00", end: "18:00" },
+  { dayOfWeek: 5, start: "10:00", end: "16:00" },
+];
+
+function timesOverlap(a: AvailabilityWindowRow, b: AvailabilityWindowRow): boolean {
+  return a.dayOfWeek === b.dayOfWeek && a.start < b.end && b.start < a.end;
+}
 
 export function TeacherAvailabilityField({
   name,
@@ -25,75 +47,96 @@ export function TeacherAvailabilityField({
   name: string;
   initialRows?: AvailabilityWindowRow[];
 }) {
-  const [enabled, setEnabled] = useState<Record<number, boolean>>(() => {
-    if (initialRows && initialRows.length > 0) {
-      const map: Record<number, boolean> = {};
-      for (const d of WEEKDAYS) map[d] = initialRows.some((r) => r.dayOfWeek === d);
-      return map;
-    }
-    // Varsayılan: Pzt–Cum işaretli, Cts değil — mevcut createTeacherTool
-    // varsayılanıyla aynı görünüm.
-    return { 1: true, 2: true, 3: true, 4: true, 5: true, 6: false };
-  });
-  const [times, setTimes] = useState<Record<number, { start: string; end: string }>>(() => {
-    const map: Record<number, { start: string; end: string }> = {};
-    for (const d of WEEKDAYS) {
-      const existing = initialRows?.find((r) => r.dayOfWeek === d);
-      map[d] = existing
-        ? { start: existing.start, end: existing.end }
-        : { start: "10:00", end: d === 5 ? "16:00" : "18:00" };
-    }
-    return map;
-  });
+  const [rows, setRows] = useState<AvailabilityWindowRow[]>(
+    initialRows && initialRows.length > 0 ? initialRows : DEFAULT_ROWS
+  );
 
-  const rows: AvailabilityWindowRow[] = WEEKDAYS.filter((d) => enabled[d]).map((d) => ({
-    dayOfWeek: d,
-    start: times[d]!.start,
-    end: times[d]!.end,
-  }));
+  function addRow() {
+    setRows((prev) => [...prev, { dayOfWeek: 1, start: "10:00", end: "18:00" }]);
+  }
+
+  function removeRow(idx: number) {
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateRow(idx: number, patch: Partial<AvailabilityWindowRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
 
   const json = JSON.stringify(rows);
 
-  const invalidDays = WEEKDAYS.filter((d) => enabled[d] && times[d]!.start >= times[d]!.end);
+  const invalidIndexes = new Set<number>();
+  const overlapIndexes = new Set<number>();
+  rows.forEach((r, i) => {
+    if (r.start >= r.end) invalidIndexes.add(i);
+    for (let j = 0; j < rows.length; j++) {
+      if (j === i) continue;
+      if (timesOverlap(r, rows[j]!)) {
+        overlapIndexes.add(i);
+        overlapIndexes.add(j);
+      }
+    }
+  });
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <input type="hidden" name={name} value={json} />
-      {WEEKDAYS.map((d) => (
-        <div key={d} className="flex items-center gap-2">
-          <label className="flex w-24 shrink-0 items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-            <input
-              type="checkbox"
-              checked={enabled[d] ?? false}
-              onChange={(e) => setEnabled((prev) => ({ ...prev, [d]: e.target.checked }))}
-              className="h-3.5 w-3.5"
-            />
-            {dayName(d)}
-          </label>
+      {rows.map((row, idx) => (
+        <div key={idx} className="flex flex-wrap items-center gap-2">
+          <Select
+            value={row.dayOfWeek}
+            onChange={(e) => updateRow(idx, { dayOfWeek: Number(e.target.value) })}
+            className="!w-auto flex-1"
+            aria-label="Gün"
+          >
+            {DAY_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {dayName(d)}
+              </option>
+            ))}
+          </Select>
           <Input
             type="time"
-            value={times[d]!.start}
-            disabled={!enabled[d]}
-            onChange={(e) => setTimes((prev) => ({ ...prev, [d]: { ...prev[d]!, start: e.target.value } }))}
+            value={row.start}
+            onChange={(e) => updateRow(idx, { start: e.target.value })}
             className="!w-auto flex-1"
-            aria-label={`${dayName(d)} başlangıç`}
+            aria-label={`${dayName(row.dayOfWeek)} başlangıç`}
           />
           <span className="text-xs text-slate-400">–</span>
           <Input
             type="time"
-            value={times[d]!.end}
-            disabled={!enabled[d]}
-            onChange={(e) => setTimes((prev) => ({ ...prev, [d]: { ...prev[d]!, end: e.target.value } }))}
+            value={row.end}
+            onChange={(e) => updateRow(idx, { end: e.target.value })}
             className="!w-auto flex-1"
-            aria-label={`${dayName(d)} bitiş`}
+            aria-label={`${dayName(row.dayOfWeek)} bitiş`}
           />
+          <button
+            type="button"
+            onClick={() => removeRow(idx)}
+            aria-label="Satırı sil"
+            className="rounded-md border border-stone-300 p-1.5 text-stone-500 hover:border-rose-300 hover:text-rose-600"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       ))}
-      {invalidDays.length > 0 ? (
+      {invalidIndexes.size > 0 ? (
         <p className="text-[11px] font-medium text-[#8b3a3a]" role="alert">
-          Bitiş saati başlangıçtan sonra olmalı ({invalidDays.map((d) => dayName(d)).join(", ")}).
+          Bitiş saati başlangıçtan sonra olmalı.
         </p>
       ) : null}
+      {overlapIndexes.size > 0 ? (
+        <p className="text-[11px] font-medium text-[#8b3a3a]" role="alert">
+          Aynı gün için çakışan saat aralıkları var — lütfen düzeltin.
+        </p>
+      ) : null}
+      <button
+        type="button"
+        onClick={addRow}
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+      >
+        <Plus className="h-3.5 w-3.5" /> Saat Aralığı Ekle
+      </button>
     </div>
   );
 }

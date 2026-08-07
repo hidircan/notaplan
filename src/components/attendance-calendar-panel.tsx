@@ -18,8 +18,10 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { LessonOpsActions } from "./lesson-ops-actions";
+import { AttendanceCalendarCollectPaymentButton } from "./attendance-calendar-collect-payment-button";
 import {
   currentAcademicAnchorYear,
   resolveDayFillSegments,
@@ -40,8 +42,10 @@ export function currentAnchorYear(termType: string): number {
 }
 
 type LessonPaymentInfo = {
+  paymentId: string;
   lessonId: string;
   amount: number;
+  paidAmount: number;
   /** "Tutar kayıt tarihi" — bu tutarın sisteme kaydedildiği tarih-saat. */
   recordedAt: string;
   method?: string;
@@ -162,6 +166,7 @@ export function AttendanceCalendarPanel({
   termType,
   canEdit,
   readOnly = false,
+  studentActive = true,
 }: {
   studentId: string;
   /** Öğrencinin kayıtlı dönemi — ilk açılışta seçili dönem olarak kullanılır, kullanıcı değiştirebilir. */
@@ -170,6 +175,8 @@ export function AttendanceCalendarPanel({
   canEdit: boolean;
   /** Veli/salt-okunur görünüm: override, Tutar, Geldi/İşlendi/Telafi aksiyonları HİÇ render edilmez. */
   readOnly?: boolean;
+  /** Pasif/arşiv öğrenci için takvimden tahsilat aksiyonu render edilmez (yeni ders/tahsilat akışıyla tutarlı). */
+  studentActive?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -378,6 +385,14 @@ export function AttendanceCalendarPanel({
 
   return (
     <div className="space-y-4">
+      {canEdit && !readOnly ? (
+        <Link
+          href={`/panel/odemeler/${studentId}`}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+        >
+          Tüm ödemeleri Ödemeler ekranında görüntüle →
+        </Link>
+      ) : null}
       {/* Sabit renk lejantı */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-xs">
         <LegendDot color={ATTENDANCE_CALENDAR_COLORS.attended} label="Geldi" />
@@ -544,6 +559,7 @@ export function AttendanceCalendarPanel({
                   day={data.days.find((d) => d.date === selectedDay)!}
                   canEdit={canEdit}
                   readOnly={readOnly}
+                  studentActive={studentActive}
                   onToggleOverride={onToggleOverride}
                   onLessonStatusChange={onLessonStatusChange}
                   onLessonOpsSettled={onLessonOpsSettled}
@@ -570,6 +586,7 @@ function DayDetail({
   day,
   canEdit,
   readOnly,
+  studentActive,
   onToggleOverride,
   onLessonStatusChange,
   onLessonOpsSettled,
@@ -577,10 +594,16 @@ function DayDetail({
   day: DayInfo;
   canEdit: boolean;
   readOnly: boolean;
+  studentActive: boolean;
   onToggleOverride: (day: DayInfo) => void | Promise<void>;
   onLessonStatusChange: (lessonId: string, flag: "attended" | "processed" | "makeup" | null) => void;
   onLessonOpsSettled: (lessonId: string) => void;
 }) {
+  // Takvimden tahsilat: yoklama statüsüyle (Geldi/İşlendi/Telafi) ZORLA
+  // bağlanmaz — ayrı bir kavramdır. Ancak mevcut iş kuralı gereği tahsilat
+  // yalnızca kapalı OLMAYAN bir günde, aktif bir öğrenci için, admin/yönetici
+  // rolündeyken (canEdit) ve salt-okunur (veli) görünümde DEĞİLKEN sunulur.
+  const canCollectPayment = canEdit && !readOnly && day.status !== "closed" && studentActive;
   return (
     <div className="mt-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2">
       <div className="flex items-center justify-between gap-2">
@@ -636,6 +659,55 @@ function DayDetail({
                 Ödeme şekli: {p.method ? PAYMENT_METHOD_LABEL[p.method] ?? p.method : "Belirtilmemiş"}
                 {p.methodIsStudentDefault ? " (öğrenci varsayılanı — tahmini)" : ""}
               </p>
+              {/*
+                Tahsilat alanı — yoklama (Geldi/İşlendi/Telafi) aksiyonlarından
+                görsel olarak AYRI bir bölge (üstte kesik çizgi + farklı
+                arka plan): aynı Payment kaynağını okur/yazar (Ödemeler
+                ekranıyla aynı `/api/v1/payments/:paymentId/pay` uç noktası),
+                yeni/paralel bir ödeme kaydı YOK.
+              */}
+              <div className="mt-1.5 border-t border-dashed border-[var(--color-border)] pt-1.5">
+                {p.status === "voided" ? (
+                  <p className="text-[var(--color-text-muted)]">Ders iptal edildiği için tahsilat iptal edildi.</p>
+                ) : p.status === "paid" ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      Tahsil edildi — {formatMoneyTL(p.amount)}
+                    </span>
+                    <Link
+                      href={`/makbuz/${p.paymentId}`}
+                      className="font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      Makbuz →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {p.paidAmount > 0 ? (
+                      <p className="font-medium text-amber-700 dark:text-amber-400">
+                        {formatMoneyTL(p.paidAmount)} alındı / {formatMoneyTL(p.amount - p.paidAmount)} kaldı
+                      </p>
+                    ) : null}
+                    {canCollectPayment ? (
+                      <AttendanceCalendarCollectPaymentButton
+                        paymentId={p.paymentId}
+                        lessonId={p.lessonId}
+                        onSettled={onLessonOpsSettled}
+                      />
+                    ) : (
+                      <span className="text-[var(--color-text-muted)]">
+                        {!canEdit || readOnly
+                          ? "Tahsil edilmedi."
+                          : day.status === "closed"
+                            ? "Kapalı gün — tahsilat alınamaz."
+                            : !studentActive
+                              ? "Pasif öğrenci — tahsilat alınamaz."
+                              : "Tahsil edilmedi."}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

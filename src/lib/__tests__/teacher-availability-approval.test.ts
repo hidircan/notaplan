@@ -6,6 +6,8 @@ import {
   proposeTeacherAvailabilityTool,
   listTeacherAvailabilityRequestsTool,
   reviewTeacherAvailabilityRequestTool,
+  createTeacherTool,
+  archiveTeacherTool,
 } from "../services/tools";
 import { TEACHER_AVAILABILITY_REQUESTS_FILE } from "../teacher-availability";
 import { readData } from "../store";
@@ -190,5 +192,67 @@ describe("reviewTeacherAvailabilityRequestTool — yalnızca SCHOOL_ADMIN/SUPER_
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
+  });
+
+  it("Pazar (dayOfWeek=0) dahil, Pazar için BİRDEN FAZLA blok içeren bir öneri onaylanınca Teacher.availability'ye aynen uygulanır", async () => {
+    const proposalWithSunday = {
+      proposedAvailability: [
+        { dayOfWeek: 0, start: "09:00", end: "12:00" },
+        { dayOfWeek: 0, start: "15:00", end: "18:00" },
+        { dayOfWeek: 1, start: "10:00", end: "18:00" },
+      ],
+    };
+    const proposeRes = await proposeTeacherAvailabilityTool(ctx({ teacherId: "t2" }), proposalWithSunday);
+    expect(proposeRes.ok).toBe(true);
+    if (!proposeRes.ok) return;
+
+    const result = await reviewTeacherAvailabilityRequestTool(
+      ctx({ role: "SCHOOL_ADMIN", userId: "admin1", teacherId: undefined }),
+      { requestId: proposeRes.data.requestId, decision: "approved" }
+    );
+    expect(result.ok).toBe(true);
+
+    const data = await readData();
+    const t2 = data.teachers.find((t) => t.id === "t2")!;
+    expect(t2.availability).toEqual(proposalWithSunday.proposedAvailability);
+    // Güz döneminde Pazartesi'nin ders PLANLAMA için kapalı olması, öğretmenin
+    // Pazartesi müsaitlik KAYDINI silmez — kayıt olduğu gibi kalır.
+    expect(t2.availability.some((w) => w.dayOfWeek === 1)).toBe(true);
+    expect(t2.availability.filter((w) => w.dayOfWeek === 0)).toHaveLength(2);
+  });
+
+  it("aynı gün (Pazar) için çakışan iki blok içeren öneri VALIDATION_ERROR ile reddedilmez ama teacher-availability-field.tsx UI'daki overlap koruması bu şekli engeller — burada yalnızca zod şemasının 0-6 aralığını kabul ettiğini doğrula", async () => {
+    // Not: overlap koruması istemci tarafında (TeacherAvailabilityField/
+    // TeacherAvailabilityForm) uygulanır (bkz. component testleri); backend
+    // zod şeması yalnızca dayOfWeek 0-6 + start<end kuralını uygular.
+    const result = await proposeTeacherAvailabilityTool(ctx({ teacherId: "t2" }), {
+      proposedAvailability: [{ dayOfWeek: 0, start: "09:00", end: "12:00" }],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("arşivlenmiş (pasif) bir öğretmen yeni müsaitlik önerisi gönderemez", async () => {
+    const created = await createTeacherTool(ctx({ role: "SCHOOL_ADMIN", teacherId: undefined }), {
+      name: "Arşivlenecek Öğretmen",
+      email: "arsiv@okul.com",
+      phone: "5551119999",
+      branchId: "erzene",
+      instrument: "Piyano",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const archiveRes = await archiveTeacherTool(ctx({ role: "SCHOOL_ADMIN", teacherId: undefined }), {
+      teacherId: created.data.teacherId,
+      archived: true,
+    });
+    expect(archiveRes.ok).toBe(true);
+
+    const proposeRes = await proposeTeacherAvailabilityTool(
+      ctx({ teacherId: created.data.teacherId }),
+      VALID_PROPOSAL
+    );
+    expect(proposeRes.ok).toBe(false);
+    if (!proposeRes.ok) expect(proposeRes.error.code).toBe("FORBIDDEN");
   });
 });

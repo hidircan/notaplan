@@ -123,17 +123,24 @@ export default async function OgrencilerPage() {
             </p>
           ) : (
           <form action={actionAddStudent} className="space-y-3">
+            {/*
+              Alan sırası bilinçli olarak şu şekilde: 1) öğrenci adı 2) T.C.
+              kimlik (ikinci ana alan — kayıt sırasında en sık birlikte
+              istenen resmi kimlik bilgisi) 3-4) veli adı/telefonu 5) hemen
+              ardından doğum tarihi/yeri, okul/meslek, ev adresi — sonra
+              mevcut akış (öğrenci iletişim, şube/enstrüman/öğretmen/paket/
+              ders süresi/dönem/izin) aynı göreli sırayla devam eder. Veri
+              modeli/validation (actionAddStudent, createStudentSchema)
+              DEĞİŞMEDİ — yalnızca bu form bloğundaki DOM/JSX sırası.
+            */}
             <div>
               <Label>Ad soyad</Label>
               <Input name="name" required placeholder="Örn. Deniz Ak" />
             </div>
             <div>
-              <Label>E-posta</Label>
-              <Input name="email" type="email" placeholder="ogrenci@email.com" />
-            </div>
-            <div>
-              <Label>Telefon</Label>
-              <Input name="phone" placeholder="05xx xxx xxxx" />
+              {/* T.C. kimlik — şifreli saklanır (setNationalIdTool), listede/exportta asla düz metin görünmez. */}
+              <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
+              <Input name="nationalId" inputMode="numeric" maxLength={11} placeholder="11 haneli" />
             </div>
             <div>
               <Label>Veli adı</Label>
@@ -144,14 +151,28 @@ export default async function OgrencilerPage() {
               <Input name="parentPhone" placeholder="05xx xxx xxxx" />
             </div>
             <div>
-              <Label>Enstrüman</Label>
-              <Select name="instrument" defaultValue="Piyano">
-                {["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"].map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
+              <Label>Doğum tarihi (opsiyonel)</Label>
+              <Input name="birthDate" type="date" />
+            </div>
+            <div>
+              <Label>Doğum yeri (opsiyonel)</Label>
+              <Input name="birthPlace" placeholder="Örn. İzmir" />
+            </div>
+            <div>
+              <Label>Okulu / mesleği (opsiyonel)</Label>
+              <Input name="schoolOrOccupation" placeholder="Örn. Erzene İlkokulu 3-A" />
+            </div>
+            <div>
+              <Label>Ev adresi (opsiyonel)</Label>
+              <Input name="address" placeholder="Opsiyonel" />
+            </div>
+            <div>
+              <Label>E-posta</Label>
+              <Input name="email" type="email" placeholder="ogrenci@email.com" />
+            </div>
+            <div>
+              <Label>Telefon</Label>
+              <Input name="phone" placeholder="05xx xxx xxxx" />
             </div>
             <div>
               <Label>Şube</Label>
@@ -159,6 +180,16 @@ export default async function OgrencilerPage() {
                 {data.settings.branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Enstrüman</Label>
+              <Select name="instrument" defaultValue="Piyano">
+                {["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"].map((i) => (
+                  <option key={i} value={i}>
+                    {i}
                   </option>
                 ))}
               </Select>
@@ -215,8 +246,11 @@ export default async function OgrencilerPage() {
               </Select>
             </div>
             <div>
-              <Label>Not</Label>
-              <Input name="notes" placeholder="Opsiyonel" />
+              <Label>Yoklama Takvimi dönemi</Label>
+              <Select name="termType" defaultValue="guz">
+                <option value="guz">Güz Dönemi</option>
+                <option value="yaz">Yaz Dönemi</option>
+              </Select>
             </div>
             <div>
               <Label>Öğrenci türü (opsiyonel)</Label>
@@ -242,32 +276,8 @@ export default async function OgrencilerPage() {
               <Input name="targetExam" placeholder="Örn. 2027 Konservatuvar giriş sınavı" />
             </div>
             <div>
-              <Label>Yoklama Takvimi dönemi</Label>
-              <Select name="termType" defaultValue="guz">
-                <option value="guz">Güz Dönemi</option>
-                <option value="yaz">Yaz Dönemi</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Doğum tarihi (opsiyonel)</Label>
-              <Input name="birthDate" type="date" />
-            </div>
-            <div>
-              <Label>Doğum yeri (opsiyonel)</Label>
-              <Input name="birthPlace" placeholder="Örn. İzmir" />
-            </div>
-            <div>
-              <Label>Okulu / mesleği (opsiyonel)</Label>
-              <Input name="schoolOrOccupation" placeholder="Örn. Erzene İlkokulu 3-A" />
-            </div>
-            <div>
-              <Label>Ev adresi (opsiyonel)</Label>
-              <Input name="address" placeholder="Opsiyonel" />
-            </div>
-            <div>
-              {/* T.C. kimlik — şifreli saklanır (setNationalIdTool), listede/exportta asla düz metin görünmez. */}
-              <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
-              <Input name="nationalId" inputMode="numeric" maxLength={11} placeholder="11 haneli" />
+              <Label>Not</Label>
+              <Input name="notes" placeholder="Opsiyonel" />
             </div>
             <div className="flex items-center gap-2">
               <input id="social-media-consent" type="checkbox" name="socialMediaConsent" value="granted" className="h-4 w-4" />

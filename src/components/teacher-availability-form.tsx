@@ -2,41 +2,77 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 import { dayName } from "@/lib/utils";
 import type { AvailabilityWindow } from "@/lib/types";
 
-type DayRow = { dayOfWeek: number; enabled: boolean; start: string; end: string };
+/**
+ * Pazartesi(1)..Cumartesi(6),Pazar(0) — `dayName`/backend şema ile aynı
+ * 0=Pazar..6=Cumartesi eşlemesi (JS `Date.getDay()`), Pazar listenin sonuna
+ * eklendi (mevcut sıralamayla tutarlı, yalnızca ekleme).
+ */
+const DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0];
 
-function toRows(current: AvailabilityWindow[]): DayRow[] {
-  return Array.from({ length: 7 }, (_, dayOfWeek) => {
-    const existing = current.find((w) => w.dayOfWeek === dayOfWeek);
-    return {
-      dayOfWeek,
-      enabled: Boolean(existing),
-      start: existing?.start ?? "10:00",
-      end: existing?.end ?? "18:00",
-    };
-  });
+type BlockRow = { dayOfWeek: number; start: string; end: string };
+
+function toRows(current: AvailabilityWindow[]): BlockRow[] {
+  if (current.length === 0) return [{ dayOfWeek: 1, start: "10:00", end: "18:00" }];
+  return current.map((w) => ({ dayOfWeek: w.dayOfWeek, start: w.start, end: w.end }));
 }
 
+function timesOverlap(a: BlockRow, b: BlockRow): boolean {
+  return a.dayOfWeek === b.dayOfWeek && a.start < b.end && b.start < a.end;
+}
+
+/**
+ * Öğretmenin kendi müsaitliğini DÜZENLEDİĞİ (öneri gönderdiği) form.
+ * Pazar (dayOfWeek=0) dahil TÜM günler seçilebilir; herhangi bir gün için
+ * (Pazar dahil) BİRDEN FAZLA saat aralığı bloğu eklenebilir — bu yüzden
+ * "gün başına tek satır" değil, her biri kendi gün seçicisine sahip serbest
+ * bir blok LİSTESİDİR (bkz. TeacherAvailabilityField ile aynı desen,
+ * oluşturma formunda kullanılan). Aynı gün içindeki bloklar arasında
+ * çakışma (overlap) engellenir.
+ */
 export function TeacherAvailabilityForm({ current }: { current: AvailabilityWindow[] }) {
   const router = useRouter();
-  const [rows, setRows] = useState<DayRow[]>(() => toRows(current));
+  const [rows, setRows] = useState<BlockRow[]>(() => toRows(current));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  function updateRow(dayOfWeek: number, patch: Partial<DayRow>) {
-    setRows((prev) => prev.map((r) => (r.dayOfWeek === dayOfWeek ? { ...r, ...patch } : r)));
+  function addRow() {
+    setRows((prev) => [...prev, { dayOfWeek: 1, start: "10:00", end: "18:00" }]);
   }
+
+  function removeRow(idx: number) {
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateRow(idx: number, patch: Partial<BlockRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
+  const invalidIndexes = new Set<number>();
+  const overlapIndexes = new Set<number>();
+  rows.forEach((r, i) => {
+    if (r.start >= r.end) invalidIndexes.add(i);
+    for (let j = 0; j < rows.length; j++) {
+      if (j === i) continue;
+      if (timesOverlap(r, rows[j]!)) {
+        overlapIndexes.add(i);
+        overlapIndexes.add(j);
+      }
+    }
+  });
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const enabled = rows.filter((r) => r.enabled);
-    const invalid = enabled.find((r) => r.start >= r.end);
-    if (invalid) {
-      setError(`${dayName(invalid.dayOfWeek)}: bitiş saati başlangıçtan sonra olmalı.`);
+    if (invalidIndexes.size > 0) {
+      setError("Bitiş saati başlangıçtan sonra olmalı.");
+      return;
+    }
+    if (overlapIndexes.size > 0) {
+      setError("Aynı gün için çakışan saat aralıkları var — lütfen düzeltin.");
       return;
     }
     setBusy(true);
@@ -47,7 +83,7 @@ export function TeacherAvailabilityForm({ current }: { current: AvailabilityWind
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          proposedAvailability: enabled.map((r) => ({
+          proposedAvailability: rows.map((r) => ({
             dayOfWeek: r.dayOfWeek,
             start: r.start,
             end: r.end,
@@ -71,36 +107,54 @@ export function TeacherAvailabilityForm({ current }: { current: AvailabilityWind
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      {rows.map((row) => (
+      {rows.map((row, idx) => (
         <div
-          key={row.dayOfWeek}
+          key={idx}
           className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900"
         >
-          <label className="flex w-24 items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={row.enabled}
-              onChange={(e) => updateRow(row.dayOfWeek, { enabled: e.target.checked })}
-            />
-            {dayName(row.dayOfWeek)}
-          </label>
+          <Select
+            value={row.dayOfWeek}
+            onChange={(e) => updateRow(idx, { dayOfWeek: Number(e.target.value) })}
+            className="!w-auto flex-1"
+            aria-label="Gün"
+          >
+            {DAY_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {dayName(d)}
+              </option>
+            ))}
+          </Select>
           <Input
             type="time"
             value={row.start}
-            disabled={!row.enabled}
-            onChange={(e) => updateRow(row.dayOfWeek, { start: e.target.value })}
+            onChange={(e) => updateRow(idx, { start: e.target.value })}
             className="!w-28"
           />
           <span className="text-xs text-slate-400">–</span>
           <Input
             type="time"
             value={row.end}
-            disabled={!row.enabled}
-            onChange={(e) => updateRow(row.dayOfWeek, { end: e.target.value })}
+            onChange={(e) => updateRow(idx, { end: e.target.value })}
             className="!w-28"
           />
+          <button
+            type="button"
+            onClick={() => removeRow(idx)}
+            aria-label="Satırı sil"
+            className="ml-auto rounded-md border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-600 hover:border-rose-300 hover:text-rose-600"
+          >
+            Sil
+          </button>
         </div>
       ))}
+
+      <button
+        type="button"
+        onClick={addRow}
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:border-cyan-400 hover:bg-cyan-50"
+      >
+        + Saat Aralığı Ekle
+      </button>
 
       {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
       {success ? (

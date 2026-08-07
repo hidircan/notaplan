@@ -2289,6 +2289,15 @@ export async function proposeTeacherAvailabilityTool(
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
   if (!ctx.teacherId) return fail("FORBIDDEN", "Öğretmen kimliği bulunamadı.");
 
+  // Arşivlenmiş/pasif öğretmen yeni müsaitlik önerisi gönderemez — mevcut
+  // "arşiv öğretmene yeni atama/değişiklik yapılamaz" kısıtıyla tutarlı
+  // (bkz. TeacherArchiveAction dokümantasyonu).
+  const dataForActiveCheck = await readData();
+  const teacherRecord = dataForActiveCheck.teachers.find((t) => t.id === ctx.teacherId);
+  if (teacherRecord && !teacherRecord.active) {
+    return fail("FORBIDDEN", "Arşivlenmiş öğretmen için müsaitlik önerisi oluşturulamaz.");
+  }
+
   const v = parseOrFail(proposeTeacherAvailabilitySchema, input);
   if (!v.ok) return v;
 
@@ -3692,8 +3701,16 @@ export async function setLessonOpsFlagTool(
  * (rol listesine girmesi TEK BAŞINA erişim vermez, bkz. aşağı).
  */
 export type AttendanceCalendarLessonPaymentInfo = {
+  /**
+   * Takvimden doğrudan tahsilat: bu ID mevcut `/api/v1/payments/:paymentId/pay`
+   * (Ödemeler ekranının "Ödendi işaretle" ile AYNI uç noktası — createPaymentTool)
+   * ile eşleşir. Yeni/paralel bir ödeme kaydı/ID ŞEMASI YOK; TEK finansal
+   * gerçek kaynak (Payment) burada yalnızca OKUNUP ilgili aksiyona bağlanır.
+   */
+  paymentId: string;
   lessonId: string;
   amount: number;
+  paidAmount: number;
   /** ÖNCELİK 4 (devam) — "Tutar kayıt tarihi": bu Payment satırının SİSTEME kaydedildiği an. */
   recordedAt: string;
   /** Nakit/Havale/Kredi Kartı — Payment.method varsa o, yoksa öğrencinin varsayılan ödeme yöntemi (tahmini olarak işaretlenir). */
@@ -3778,8 +3795,10 @@ export async function getAttendanceCalendarMonthTool(
       .map((l) => data.payments.find((p) => p.lessonId === l.id))
       .filter((p): p is NonNullable<typeof p> => !!p)
       .map((p) => ({
+        paymentId: p.id,
         lessonId: p.lessonId!,
         amount: p.amount,
+        paidAmount: p.paidAmount,
         recordedAt: p.createdAt ?? p.dueDate,
         method: p.method ?? student.paymentMethod,
         methodIsStudentDefault: !p.method && !!student.paymentMethod,
