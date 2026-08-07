@@ -372,6 +372,14 @@ export interface Lesson {
   opsClosedFlag?: boolean;
   opsClosedFlagAt?: string;
   opsClosedFlagBy?: string;
+  /**
+   * ÖNCELİK 4 (devam) — akademik dönem etiketi. undefined = legacy kayıt
+   * (alan eklenmeden önce oluşturuldu); bkz. `resolveLessonAcademicPeriod`
+   * (src/lib/attendance-calendar.ts) tarih tabanlı fallback için.
+   */
+  term?: StudentTermType;
+  /** Akademik yılın başlangıç takvim yılı (ör. 2026 => "2026–2027 Güz"). */
+  academicYearStart?: number;
 }
 
 export type LessonSeriesStatus = "active" | "ended" | "cancelled";
@@ -401,6 +409,9 @@ export interface LessonSeries {
   status: LessonSeriesStatus;
   createdAt: string;
   updatedAt: string;
+  /** ÖNCELİK 4 (devam) — bkz. Lesson.term; seriden üretilen her Lesson bunu miras alır. */
+  term?: StudentTermType;
+  academicYearStart?: number;
 }
 
 export interface Attendance {

@@ -1123,6 +1123,8 @@ export async function createLessonTool(
       instrument: v.data.instrument as Instrument,
       startAt: v.data.startAt,
       durationMinutes: v.data.durationMinutes ?? DEFAULT_LESSON_DURATION_MINUTES,
+      term: v.data.term,
+      academicYearStart: v.data.academicYearStart,
     });
     const after = await readData();
     const created = after.lessons.find((l) => !ids.has(l.id));

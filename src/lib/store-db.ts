@@ -179,6 +179,13 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       opsMakeupFlag: (lesson as { opsMakeupFlag?: boolean }).opsMakeupFlag ?? undefined,
       opsMakeupFlagAt: (lesson as { opsMakeupFlagAt?: Date | null }).opsMakeupFlagAt?.toISOString?.() ?? undefined,
       opsMakeupFlagBy: (lesson as { opsMakeupFlagBy?: string | null }).opsMakeupFlagBy ?? undefined,
+      // ÖNCELİK 4 — bu satırlar eksikti (db modunda hiç map edilmiyordu); bu
+      // turda term/academicYearStart eklerken fark edildi, aynı satırda düzeltildi.
+      opsClosedFlag: (lesson as { opsClosedFlag?: boolean }).opsClosedFlag ?? undefined,
+      opsClosedFlagAt: (lesson as { opsClosedFlagAt?: Date | null }).opsClosedFlagAt?.toISOString?.() ?? undefined,
+      opsClosedFlagBy: (lesson as { opsClosedFlagBy?: string | null }).opsClosedFlagBy ?? undefined,
+      term: (lesson as { term?: string | null }).term as import("./types").StudentTermType | undefined ?? undefined,
+      academicYearStart: (lesson as { academicYearStart?: number | null }).academicYearStart ?? undefined,
       actualStartAt: lesson.actualStartAt?.toISOString() ?? undefined,
       actualEndAt: lesson.actualEndAt?.toISOString() ?? undefined,
       startCorrectedBy: lesson.startCorrectedBy ?? undefined,
@@ -201,6 +208,8 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       status: series.status as LessonSeriesStatus,
       createdAt: series.createdAt.toISOString(),
       updatedAt: series.updatedAt.toISOString(),
+      term: (series as { term?: string | null }).term as import("./types").StudentTermType | undefined ?? undefined,
+      academicYearStart: (series as { academicYearStart?: number | null }).academicYearStart ?? undefined,
     })),
     attendances: school.attendances.map((attendance) => ({
       id: attendance.id,
@@ -1217,6 +1226,8 @@ export async function addLesson(input: {
   instrument: Instrument;
   startAt: string;
   durationMinutes?: number;
+  term?: import("./types").StudentTermType;
+  academicYearStart?: number;
 }): Promise<AppData> {
   logger.info("addLesson", input.studentId, input.teacherId, input.roomId);
   const tid = requireTenantId();
@@ -1249,6 +1260,8 @@ export async function addLesson(input: {
       endAt: new Date(slot.endAt),
       type: "regular",
       status: "scheduled",
+      term: input.term,
+      academicYearStart: input.academicYearStart,
     },
   });
   return readData();
@@ -1536,6 +1549,8 @@ export async function addLessonSeries(
         startsOn: new Date(params.startsOn),
         endsOn: new Date(params.endsOn),
         status: "active",
+        term: params.term,
+        academicYearStart: params.academicYearStart,
       },
     });
     for (const lesson of newLessons) {
@@ -1554,6 +1569,8 @@ export async function addLessonSeries(
           type: lesson.type,
           status: lesson.status,
           seriesId: result.seriesId,
+          term: lesson.term,
+          academicYearStart: lesson.academicYearStart,
         },
       });
     }

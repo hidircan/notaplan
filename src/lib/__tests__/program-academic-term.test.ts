@@ -1,0 +1,232 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { promises as fs } from "fs";
+import path from "path";
+import { resolveDataDir } from "../config";
+import {
+  createLessonSeriesTool,
+  createLessonTool,
+  setLessonOpsFlagTool,
+} from "../services/tools";
+import { readData } from "../store";
+import { DEFAULT_TENANT_ID } from "../auth/config";
+import type { ServiceContext } from "../services/context";
+import { resolveLessonAcademicPeriod, lessonMatchesAcademicPeriod } from "../attendance-calendar";
+import { validateLessonSlot } from "../makeup-engine";
+
+const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
+const CLOSED_DAYS_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "closed-days.json");
+
+function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
+  return {
+    role: "SCHOOL_ADMIN",
+    userId: "u1",
+    tenantId: DEFAULT_TENANT_ID,
+    channel: "web",
+    ...overrides,
+  };
+}
+
+beforeEach(async () => {
+  await fs.rm(DATA_FILE, { force: true });
+  await fs.rm(CLOSED_DAYS_FILE, { force: true });
+});
+
+async function findOpenSlot(weekday: number, hour: number): Promise<string | null> {
+  const data = await readData();
+  for (let offset = 1; offset <= 60; offset++) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    if (d.getDay() !== weekday) continue;
+    d.setHours(hour, 0, 0, 0);
+    const candidate = d.toISOString();
+    const check = validateLessonSlot(
+      data,
+      { instrument: "Piyano", studentId: "s1" },
+      { teacherId: "t1", roomId: "r1", startAt: candidate }
+    );
+    if (check.ok) return candidate;
+  }
+  return null;
+}
+
+describe("ÖNCELİK 4 (devam) — Program ekranı akademik dönem/yıl etiketi", () => {
+  it("yeni ders serisi seçili term/academicYearStart ile kaydedilir; ürettiği dersler bunu miras alır", async () => {
+    const res = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 2,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-15",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const data = await readData();
+    const series = data.lessonSeries.find((s) => s.id === res.data.seriesId);
+    expect(series?.term).toBe("guz");
+    expect(series?.academicYearStart).toBe(2026);
+
+    const lessons = data.lessons.filter((l) => l.seriesId === res.data.seriesId);
+    expect(lessons.length).toBeGreaterThan(0);
+    for (const l of lessons) {
+      expect(l.term).toBe("guz");
+      expect(l.academicYearStart).toBe(2026);
+    }
+  });
+
+  it("aynı öğrenci için farklı dönemlerde farklı gün/saatle iki ayrı seri tanımlanabilir", async () => {
+    const guzRes = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 2, // Salı
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-15",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(guzRes.ok).toBe(true);
+
+    const yazRes = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 3, // Çarşamba — farklı gün
+      startTime: "15:00", // farklı saat
+      durationMinutes: 40,
+      startsOn: "2027-07-01",
+      endsOn: "2027-07-15",
+      term: "yaz",
+      academicYearStart: 2027,
+    });
+    expect(yazRes.ok).toBe(true);
+    if (!guzRes.ok || !yazRes.ok) return;
+
+    const data = await readData();
+    const guzLessons = data.lessons.filter((l) => l.seriesId === guzRes.data.seriesId);
+    const yazLessons = data.lessons.filter((l) => l.seriesId === yazRes.data.seriesId);
+    expect(guzLessons.every((l) => new Date(l.startAt).getHours() === 11)).toBe(true);
+    expect(yazLessons.every((l) => new Date(l.startAt).getHours() === 15)).toBe(true);
+    expect(guzLessons.length).toBeGreaterThan(0);
+    expect(yazLessons.length).toBeGreaterThan(0);
+  });
+
+  it("aynı yıl/dönem altında birden fazla ders serisi (farklı öğrenci) desteklenir", async () => {
+    const res1 = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 2,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-08",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    const res2 = await createLessonSeriesTool(ctx(), {
+      studentId: "s2",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 3,
+      startTime: "12:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-08",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(res1.ok).toBe(true);
+    expect(res2.ok).toBe(true);
+    if (!res1.ok || !res2.ok) return;
+    expect(res1.data.seriesId).not.toBe(res2.data.seriesId);
+  });
+
+  it("legacy (term set edilmemiş) ders, resolveLessonAcademicPeriod fallback'i ile hâlâ doğru dönem/yıla düşer — veri kaybı yok", async () => {
+    const startAt = await findOpenSlot(2, 11); // herhangi bir Salı
+    if (!startAt) throw new Error("no open slot found");
+    const created = await createLessonTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      instrument: "Piyano",
+      startAt,
+      // term/academicYearStart verilmiyor — legacy davranış
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === created.data.lessonId)!;
+    expect(lesson.term).toBeUndefined();
+    const period = resolveLessonAcademicPeriod(lesson, "guz");
+    expect(period.source).toBe("legacy_fallback");
+    expect(lessonMatchesAcademicPeriod(lesson, period.term, period.academicYearStart, "guz")).toBe(true);
+  });
+
+  it("ÖNCELİK 3 mali tahakkuk (lesson_ops), term etiketli bir dersle çalışmaya devam eder — regresyon yok", async () => {
+    const res = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 2,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-08",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.seriesId === res.data.seriesId);
+    expect(lesson).toBeDefined();
+    if (!lesson) return;
+
+    const flagRes = await setLessonOpsFlagTool(ctx(), { lessonId: lesson.id, flag: "attended" });
+    expect(flagRes.ok).toBe(true);
+
+    const after = await readData();
+    const payment = after.payments.find((p) => p.lessonId === lesson.id);
+    expect(payment).toBeDefined();
+    expect(payment?.source).toBe("lesson_ops");
+  });
+
+  it("dönem/yıl parametreleri ile yetkisiz erişim mümkün değildir — RBAC yine service katmanında uygulanır", async () => {
+    const res = await createLessonSeriesTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 2,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-08",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(res.ok).toBe(false);
+  });
+});

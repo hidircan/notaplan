@@ -25,6 +25,7 @@ import { INSTRUMENTS, type Instrument, type Lesson, type Room, type Student, typ
 import { dayName } from "@/lib/utils";
 import { DEFAULT_LESSON_DURATION_MINUTES, LESSON_DURATION_OPTIONS } from "@/lib/lesson-duration";
 import { CALENDAR_START_HOUR, isMonday, turkeyFixedPublicHolidays, toYmd } from "@/lib/closed-days";
+import { resolveLessonAcademicPeriod, lessonMatchesAcademicPeriod } from "@/lib/attendance-calendar";
 
 type ProgramStudioProps = {
   students: Student[];
@@ -39,6 +40,13 @@ type ProgramStudioProps = {
   todayIso: string;
   /** Öğrenci detayından "Programda Aç" ile gelinirse başlangıç öğrenci filtresi. */
   initialStudentFilter?: string;
+  /**
+   * ÖNCELİK 4 (devam) — /panel/program üstündeki akademik yıl/dönem seçici
+   * (progTerm/progYear). Yeni tek ders VEYA yeni seri oluşturulurken otomatik
+   * olarak bu değerler atanır — kullanıcı ayrıca seçmek zorunda değil.
+   */
+  selectedTerm?: "guz" | "yaz";
+  selectedAcademicYearStart?: number;
 };
 
 const SLOT_MINUTES = 30;
@@ -408,15 +416,33 @@ export function ProgramStudio({
   weekLessons,
   todayIso,
   initialStudentFilter,
+  selectedTerm,
+  selectedAcademicYearStart,
 }: ProgramStudioProps) {
   const router = useRouter();
   const now = parseISO(todayIso);
+
+  // ÖNCELİK 4 (devam) — /panel/program üstündeki akademik yıl/dönem seçiciyle
+  // tutarlılık: seçili bir dönem varsa, o dönemle eşleşmeyen dersler haftalık
+  // grid'de gösterilmez (ör. bir Eylül haftası hem Yaz uzatmasını hem Güz
+  // başlangıcını kapsayabilir — bu ayrımı netleştirir). Legacy (term=undefined)
+  // dersler `lessonMatchesAcademicPeriod`'un tarih-tabanlı fallback'i ile HÂLÂ
+  // doğru şekilde dahil edilir — hiçbir ders sessizce kaybolmaz. Seçim yoksa
+  // (selectedTerm undefined) filtre uygulanmaz — eski davranış aynen korunur.
+  const scopedWeekLessons =
+    selectedTerm && selectedAcademicYearStart
+      ? weekLessons.filter((l) => {
+          const owner = students.find((s) => s.id === l.studentId);
+          return lessonMatchesAcademicPeriod(l, selectedTerm, selectedAcademicYearStart, owner?.termType ?? "guz");
+        })
+      : weekLessons;
+
   // Pazartesi kapalı — hiçbir koşulda takvimde gün sütunu olarak görünmez.
   // Mevcut Pazartesi dersleri SİLİNMEZ (weekLessons'ta kalır, veri kaybı yok);
   // yalnızca haftalık grid'de gösterilmezler. Aşağıdaki uyarı bunları listeler.
   const visibleDays = days.filter((d) => !isMonday(parseISO(d)));
-  const mondayLessons = weekLessons.filter((l) => isMonday(parseISO(l.startAt)));
-  const gridWindow = computeGridWindow(workingHours, weekLessons);
+  const mondayLessons = scopedWeekLessons.filter((l) => isMonday(parseISO(l.startAt)));
+  const gridWindow = computeGridWindow(workingHours, scopedWeekLessons);
   const slots = slotStarts(gridWindow.startMin, gridWindow.endMin);
   const windowStartMin = slots[0] ?? 0;
 
@@ -478,7 +504,7 @@ export function ProgramStudio({
     setFilterStudentId((current) => resolveStudentFilterForBranch(students, id, current));
   }
 
-  const visibleWeekLessons = filterLessonsForCalendar(weekLessons, filterBranchId, filterTeacherId, filterStudentId);
+  const visibleWeekLessons = filterLessonsForCalendar(scopedWeekLessons, filterBranchId, filterTeacherId, filterStudentId);
 
   const selectedStudent = students.find((s) => s.id === studentId);
   const selectedTeacher = teachers.find((t) => t.id === teacherId);
@@ -693,6 +719,9 @@ export function ProgramStudio({
       startsOn: seriesStartsOn,
       endsOn: seriesEndsOn,
       skipConflicts: seriesSkipConflicts,
+      // ÖNCELİK 4 (devam) — yeni seri, program ekranında seçili akademik yıl/dönemi devralır.
+      term: selectedTerm,
+      academicYearStart: selectedAcademicYearStart,
     });
     setSeriesSubmitting(false);
     if (!result.ok) {
@@ -752,6 +781,9 @@ export function ProgramStudio({
     fd.set("instrument", instrument);
     fd.set("startAt", startAt);
     fd.set("durationMinutes", String(durationMinutes));
+    // ÖNCELİK 4 (devam) — yeni tek ders, program ekranında seçili akademik yıl/dönemi devralır.
+    if (selectedTerm) fd.set("term", selectedTerm);
+    if (selectedAcademicYearStart) fd.set("academicYearStart", String(selectedAcademicYearStart));
     const result = await actionAddLesson(fd);
     setSubmitting(false);
     if (!result.ok) {
@@ -1339,6 +1371,12 @@ export function ProgramStudio({
         </div>
       ) : null}
 
+      {selectedTerm && selectedAcademicYearStart && visibleWeekLessons.length === 0 ? (
+        <div className="mb-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-text-muted)]">
+          Seçili akademik dönemde ({selectedTerm === "yaz" ? `${selectedAcademicYearStart} Yaz` : `${selectedAcademicYearStart}–${selectedAcademicYearStart + 1} Güz`}) bu hafta için ders yok.
+        </div>
+      ) : null}
+
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div>
@@ -1782,6 +1820,14 @@ function DetailPanel({
             opsMakeupFlag={lesson.opsMakeupFlag}
           />
         </div>
+        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+          {(() => {
+            const period = resolveLessonAcademicPeriod(lesson, student?.termType ?? "guz");
+            const label =
+              period.term === "yaz" ? `${period.academicYearStart} Yaz` : `${period.academicYearStart}–${period.academicYearStart + 1} Güz`;
+            return period.source === "explicit" ? `Akademik dönem: ${label}` : `Akademik dönem (tahmini — legacy kayıt): ${label}`;
+          })()}
+        </p>
       </div>
 
       <div className="mb-3 border-t border-slate-100 pt-3 dark:border-slate-700">

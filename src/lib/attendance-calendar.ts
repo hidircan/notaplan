@@ -10,7 +10,7 @@
  *   4) Açık gün
  */
 
-import type { ClosedDay, StudentTermType } from "./types";
+import type { ClosedDay, Lesson, StudentTermType } from "./types";
 import { findOfficialHoliday } from "./turkish-holidays";
 import { toYmd } from "./closed-days";
 
@@ -45,6 +45,16 @@ export function weeklyClosedDaysForTerm(term: StudentTermType): number[] {
  * Yaz: Temmuz(7)–Ağustos(8) + opsiyonel uzatma (Eylülün 2. haftasına kadar).
  */
 export type TermMonth = { year: number; month: number }; // month: 1-12
+
+/**
+ * Bugünün tarihine göre "içinde bulunulan" akademik yıl-çapası. Sunucu
+ * bileşenlerinden (RSC) de çağrılabilmesi için burada — "use client" olan
+ * `attendance-calendar-panel.tsx` bunu re-export eder, kendi kopyasını TUTMAZ.
+ */
+export function currentAcademicAnchorYear(term: StudentTermType): number {
+  const now = new Date();
+  return term === "yaz" ? now.getFullYear() : now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+}
 
 /**
  * @param anchorYear Güz için "başlangıç" takvim yılı (ör. 2026 -> Eylül 2026–
@@ -150,6 +160,55 @@ export function resolveMonthStatuses(
     results.push(resolveDayStatus(date, term, manualOverrides));
   }
   return results;
+}
+
+export type LessonAcademicPeriod = { term: StudentTermType; academicYearStart: number; source: "explicit" | "legacy_fallback" };
+
+/**
+ * ÖNCELİK 4 (devam) — Program ekranı akademik dönem/yıl özelliği. Bir dersin
+ * "hangi dönem/akademik yıla ait" olduğunu çözer:
+ *   1) Ders (veya seri) üzerinde `term`/`academicYearStart` AÇIKÇA set
+ *      edilmişse (bu alan eklendikten SONRA oluşturulan kayıtlar) o kullanılır.
+ *   2) Yoksa (legacy kayıt — alan eklenmeden önce oluşturuldu, veri kaybı
+ *      olmadan NULL bırakıldı) dersin `startAt` tarihinden, öğrencinin
+ *      `termType`'ına göre en olası dönem/yıl GÜVENLİ FALLBACK ile türetilir
+ *      (Temmuz–Ağustos(–uzatma Eylül) → Yaz; aksi halde Güz). Bu, mevcut
+ *      Yoklama Takvimi'nin geçmiş kayıtları göstermeye devam etmesini garanti
+ *      eder — hiçbir ders "kayıp" görünmez.
+ */
+export function resolveLessonAcademicPeriod(
+  lesson: Pick<Lesson, "startAt" | "term" | "academicYearStart">,
+  studentTermFallback: StudentTermType = "guz"
+): LessonAcademicPeriod {
+  if (lesson.term && typeof lesson.academicYearStart === "number") {
+    return { term: lesson.term, academicYearStart: lesson.academicYearStart, source: "explicit" };
+  }
+  const d = new Date(lesson.startAt);
+  const month = d.getMonth() + 1; // 1-12
+  if (month === 7 || month === 8 || month === 9) {
+    // Temmuz/Ağustos/Eylül başı — öğrencinin kayıtlı dönemi Yaz ise Yaz say,
+    // değilse (Güz öğrencisi için Eylül zaten Güz başlangıcıdır) Güz say.
+    if (studentTermFallback === "yaz" || month !== 9) {
+      return { term: "yaz", academicYearStart: d.getFullYear(), source: "legacy_fallback" };
+    }
+  }
+  const academicYearStart = month >= 9 ? d.getFullYear() : d.getFullYear() - 1;
+  return { term: "guz", academicYearStart, source: "legacy_fallback" };
+}
+
+/**
+ * Bir dersin, verilen (dönem, akademik-yıl-çapası) ile eşleşip eşleşmediğini
+ * söyler — legacy kayıtlar fallback üzerinden dahil edilir, asla sessizce
+ * dışlanmaz (bkz. resolveLessonAcademicPeriod dokümantasyonu).
+ */
+export function lessonMatchesAcademicPeriod(
+  lesson: Pick<Lesson, "startAt" | "term" | "academicYearStart">,
+  term: StudentTermType,
+  academicYearStart: number,
+  studentTermFallback: StudentTermType = "guz"
+): boolean {
+  const resolved = resolveLessonAcademicPeriod(lesson, studentTermFallback);
+  return resolved.term === term && resolved.academicYearStart === academicYearStart;
 }
 
 /** UI renk sözlüğü — Geldi yeşil, İşlendi kırmızı, Telafi sarı, Kapalı siyah. */

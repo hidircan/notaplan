@@ -96,6 +96,9 @@ export const lessonSchema = z.object({
   durationMinutes: z.coerce.number().refine((v) => (LESSON_DURATION_OPTIONS as readonly number[]).includes(v), {
     message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
   }).optional(),
+  /** ÖNCELİK 4 (devam) — opsiyonel akademik dönem etiketi; verilmezse legacy (undefined). */
+  term: z.enum(["guz", "yaz"]).optional(),
+  academicYearStart: z.coerce.number().int().min(2000).max(2100).optional(),
 });
 
 export const paymentRecordSchema = z.object({
@@ -143,6 +146,9 @@ export const lessonSeriesParamsSchema = z.object({
   durationMinutes: z.coerce.number().int().min(15).max(240),
   startsOn: z.string().min(1),
   endsOn: z.string().min(1),
+  /** ÖNCELİK 4 (devam) — opsiyonel akademik dönem etiketi; verilmezse legacy (undefined). */
+  term: z.enum(["guz", "yaz"]).optional(),
+  academicYearStart: z.coerce.number().int().min(2000).max(2100).optional(),
 });
 
 export const createLessonSeriesSchema = lessonSeriesParamsSchema.extend({

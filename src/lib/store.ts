@@ -11,6 +11,7 @@ import type {
   Room,
   Student,
   StudentProfilePatch,
+  StudentTermType,
   Teacher,
   TeacherFeeRule,
 } from "./types";
@@ -57,6 +58,8 @@ type StoreApi = {
     instrument: Instrument;
     startAt: string;
     durationMinutes?: number;
+    term?: StudentTermType;
+    academicYearStart?: number;
   }) => Promise<AppData>;
   addPayment: (input: {
     studentId: string;
@@ -257,6 +260,8 @@ export async function addLesson(input: {
   instrument: Instrument;
   startAt: string;
   durationMinutes?: number;
+  term?: import("./types").StudentTermType;
+  academicYearStart?: number;
 }): Promise<AppData> {
   return withTenantScope(() => store.addLesson(input));
 }

@@ -677,6 +677,8 @@ export async function actionAddLesson(formData: FormData): Promise<LessonActionR
       const startAtRaw = String(formData.get("startAt") || "");
       const startAt = startAtRaw ? new Date(startAtRaw).toISOString() : "";
       const durationRaw = formData.get("durationMinutes");
+      const termRaw = formData.get("term");
+      const academicYearStartRaw = formData.get("academicYearStart");
       const created = await createLessonTool(ctx, {
         studentId: String(formData.get("studentId") || ""),
         teacherId: String(formData.get("teacherId") || ""),
@@ -684,6 +686,8 @@ export async function actionAddLesson(formData: FormData): Promise<LessonActionR
         instrument: String(formData.get("instrument") || "Piyano"),
         startAt,
         durationMinutes: durationRaw ? Number(durationRaw) : undefined,
+        term: termRaw === "guz" || termRaw === "yaz" ? termRaw : undefined,
+        academicYearStart: academicYearStartRaw ? Number(academicYearStartRaw) : undefined,
       });
       if (!created.ok) {
         return { ok: false as const, message: created.error.message };
@@ -798,6 +802,9 @@ export type LessonSeriesParamsInput = {
   durationMinutes: number;
   startsOn: string;
   endsOn: string;
+  /** ÖNCELİK 4 (devam) — opsiyonel akademik dönem etiketi; verilmezse legacy. */
+  term?: "guz" | "yaz";
+  academicYearStart?: number;
 };
 
 export type PreviewLessonSeriesActionResult =

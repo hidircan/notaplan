@@ -1,6 +1,6 @@
 import { addDays, addMinutes, format, getDay, isAfter, parseISO, setHours, setMinutes, startOfDay } from "date-fns";
 import { tr } from "date-fns/locale";
-import type { AppData, BranchId, Instrument, Lesson, LessonSeries, LessonSeriesStatus } from "./types";
+import type { AppData, BranchId, Instrument, Lesson, LessonSeries, LessonSeriesStatus, StudentTermType } from "./types";
 import { validateLessonSlot, type SlotValidationCode } from "./makeup-engine";
 import { dayName, uid } from "./utils";
 
@@ -30,6 +30,13 @@ export type SeriesParams = {
   durationMinutes: number;
   startsOn: string;
   endsOn: string;
+  /**
+   * ÖNCELİK 4 (devam) — opsiyonel akademik dönem etiketi. Verilmezse legacy
+   * (undefined) olarak kaydedilir — hiçbir mevcut çağrı sitesi bunu vermek
+   * zorunda değil (geriye dönük uyumluluk).
+   */
+  term?: StudentTermType;
+  academicYearStart?: number;
 };
 
 /**
@@ -174,6 +181,8 @@ export function createLessonSeriesData(
     status: "active",
     createdAt: nowIso,
     updatedAt: nowIso,
+    term: params.term,
+    academicYearStart: params.academicYearStart,
   };
 
   const newLessons: Lesson[] = validChecks.map((c) => ({
@@ -188,6 +197,9 @@ export function createLessonSeriesData(
     type: "regular",
     status: "scheduled",
     seriesId,
+    // Seriden üretilen ders serinin dönem etiketini miras alır.
+    term: params.term,
+    academicYearStart: params.academicYearStart,
   }));
 
   const nextData: AppData = {

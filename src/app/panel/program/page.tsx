@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui";
 import { WeekDatePicker } from "@/components/week-date-picker";
 import { ProgramStudio } from "@/components/program-studio";
+import { ProgramTermYearNav, type ProgramTerm } from "@/components/program-term-year-nav";
+import { currentAcademicAnchorYear } from "@/lib/attendance-calendar";
 import { addDays, startOfWeek } from "@/lib/utils";
 import { format, isSameDay, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -29,9 +31,12 @@ function resolveWeekStart(weekParam?: string): Date {
 export default async function ProgramPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; studentId?: string }>;
+  searchParams: Promise<{ week?: string; studentId?: string; progTerm?: string; progYear?: string }>;
 }) {
-  const { week, studentId } = await searchParams;
+  const { week, studentId, progTerm, progYear } = await searchParams;
+  const selectedTerm: ProgramTerm = progTerm === "yaz" ? "yaz" : "guz";
+  const parsedYear = progYear ? Number(progYear) : NaN;
+  const selectedAcademicYearStart = Number.isFinite(parsedYear) ? parsedYear : currentAcademicAnchorYear(selectedTerm);
   let session;
   try {
     session = await requireSessionContext();
@@ -65,6 +70,8 @@ export default async function ProgramPage({
         title="Ders programı"
         description="Öğretmen ve stüdyo bazında haftalık ders görünümü."
       />
+
+      <ProgramTermYearNav term={selectedTerm} academicYearStart={selectedAcademicYearStart} />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
@@ -113,6 +120,8 @@ export default async function ProgramPage({
         weekLessons={weekLessons}
         todayIso={new Date().toISOString()}
         initialStudentFilter={studentId}
+        selectedTerm={selectedTerm}
+        selectedAcademicYearStart={selectedAcademicYearStart}
       />
 
       <Card className="mt-6">

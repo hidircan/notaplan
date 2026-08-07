@@ -331,6 +331,8 @@ export async function addLesson(input: {
   instrument: Instrument;
   startAt: string;
   durationMinutes?: number;
+  term?: import("./types").StudentTermType;
+  academicYearStart?: number;
 }): Promise<AppData> {
   const data = load();
   const validation = validateLessonSlot(
@@ -352,6 +354,8 @@ export async function addLesson(input: {
     endAt: slot.endAt,
     type: "regular",
     status: "scheduled",
+    term: input.term,
+    academicYearStart: input.academicYearStart,
   };
   return save({ ...data, lessons: [...data.lessons, lesson] });
 }

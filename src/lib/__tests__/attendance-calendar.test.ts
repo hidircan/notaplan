@@ -5,6 +5,8 @@ import {
   isDateWithinTermCalendar,
   clampSummerExtensionDay,
   weeklyClosedDaysForTerm,
+  resolveLessonAcademicPeriod,
+  lessonMatchesAcademicPeriod,
 } from "../attendance-calendar";
 
 describe("ÖNCELİK 4 — attendance-calendar", () => {
@@ -104,5 +106,53 @@ describe("ÖNCELİK 4 — attendance-calendar", () => {
   it("weeklyClosedDaysForTerm doğru günleri döner", () => {
     expect(weeklyClosedDaysForTerm("guz")).toEqual([1]);
     expect(weeklyClosedDaysForTerm("yaz")).toEqual([0, 6]);
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — resolveLessonAcademicPeriod (Program dönem/yıl)", () => {
+  it("ders üzerinde term/academicYearStart AÇIKÇA set edilmişse onu kullanır (legacy fallback'a bakmaz)", () => {
+    const r = resolveLessonAcademicPeriod({
+      startAt: "2026-01-15T10:00:00.000Z", // Ocak — fallback Güz derdi ama açık alan Yaz diyor
+      term: "yaz",
+      academicYearStart: 2025,
+    });
+    expect(r).toEqual({ term: "yaz", academicYearStart: 2025, source: "explicit" });
+  });
+
+  it("legacy (term=undefined) bir Eylül dersi, öğrenci Güz ise Güz'ün başlangıcı sayılır", () => {
+    const r = resolveLessonAcademicPeriod({ startAt: "2026-09-10T10:00:00.000Z" }, "guz");
+    expect(r.term).toBe("guz");
+    expect(r.academicYearStart).toBe(2026);
+    expect(r.source).toBe("legacy_fallback");
+  });
+
+  it("legacy bir Ekim/Kasım dersi her zaman Güz'ün devamı sayılır (akademik yıl bir önceki Eylül)", () => {
+    const r = resolveLessonAcademicPeriod({ startAt: "2027-01-15T10:00:00.000Z" }, "guz");
+    expect(r.term).toBe("guz");
+    expect(r.academicYearStart).toBe(2026); // 2026 Eylül - 2027 Haziran dönemi
+  });
+
+  it("legacy bir Temmuz/Ağustos dersi Yaz sayılır", () => {
+    const r = resolveLessonAcademicPeriod({ startAt: "2026-07-20T10:00:00.000Z" }, "guz");
+    expect(r.term).toBe("yaz");
+    expect(r.academicYearStart).toBe(2026);
+  });
+
+  it("legacy bir Eylül dersi, öğrenci Yaz ise (uzatma) Yaz'ın devamı sayılır", () => {
+    const r = resolveLessonAcademicPeriod({ startAt: "2026-09-05T10:00:00.000Z" }, "yaz");
+    expect(r.term).toBe("yaz");
+    expect(r.academicYearStart).toBe(2026);
+  });
+
+  it("lessonMatchesAcademicPeriod legacy dersleri fallback üzerinden doğru eşleştirir (sessizce dışlamaz)", () => {
+    const legacyLesson = { startAt: "2026-10-01T10:00:00.000Z" };
+    expect(lessonMatchesAcademicPeriod(legacyLesson, "guz", 2026, "guz")).toBe(true);
+    expect(lessonMatchesAcademicPeriod(legacyLesson, "yaz", 2026, "guz")).toBe(false);
+  });
+
+  it("Güz dersinin Yaz döneminde görünmemesi — açık term ile etiketli ders başka dönemle eşleşmez", () => {
+    const guzLesson = { startAt: "2026-10-01T10:00:00.000Z", term: "guz" as const, academicYearStart: 2026 };
+    expect(lessonMatchesAcademicPeriod(guzLesson, "yaz", 2026)).toBe(false);
+    expect(lessonMatchesAcademicPeriod(guzLesson, "guz", 2026)).toBe(true);
   });
 });

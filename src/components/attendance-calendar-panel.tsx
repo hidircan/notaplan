@@ -20,6 +20,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LessonOpsActions } from "./lesson-ops-actions";
+import { currentAcademicAnchorYear } from "@/lib/attendance-calendar";
+
+/**
+ * Asıl tanım `src/lib/attendance-calendar.ts`'de (`currentAcademicAnchorYear`)
+ * — sunucu bileşenlerinden de (RSC) güvenle içe aktarılabilsin diye orada
+ * tutulur. Burada, mevcut testlerin/çağrı sitelerinin import ettiği isimle
+ * (`currentAnchorYear`) geriye dönük uyumlu, tip-daraltılmış bir sarmalayıcı
+ * olarak yeniden dışa aktarılır.
+ */
+export function currentAnchorYear(termType: string): number {
+  return currentAcademicAnchorYear(termType === "yaz" ? "yaz" : "guz");
+}
 
 type DayInfo = {
   date: string;
@@ -68,11 +80,6 @@ export function termMonthList(termType: string, anchorYear: number): { year: num
   return months;
 }
 
-/** Bugünün tarihine göre "içinde bulunulan" akademik yıl-çapası. */
-export function currentAnchorYear(termType: string): number {
-  const now = new Date();
-  return termType === "yaz" ? now.getFullYear() : now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-}
 
 /**
  * NOT (bilinen kısıtlama): `/attendance-calendar/month` yalnızca lessonId
