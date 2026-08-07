@@ -22,14 +22,18 @@ export function TeacherInstrumentsField({
   name,
   initialRows,
   onChange,
+  instrumentOptions,
 }: {
   /** Hidden input adı — form submit'te JSON string olarak gönderilir. */
   name: string;
   initialRows?: InstrumentSkillRow[];
   onChange?: (rows: InstrumentSkillRow[]) => void;
+  /** ÖNCELİK 4 (devam) — Enstrüman Kataloğu; verilmezse sabit `INSTRUMENTS`. */
+  instrumentOptions?: Instrument[];
 }) {
+  const options = instrumentOptions?.length ? instrumentOptions : INSTRUMENTS;
   const [rows, setRows] = useState<InstrumentSkillRow[]>(
-    initialRows && initialRows.length > 0 ? initialRows : [{ instrument: "Piyano", level: "Başlangıç" }]
+    initialRows && initialRows.length > 0 ? initialRows : [{ instrument: options[0]!, level: "Başlangıç" }]
   );
 
   useEffect(() => {
@@ -44,7 +48,7 @@ export function TeacherInstrumentsField({
   });
 
   function addRow() {
-    const next = INSTRUMENTS.find((i) => !usedInstruments.has(i)) ?? INSTRUMENTS[0]!;
+    const next = options.find((i) => !usedInstruments.has(i)) ?? options[0]!;
     setRows((prev) => [...prev, { instrument: next, level: "Başlangıç" }]);
   }
 
@@ -67,7 +71,7 @@ export function TeacherInstrumentsField({
             className="!w-auto flex-1"
             aria-label="Enstrüman"
           >
-            {INSTRUMENTS.map((i) => (
+            {options.map((i) => (
               <option key={i} value={i}>
                 {i}
               </option>

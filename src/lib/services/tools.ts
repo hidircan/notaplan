@@ -874,6 +874,20 @@ export async function createTeacherTool(
   const v = parseOrFail(teacherSchema, input);
   if (!v.ok) return v;
 
+  // ÖNCELİK 4 (devam) — `instrumentLevels[].instrument` zod'da serbest
+  // string (kataloğu destekleyebilmek için) — bu yüzden gerçek doğrulama
+  // burada, tenant-scoped aktif enstrüman listesine karşı yapılır. Yalnızca
+  // istemci enum'una güvenilmez.
+  if (v.data.instrumentLevels && v.data.instrumentLevels.length > 0) {
+    const active = await resolveActiveInstrumentNames(ctx.tenantId);
+    const invalid = v.data.instrumentLevels.find(
+      (r) => !active.some((n) => n.toLocaleLowerCase("tr") === r.instrument.toLocaleLowerCase("tr"))
+    );
+    if (invalid) {
+      return fail("VALIDATION_ERROR", `Geçersiz veya pasif enstrüman: "${invalid.instrument}".`);
+    }
+  }
+
   try {
     // ÖNCELİK 4 (devam) — çoklu enstrüman verilmişse `instruments` bundan
     // türetilir (benzersiz enstrüman listesi); yoksa legacy tek-enstrüman
@@ -923,6 +937,14 @@ export async function updateTeacherInstrumentsTool(
 
   const data = await readData();
   if (!data.teachers.some((t) => t.id === v.data.teacherId)) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+
+  const active = await resolveActiveInstrumentNames(ctx.tenantId);
+  const invalid = v.data.instrumentLevels.find(
+    (r) => !active.some((n) => n.toLocaleLowerCase("tr") === r.instrument.toLocaleLowerCase("tr"))
+  );
+  if (invalid) {
+    return fail("VALIDATION_ERROR", `Geçersiz veya pasif enstrüman: "${invalid.instrument}".`);
+  }
 
   try {
     const instruments = Array.from(new Set(v.data.instrumentLevels.map((r) => r.instrument as Instrument)));

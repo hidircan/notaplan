@@ -86,9 +86,16 @@ export const updateStudentProfileSchema = z.object({
 const TEACHER_INSTRUMENT_ENUM = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
 const INSTRUMENT_LEVEL_ENUM = ["Başlangıç", "Orta", "İleri"] as const;
 
-/** ÖNCELİK 4 (devam) — çoklu enstrüman satırı: {enstrüman, seviye}. */
+/**
+ * ÖNCELİK 4 (devam) — çoklu enstrüman satırı: {enstrüman, seviye}.
+ * `instrument` BİLİNÇLİ OLARAK sabit enum değil, serbest string — kurumun
+ * Enstrümanlar kataloğundaki ek enstrümanları (ör. Bas Gitar) da kabul
+ * edebilmesi için. Gerçek doğrulama (istemci enum'una güvenilmez) tools.ts
+ * içinde tenant-scoped `resolveActiveInstrumentNames` ile yapılır — bkz.
+ * createTeacherTool/updateTeacherInstrumentsTool.
+ */
 export const teacherInstrumentSkillSchema = z.object({
-  instrument: z.enum(TEACHER_INSTRUMENT_ENUM),
+  instrument: z.string().min(1),
   level: z.enum(INSTRUMENT_LEVEL_ENUM),
 });
 

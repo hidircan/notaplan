@@ -6,11 +6,14 @@ import {
   listInstrumentCatalogTool,
   createInstrumentCatalogTool,
   updateInstrumentCatalogTool,
+  createTeacherTool,
 } from "../services/tools";
+import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
 
 const CATALOG_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "instrument-catalog.json");
+const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
 const OTHER_TENANT = "other-tenant-instr-test";
 
 function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
@@ -25,6 +28,7 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
 
 beforeEach(async () => {
   await fs.rm(CATALOG_FILE, { force: true });
+  await fs.rm(DATA_FILE, { force: true });
 });
 
 describe("ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu", () => {
@@ -120,5 +124,35 @@ describe("ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu", () => {
     if (tenantAList.ok) {
       expect(tenantAList.data.entries.some((e) => e.name === "Tenant A Özel")).toBe(true);
     }
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — enstrüman kataloğu → öğretmen formu UI wiring uçtan uca", () => {
+  it("kataloğa özgü bir enstrüman (Bas Gitar) createTeacherTool ile başarıyla kaydedilir — yalnızca CSV'de değil, öğretmen formunda da", async () => {
+    const res = await createTeacherTool(ctx(), {
+      name: "Katalog Öğretmeni",
+      email: "katalog@okul.com",
+      phone: "5551234567",
+      branchId: "erzene",
+      instrument: "Piyano",
+      instrumentLevels: [{ instrument: "Bas Gitar", level: "İleri" }],
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const data = await readData();
+    const teacher = data.teachers.find((t) => t.id === res.data.teacherId);
+    expect(teacher?.instruments).toContain("Bas Gitar");
+  });
+
+  it("kataloğa hiç eklenmemiş/pasif bir enstrüman öğretmen formunda da reddedilir (yalnızca istemci enum'una güvenilmez)", async () => {
+    const res = await createTeacherTool(ctx(), {
+      name: "Hayali Enstrüman",
+      email: "hayali@okul.com",
+      phone: "5551234567",
+      branchId: "erzene",
+      instrument: "Piyano",
+      instrumentLevels: [{ instrument: "Uzaylı Çalgısı", level: "İleri" }],
+    });
+    expect(res.ok).toBe(false);
   });
 });

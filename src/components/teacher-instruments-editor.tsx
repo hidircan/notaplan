@@ -12,13 +12,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { actionUpdateTeacherInstruments } from "@/lib/actions";
 import { TeacherInstrumentsField, type InstrumentSkillRow } from "./teacher-instruments-field";
+import type { Instrument } from "@/lib/types";
 
 export function TeacherInstrumentsEditor({
   teacherId,
   initialRows,
+  instrumentOptions,
 }: {
   teacherId: string;
   initialRows: InstrumentSkillRow[];
+  instrumentOptions?: Instrument[];
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<InstrumentSkillRow[]>(initialRows);
@@ -48,7 +51,12 @@ export function TeacherInstrumentsEditor({
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-      <TeacherInstrumentsField name="instrumentLevelsJson_unused" initialRows={initialRows} onChange={setRows} />
+      <TeacherInstrumentsField
+        name="instrumentLevelsJson_unused"
+        initialRows={initialRows}
+        onChange={setRows}
+        instrumentOptions={instrumentOptions}
+      />
       {error ? <p className="mt-1 text-[11px] font-medium text-[#8b3a3a]">{error}</p> : null}
       {saved && !pending ? <p className="mt-1 text-[11px] text-emerald-700">Kaydedildi.</p> : null}
       <button

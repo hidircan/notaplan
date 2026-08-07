@@ -13,7 +13,8 @@ import {
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
-import { listStudentDocumentsTool } from "@/lib/services";
+import { listStudentDocumentsTool, listInstrumentCatalogTool } from "@/lib/services";
+import type { Instrument } from "@/lib/types";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { NationalIdReveal } from "@/components/national-id-reveal";
 import { maskNationalId } from "@/lib/pii/tc-identity";
@@ -54,6 +55,12 @@ export default async function TeacherDetailPage({
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
   const teacher = data.teachers.find((t) => t.id === teacherId);
+  const catalogResult = await listInstrumentCatalogTool(session, {});
+  const instrumentOptions = (
+    catalogResult.ok
+      ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+      : undefined
+  ) as Instrument[] | undefined;
 
   if (!teacher) {
     return (
@@ -201,6 +208,7 @@ export default async function TeacherDetailPage({
         {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
           <TeacherInstrumentsEditor
             teacherId={teacher.id}
+            instrumentOptions={instrumentOptions}
             initialRows={
               teacher.instrumentLevels && teacher.instrumentLevels.length > 0
                 ? teacher.instrumentLevels

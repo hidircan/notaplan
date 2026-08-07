@@ -13,6 +13,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
+import { listInstrumentCatalogTool } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,12 @@ export default async function ProgramPage({
   }
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
+  // ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: statik küme +
+  // tenant'ın aktif ek enstrümanları, ders planlama seçicilerine akar.
+  const catalogResult = await listInstrumentCatalogTool(session, {});
+  const catalogInstruments = catalogResult.ok
+    ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+    : undefined;
   const weekStart = resolveWeekStart(week);
   const todayWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const isCurrentWeek = isSameDay(weekStart, todayWeekStart);
@@ -122,6 +129,7 @@ export default async function ProgramPage({
         initialStudentFilter={studentId}
         selectedTerm={selectedTerm}
         selectedAcademicYearStart={selectedAcademicYearStart}
+        catalogInstruments={catalogInstruments}
       />
 
       <Card className="mt-6">

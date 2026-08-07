@@ -11,6 +11,8 @@ import { computeTeacherPerformanceScore } from "@/lib/insights/teacher-performan
 import { TeacherInstrumentsField } from "@/components/teacher-instruments-field";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { TeacherArchiveAction } from "@/components/teacher-archive-action";
+import { listInstrumentCatalogTool } from "@/lib/services";
+import type { Instrument } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,14 @@ export default async function OgretmenlerPage({
   const data = await readScopedData(kurum.scope);
   const canSeePerformance = session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN";
   const canManage = session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN";
+
+  // ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: statik küme + tenant'ın aktif ek enstrümanları.
+  const catalogResult = await listInstrumentCatalogTool(session, {});
+  const instrumentOptions = (
+    catalogResult.ok
+      ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+      : undefined
+  ) as Instrument[] | undefined;
 
   // ÖNCELİK 4 (devam) — varsayılan yalnız Aktif Öğretmenler; "Arşivlenmiş
   // Öğretmenler" ayrı bir sekme/filtre. Arşiv öğretmenler burada dahi (CSV
@@ -226,8 +236,8 @@ export default async function OgretmenlerPage({
             </div>
             <div>
               <Label>Ana enstrüman (yalnızca hiç enstrüman eklenmezse kullanılır)</Label>
-              <Select name="instrument" defaultValue="Piyano">
-                {["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"].map((i) => (
+              <Select name="instrument" defaultValue={instrumentOptions?.[0] ?? "Piyano"}>
+                {(instrumentOptions ?? ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]).map((i) => (
                   <option key={i} value={i}>
                     {i}
                   </option>
@@ -236,7 +246,7 @@ export default async function OgretmenlerPage({
             </div>
             <div>
               <Label>Enstrümanlar ve seviyeleri</Label>
-              <TeacherInstrumentsField name="instrumentLevelsJson" />
+              <TeacherInstrumentsField name="instrumentLevelsJson" instrumentOptions={instrumentOptions} />
             </div>
             <div>
               <Label>Şube</Label>

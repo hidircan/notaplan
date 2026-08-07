@@ -47,6 +47,12 @@ type ProgramStudioProps = {
    */
   selectedTerm?: "guz" | "yaz";
   selectedAcademicYearStart?: number;
+  /**
+   * ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu. Sabit `INSTRUMENTS`
+   * yerine tenant'ın aktif katalog listesi (statik küme + kurumun eklediği
+   * enstrümanlar) — verilmezse `INSTRUMENTS`'a düşer (geriye dönük uyumlu).
+   */
+  catalogInstruments?: string[];
 };
 
 const SLOT_MINUTES = 30;
@@ -425,6 +431,7 @@ export function ProgramStudio({
   initialStudentFilter,
   selectedTerm,
   selectedAcademicYearStart,
+  catalogInstruments,
 }: ProgramStudioProps) {
   const router = useRouter();
   const now = parseISO(todayIso);
@@ -523,7 +530,7 @@ export function ProgramStudio({
 
   const instrumentOptions = selectedStudent?.instruments.length
     ? selectedStudent.instruments
-    : INSTRUMENTS;
+    : (catalogInstruments?.length ? catalogInstruments : INSTRUMENTS) as Instrument[];
 
   const lessonStudentOptions = studentsForBranch(
     students.filter((s) => s.active),
@@ -563,7 +570,7 @@ export function ProgramStudio({
   const seriesSelectedTeacher = teachers.find((t) => t.id === seriesTeacherId);
   const seriesInstrumentOptions = seriesSelectedStudent?.instruments.length
     ? seriesSelectedStudent.instruments
-    : INSTRUMENTS;
+    : (catalogInstruments?.length ? catalogInstruments : INSTRUMENTS) as Instrument[];
   const seriesStudentOptions = studentsForBranch(
     students.filter((s) => s.active),
     seriesBranchId
