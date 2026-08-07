@@ -18,6 +18,7 @@ import { listAllHomework, listAllHomeworkSubmissions } from "@/lib/homework";
 import { listTeachingMaterials } from "@/lib/teaching-materials";
 import { listTeacherFeedback } from "@/lib/teacher-feedback";
 import { listAllCurriculumTopics } from "@/lib/curriculum";
+import { listAllTasks } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,9 @@ export const GET = withApiHandler(
         break;
       case "studentCurriculumTopics":
         extra.studentCurriculumTopics = await listAllCurriculumTopics(scope.tenantId);
+        break;
+      case "tasks":
+        extra.tasks = await listAllTasks(scope.tenantId);
         break;
       default:
         break;

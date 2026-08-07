@@ -128,7 +128,19 @@ export default async function StudentDetailPage({
       <PageHeader
         title={student.name}
         description={`${branch?.shortName ?? "—"} · ${student.packageName.split("—")[0]?.trim() ?? student.packageName}`}
-        actions={<StudentArchiveToggle studentId={student.id} active={student.active} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/panel/is-takip?newTaskStudentId=${student.id}&returnTo=${encodeURIComponent(
+                `/panel/ogrenciler/${student.id}`
+              )}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-bg)]"
+            >
+              Bu öğrenci için görev oluştur
+            </a>
+            <StudentArchiveToggle studentId={student.id} active={student.active} />
+          </div>
+        }
       />
 
       <Card className="mb-6 !p-4">

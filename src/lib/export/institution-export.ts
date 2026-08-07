@@ -17,6 +17,7 @@ import type {
   TeacherFeedback,
   TeachingMaterial,
   StudentCurriculumTopic,
+  Task,
 } from "../types";
 
 export type ExportEntity =
@@ -34,7 +35,8 @@ export type ExportEntity =
   | "homeworkSubmissions"
   | "teachingMaterials"
   | "teacherFeedback"
-  | "studentCurriculumTopics";
+  | "studentCurriculumTopics"
+  | "tasks";
 
 export const EXPORT_ENTITIES: ExportEntity[] = [
   "students",
@@ -52,6 +54,7 @@ export const EXPORT_ENTITIES: ExportEntity[] = [
   "teachingMaterials",
   "teacherFeedback",
   "studentCurriculumTopics",
+  "tasks",
 ];
 
 /**
@@ -72,6 +75,8 @@ export type StandaloneExportData = {
   teachingMaterials?: TeachingMaterial[];
   teacherFeedback?: TeacherFeedback[];
   studentCurriculumTopics?: StudentCurriculumTopic[];
+  /** İş Takip modülü — src/lib/tasks.ts, AppData'nın dışında tutulur. */
+  tasks?: Task[];
 };
 
 function csvCell(value: unknown): string {
@@ -450,6 +455,43 @@ export function buildInstitutionExport(
         updatedBy: t.updatedBy,
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
+      }))
+    );
+  }
+
+  if (entities.includes("tasks") && extra.tasks) {
+    out.tasks = toCsv(
+      [
+        "id",
+        "baslik",
+        "durum",
+        "oncelik",
+        "kategori",
+        "sorumluId",
+        "olusturanId",
+        "sonTarih",
+        "ilerlemeYuzde",
+        "ogrenciId",
+        "ogretmenId",
+        "sube",
+        "olusturmaTarihi",
+        "guncellemeTarihi",
+      ],
+      extra.tasks.map((t) => ({
+        id: t.id,
+        baslik: t.title,
+        durum: t.status,
+        oncelik: t.priority,
+        kategori: t.category,
+        sorumluId: t.assigneeId ?? "",
+        olusturanId: t.createdById,
+        sonTarih: t.dueDate ?? "",
+        ilerlemeYuzde: t.progressPercent,
+        ogrenciId: t.studentId ?? "",
+        ogretmenId: t.teacherId ?? "",
+        sube: t.branchId ? branchName(data, t.branchId) : "",
+        olusturmaTarihi: t.createdAt,
+        guncellemeTarihi: t.updatedAt,
       }))
     );
   }

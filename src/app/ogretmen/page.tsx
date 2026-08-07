@@ -304,6 +304,17 @@ export default async function OgretmenPortalPage() {
         </section>
 
         <section>
+          <Link href="/ogretmen/is-takip">
+            <Card className="!p-4 transition hover:border-cyan-200">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">İş Takip</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Size atanan/takipçisi olduğunuz görevler
+              </p>
+            </Card>
+          </Link>
+        </section>
+
+        <section>
           <Link href="/ogretmen/geri-bildirim">
             <Card className="!p-4 transition hover:border-cyan-200">
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geri Bildirim Özeti</p>

@@ -28,6 +28,7 @@ import {
   Palette,
   Package as PackageIcon,
   Music,
+  ListChecks,
 } from "lucide-react";
 
 export type PanelNavItem = {
@@ -53,6 +54,8 @@ export const PANEL_MAIN_NAV: PanelNavItem[] = [
 ];
 
 export const PANEL_OPS_NAV: PanelNavItem[] = [
+  /** İnsan-odaklı operasyon görev takibi — /panel/workflows (AI otomasyonu) ile İLGİSİZ, ayrı modül. */
+  { href: "/panel/is-takip", label: "İş Takip", icon: ListChecks },
   { href: "/panel/evraklar", label: "Evraklar", icon: FileText },
   { href: "/panel/deneme", label: "Deneme Dersleri", icon: FlaskConical },
   { href: "/panel/ders-duzeltme", label: "Ders düzeltme", icon: Wrench },

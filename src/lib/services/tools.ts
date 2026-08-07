@@ -210,6 +210,14 @@ import {
   socialMediaConsentSchema,
   createInstrumentCatalogSchema,
   updateInstrumentCatalogSchema,
+  createTaskSchema,
+  updateTaskSchema,
+  changeTaskStatusSchema,
+  addTaskChecklistItemSchema,
+  setTaskChecklistItemCompletedSchema,
+  archiveTaskChecklistItemSchema,
+  addTaskCommentSchema,
+  listTasksFilterSchema,
 } from "../validation";
 import {
   DEFAULT_COLLECTIONS_SETTINGS,
@@ -233,7 +241,30 @@ import {
   type TeacherFeeRule,
   type TeacherPayout,
   type TeachingMaterial,
+  type Task,
+  type TaskStatus,
+  type TaskChecklistItem,
+  type TaskComment,
+  type TaskActivity,
+  type TaskActivityAction,
+  OPEN_TASK_STATUSES,
 } from "../types";
+import {
+  createTask,
+  getTask,
+  listTasks,
+  updateTask,
+  addChecklistItem,
+  listChecklistItems,
+  setChecklistItemCompleted,
+  archiveChecklistItem,
+  addComment,
+  listComments,
+  addActivity,
+  listActivity,
+  clearTasks,
+  type TaskFilter,
+} from "../tasks";
 import {
   assertStudentAccess,
   canAccessStudent,
@@ -2972,11 +3003,94 @@ export async function resetDemoTool(
     await clearHomework(ctx.tenantId);
     await clearTeachingMaterials(ctx.tenantId);
     await clearTeacherFeedback(ctx.tenantId);
+    await clearTasksForTenant(ctx.tenantId);
+    await seedDemoTasks(ctx.tenantId);
     audit(ctx, "setup.reset_demo_data", "Tenant", ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");
   }
+}
+
+/**
+ * İş Takip demo örnekleri — yalnızca `resetDemoTool` (demo veri geri
+ * yükleme) çağırır; `resetToCleanTemplateTool` (boş şablon) ÇAĞIRMAZ, o
+ * kasıtlı olarak hiçbir örnek kayıt bırakmaz. Farklı durum/öncelik/
+ * kategori/sorumlu kombinasyonlarını göstermek için 5 görev — demo seed
+ * kimlikleriyle (t1/t2/s1/erzene) uyumlu, gerçek `createTask`/checklist/
+ * yorum akışının aynısını kullanır (paralel bir yol değil).
+ */
+async function seedDemoTasks(tenantId: string): Promise<void> {
+  const actor = "user_admin";
+  const t1 = await createTask({
+    tenantId,
+    title: "Yeni dönem kayıt formlarını gözden geçir",
+    description: "Güz dönemi kayıt formundaki T.C. kimlik alanı doğrulamasını kontrol et.",
+    priority: "HIGH",
+    category: "Kayıt",
+    assigneeId: "t1",
+    createdById: actor,
+    dueDate: new Date(Date.now() + 2 * 86400000).toISOString(),
+    tags: ["kayit", "form"],
+  });
+  await addChecklistItem(tenantId, t1.id, "Formu indir", 0);
+  await addChecklistItem(tenantId, t1.id, "T.C. alanını test et", 1);
+  await addActivity(tenantId, t1.id, actor, "created", `Görev oluşturuldu: "${t1.title}"`);
+
+  const t2 = await createTask({
+    tenantId,
+    title: "s5 için gecikmiş ödeme takibi",
+    description: "Veliyle iletişime geçip ödeme planı teyit edilecek.",
+    priority: "URGENT",
+    category: "Tahsilat",
+    assigneeId: "user_admin",
+    createdById: actor,
+    dueDate: new Date().toISOString(),
+    studentId: "s5",
+    tags: ["tahsilat"],
+  });
+  await updateTask(tenantId, t2.id, { status: "IN_PROGRESS" });
+  await addActivity(tenantId, t2.id, actor, "status_changed", "Durum: TODO → IN_PROGRESS");
+  await addComment(tenantId, t2.id, actor, "Veliyle bugün öğleden sonra görüşülecek.");
+  await addActivity(tenantId, t2.id, actor, "comment_added", "Yorum eklendi");
+
+  const t3 = await createTask({
+    tenantId,
+    title: "Piyano odası klima arızası",
+    description: "Erzene şubesi 1 numaralı stüdyoda klima çalışmıyor.",
+    priority: "MEDIUM",
+    category: "Teknik",
+    assigneeId: "user_admin",
+    createdById: actor,
+    branchId: "erzene",
+    tags: ["bakim"],
+  });
+  await addActivity(tenantId, t3.id, actor, "created", `Görev oluşturuldu: "${t3.title}"`);
+
+  const t4 = await createTask({
+    tenantId,
+    title: "t2 sözleşme yenileme evrakı",
+    description: "Öğretmen sözleşmesi ay sonunda bitiyor, yenileme evrakı hazırlanacak.",
+    priority: "LOW",
+    category: "Öğretmen",
+    assigneeId: "user_admin",
+    createdById: actor,
+    teacherId: "t2",
+    dueDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+  });
+  await addActivity(tenantId, t4.id, actor, "created", `Görev oluşturuldu: "${t4.title}"`);
+
+  const t5 = await createTask({
+    tenantId,
+    title: "Veli bilgilendirme toplantısı planı",
+    description: "Dönem sonu veli toplantısı için program/salon ayarlanacak.",
+    priority: "MEDIUM",
+    category: "Veli İletişimi",
+    assigneeId: "t1",
+    createdById: actor,
+  });
+  await updateTask(tenantId, t5.id, { status: "COMPLETED", completedAt: new Date().toISOString(), progressPercent: 100 });
+  await addActivity(tenantId, t5.id, actor, "completed", "Görev tamamlandı");
 }
 
 /**
@@ -3002,6 +3116,7 @@ export async function resetToCleanTemplateTool(
     await clearHomework(ctx.tenantId);
     await clearTeachingMaterials(ctx.tenantId);
     await clearTeacherFeedback(ctx.tenantId);
+    await clearTasksForTenant(ctx.tenantId);
     audit(ctx, "setup.reset_clean_template", "Tenant", ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
@@ -3890,6 +4005,595 @@ export async function setMonthlyPlanAmountTool(
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setMonthlyPlanAmount failed");
   }
+}
+
+// ─── İş Takip (Task) modülü ──────────────────────────────────────────────
+// /panel/is-takip (admin — tüm tenant), /ogretmen/is-takip (öğretmen —
+// yalnızca kendine atanan/takipçi olduğu görevler). `/panel/workflows`
+// (AI otomasyonu) ile İLGİSİZ, tamamen ayrı bir modül. Kalıcılık
+// src/lib/tasks.ts'te (AppData'nın DIŞINDA, additive).
+
+function isTaskAdminRole(role: ServiceContext["role"]): boolean {
+  return role === "SUPER_ADMIN" || role === "SCHOOL_ADMIN";
+}
+
+/** Bu aktörü tanımlayan olası kimlikler — hem User.id (ctx.userId) hem Teacher.id (ctx.teacherId). */
+function actorTaskIdentities(ctx: ServiceContext): string[] {
+  return [ctx.userId, ctx.teacherId].filter((v): v is string => !!v);
+}
+
+/**
+ * TEACHER görüş/işlem kapsamı: yalnızca sorumlu OLDUĞU veya takipçi olduğu
+ * görevler. `createdById` KASITLI OLARAK dahil değil — Faz 1'de yalnızca
+ * admin görev oluşturabilir (createTaskTool admin-only), bu yüzden bir
+ * TEACHER hiçbir zaman createdById olamaz; dahil etmek yalnızca test/ileride
+ * karışıklığa yol açar.
+ */
+function isTaskOwnedByActor(
+  task: Pick<Task, "assigneeId" | "followerIds" | "createdById">,
+  ctx: ServiceContext
+): boolean {
+  const ids = actorTaskIdentities(ctx);
+  return (
+    (!!task.assigneeId && ids.includes(task.assigneeId)) ||
+    task.followerIds.some((f) => ids.includes(f))
+  );
+}
+
+type TaskLinks = {
+  studentId?: string;
+  teacherId?: string;
+  branchId?: string;
+  lessonId?: string;
+  paymentId?: string;
+  documentId?: string;
+};
+
+/**
+ * Bağlı kayıtların (öğrenci/öğretmen/şube/ders/ödeme/evrak) AYNI tenant'a
+ * ait olduğunu doğrular — `readData()` zaten tenant-scoped döndürdüğü için
+ * cross-tenant bir ID burada asla "bulunamaz" görünür (IDOR'a kapalı,
+ * ayrıca bir tenantId karşılaştırması gerekmez).
+ */
+async function validateTaskLinks(ctx: ServiceContext, links: TaskLinks): Promise<ServiceResult<null>> {
+  const data = await readData();
+  if (links.studentId && !data.students.some((s) => s.id === links.studentId)) {
+    return fail("VALIDATION_ERROR", "Bağlı öğrenci bulunamadı veya bu kuruma ait değil.");
+  }
+  if (links.teacherId && !data.teachers.some((t) => t.id === links.teacherId)) {
+    return fail("VALIDATION_ERROR", "Bağlı öğretmen bulunamadı veya bu kuruma ait değil.");
+  }
+  if (links.branchId && !data.settings.branches.some((b) => b.id === links.branchId)) {
+    return fail("VALIDATION_ERROR", "Bağlı şube bulunamadı veya bu kuruma ait değil.");
+  }
+  if (links.lessonId && !data.lessons.some((l) => l.id === links.lessonId)) {
+    return fail("VALIDATION_ERROR", "Bağlı ders bulunamadı veya bu kuruma ait değil.");
+  }
+  if (links.paymentId && !data.payments.some((p) => p.id === links.paymentId)) {
+    return fail("VALIDATION_ERROR", "Bağlı ödeme bulunamadı veya bu kuruma ait değil.");
+  }
+  if (links.documentId) {
+    const { getDocumentInstance } = await import("../documents");
+    const doc = await getDocumentInstance(ctx.tenantId, links.documentId);
+    if (!doc) return fail("VALIDATION_ERROR", "Bağlı evrak bulunamadı veya bu kuruma ait değil.");
+  }
+  return ok(null);
+}
+
+/** Admin/TEACHER ortak — görev okuma erişimi olan roller. PARENT/STUDENT hiç erişemez. */
+const TASK_VIEW_ROLES: ServiceContext["role"][] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"];
+const TASK_ADMIN_ROLES: ServiceContext["role"][] = ["SUPER_ADMIN", "SCHOOL_ADMIN"];
+
+export async function createTaskTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ taskId: string }>> {
+  const auth = requireRole(ctx, TASK_ADMIN_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createTaskSchema, input);
+  if (!v.ok) return v;
+
+  const linkCheck = await validateTaskLinks(ctx, v.data);
+  if (!linkCheck.ok) return linkCheck;
+
+  try {
+    const task = await createTask({
+      tenantId: ctx.tenantId,
+      title: v.data.title,
+      description: v.data.description,
+      priority: v.data.priority,
+      category: v.data.category,
+      assigneeId: v.data.assigneeId,
+      followerIds: v.data.followerIds,
+      createdById: ctx.userId,
+      startDate: v.data.startDate,
+      dueDate: v.data.dueDate,
+      tags: v.data.tags,
+      studentId: v.data.studentId,
+      teacherId: v.data.teacherId,
+      branchId: v.data.branchId,
+      lessonId: v.data.lessonId,
+      paymentId: v.data.paymentId,
+      documentId: v.data.documentId,
+    });
+    await addActivity(ctx.tenantId, task.id, ctx.userId, "created", `Görev oluşturuldu: "${task.title}"`);
+    audit(ctx, "task.create", "Task", task.id, { category: task.category, priority: task.priority });
+    return ok({ taskId: task.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTask failed");
+  }
+}
+
+export type TaskWithMeta = Task;
+
+export async function listTasksTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ tasks: TaskWithMeta[] }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(listTasksFilterSchema, input);
+  if (!v.ok) return v;
+
+  const now = new Date();
+  const todayYmd = now.toISOString().slice(0, 10);
+  const weekAheadYmd = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+
+  const filter: TaskFilter = {
+    status: v.data.status,
+    priority: v.data.priority,
+    category: v.data.category,
+    assigneeId: v.data.assigneeId,
+    followerId: v.data.followerId,
+    branchId: v.data.branchId,
+    createdById: v.data.createdById,
+    tag: v.data.tag,
+    search: v.data.search,
+    dueBefore: v.data.dueBefore,
+    dueAfter: v.data.dueAfter,
+  };
+
+  // TEACHER (çalışan) her koşulda yalnızca kendi görevlerini görebilir —
+  // filtre ne olursa olsun bu daraltma UNUTULMAZ (IDOR'a kapalı).
+  if (!isTaskAdminRole(ctx.role)) {
+    filter.ownedByAny = actorTaskIdentities(ctx);
+  }
+
+  let tasks = await listTasks(ctx.tenantId, filter);
+
+  switch (v.data.quickFilter) {
+    case "mine":
+      tasks = tasks.filter(
+        (t) =>
+          actorTaskIdentities(ctx).includes(t.assigneeId ?? "") ||
+          t.followerIds.some((f) => actorTaskIdentities(ctx).includes(f))
+      );
+      break;
+    case "today":
+      tasks = tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) === todayYmd);
+      break;
+    case "week":
+      tasks = tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) >= todayYmd && t.dueDate.slice(0, 10) <= weekAheadYmd);
+      break;
+    case "overdue":
+      tasks = tasks.filter(
+        (t) => t.dueDate && t.dueDate.slice(0, 10) < todayYmd && OPEN_TASK_STATUSES.includes(t.status)
+      );
+      break;
+    case "completed":
+      tasks = tasks.filter((t) => t.status === "COMPLETED");
+      break;
+    case "archived":
+      tasks = tasks.filter((t) => t.status === "ARCHIVED");
+      break;
+    default:
+      break;
+  }
+
+  return ok({ tasks });
+}
+
+export async function getTaskKpiSummaryTool(
+  ctx: ServiceContext
+): Promise<
+  ServiceResult<{
+    openCount: number;
+    assignedToMeCount: number;
+    dueTodayCount: number;
+    overdueCount: number;
+    completedThisWeekCount: number;
+  }>
+> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const filter: TaskFilter = isTaskAdminRole(ctx.role) ? {} : { ownedByAny: actorTaskIdentities(ctx) };
+  const tasks = await listTasks(ctx.tenantId, filter);
+
+  const now = new Date();
+  const todayYmd = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
+  const myIds = actorTaskIdentities(ctx);
+
+  return ok({
+    openCount: tasks.filter((t) => OPEN_TASK_STATUSES.includes(t.status)).length,
+    assignedToMeCount: tasks.filter((t) => t.assigneeId && myIds.includes(t.assigneeId)).length,
+    dueTodayCount: tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) === todayYmd).length,
+    overdueCount: tasks.filter(
+      (t) => t.dueDate && t.dueDate.slice(0, 10) < todayYmd && OPEN_TASK_STATUSES.includes(t.status)
+    ).length,
+    completedThisWeekCount: tasks.filter((t) => t.status === "COMPLETED" && t.completedAt && t.completedAt >= weekAgo)
+      .length,
+  });
+}
+
+async function assertTaskViewAccess(ctx: ServiceContext, taskId: string): Promise<ServiceResult<Task>> {
+  const task = await getTask(ctx.tenantId, taskId);
+  if (!task) return fail("NOT_FOUND", "Görev bulunamadı");
+  if (!isTaskAdminRole(ctx.role) && !isTaskOwnedByActor(task, ctx)) {
+    return fail("FORBIDDEN", "Yalnızca size atanan veya takipçisi olduğunuz görevleri görebilirsiniz.");
+  }
+  return ok(task);
+}
+
+export async function getTaskTool(ctx: ServiceContext, input: unknown): Promise<ServiceResult<{ task: Task }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ taskId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskViewAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+  return ok({ task: access.data });
+}
+
+export async function getTaskDetailTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<
+  ServiceResult<{
+    task: Task;
+    checklist: TaskChecklistItem[];
+    comments: TaskComment[];
+    activity: TaskActivity[];
+  }>
+> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ taskId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskViewAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  const [checklist, comments, activity] = await Promise.all([
+    listChecklistItems(ctx.tenantId, v.data.taskId),
+    listComments(ctx.tenantId, v.data.taskId),
+    listActivity(ctx.tenantId, v.data.taskId),
+  ]);
+  return ok({ task: access.data, checklist, comments, activity });
+}
+
+/** TEACHER'ın kendi görevinde değiştirebileceği TEK alan seti — sorumlu/takipçi/tarih/bağlam DIŞARIDA. */
+const TEACHER_EDITABLE_TASK_FIELDS = new Set(["status", "progressPercent"]);
+
+export async function updateTaskTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ taskId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateTaskSchema, input);
+  if (!v.ok) return v;
+
+  const task = await getTask(ctx.tenantId, v.data.taskId);
+  if (!task) return fail("NOT_FOUND", "Görev bulunamadı");
+
+  const isAdmin = isTaskAdminRole(ctx.role);
+  if (!isAdmin) {
+    if (!isTaskOwnedByActor(task, ctx)) {
+      return fail("FORBIDDEN", "Yalnızca size atanan veya takipçisi olduğunuz görevleri güncelleyebilirsiniz.");
+    }
+    const { taskId: _taskId, ...patchFields } = v.data;
+    void _taskId;
+    const attemptedFields = Object.keys(patchFields).filter(
+      (k) => (patchFields as Record<string, unknown>)[k] !== undefined
+    );
+    const disallowed = attemptedFields.filter((f) => !TEACHER_EDITABLE_TASK_FIELDS.has(f));
+    if (disallowed.length > 0) {
+      return fail(
+        "FORBIDDEN",
+        `Bu alanları yalnızca yönetici değiştirebilir: ${disallowed.join(", ")}.`
+      );
+    }
+    // TEACHER, CANCELLED/ARCHIVED'e bu genel güncelleme yoluyla geçemez —
+    // bunlar yalnızca changeTaskStatusTool üzerinden, admin-only aksiyonlardır.
+    if (v.data.status && (v.data.status === "CANCELLED" || v.data.status === "ARCHIVED")) {
+      return fail("FORBIDDEN", "İptal/arşivleme yalnızca yönetici tarafından yapılabilir.");
+    }
+  }
+
+  if (v.data.studentId || v.data.teacherId || v.data.branchId || v.data.lessonId || v.data.paymentId || v.data.documentId) {
+    const linkCheck = await validateTaskLinks(ctx, v.data);
+    if (!linkCheck.ok) return linkCheck;
+  }
+
+  const changeSummaries: string[] = [];
+  if (v.data.status && v.data.status !== task.status) changeSummaries.push(`Durum: ${task.status} → ${v.data.status}`);
+  if (v.data.priority && v.data.priority !== task.priority) changeSummaries.push(`Öncelik: ${task.priority} → ${v.data.priority}`);
+  if (v.data.category && v.data.category !== task.category) changeSummaries.push(`Kategori: ${task.category} → ${v.data.category}`);
+  if ("assigneeId" in v.data && v.data.assigneeId !== task.assigneeId) {
+    changeSummaries.push(`Sorumlu değişti`);
+  }
+  if (v.data.dueDate !== undefined && v.data.dueDate !== task.dueDate) changeSummaries.push(`Son tarih güncellendi`);
+
+  try {
+    const patch: Parameters<typeof updateTask>[2] = {};
+    if (v.data.title !== undefined) patch.title = v.data.title;
+    if (v.data.description !== undefined) patch.description = v.data.description;
+    if (v.data.status !== undefined) patch.status = v.data.status;
+    if (v.data.priority !== undefined) patch.priority = v.data.priority;
+    if (v.data.category !== undefined) patch.category = v.data.category;
+    if ("assigneeId" in v.data) patch.assigneeId = v.data.assigneeId ?? undefined;
+    if (v.data.followerIds !== undefined) patch.followerIds = v.data.followerIds;
+    if ("startDate" in v.data) patch.startDate = v.data.startDate ?? undefined;
+    if ("dueDate" in v.data) patch.dueDate = v.data.dueDate ?? undefined;
+    if (v.data.progressPercent !== undefined) patch.progressPercent = v.data.progressPercent;
+    if (v.data.tags !== undefined) patch.tags = v.data.tags;
+    if (v.data.studentId !== undefined) patch.studentId = v.data.studentId;
+    if (v.data.teacherId !== undefined) patch.teacherId = v.data.teacherId;
+    if (v.data.branchId !== undefined) patch.branchId = v.data.branchId;
+    if (v.data.lessonId !== undefined) patch.lessonId = v.data.lessonId;
+    if (v.data.paymentId !== undefined) patch.paymentId = v.data.paymentId;
+    if (v.data.documentId !== undefined) patch.documentId = v.data.documentId;
+    // Tamamlandı statüsüne genel güncelleme yoluyla geçilirse completedAt atanır
+    // (changeTaskStatusTool ile aynı davranış — tek kaynak).
+    if (v.data.status === "COMPLETED" && !task.completedAt) patch.completedAt = new Date().toISOString();
+
+    const updated = await updateTask(ctx.tenantId, v.data.taskId, patch);
+    if (!updated) return fail("NOT_FOUND", "Görev bulunamadı");
+
+    for (const summary of changeSummaries) {
+      await addActivity(ctx.tenantId, updated.id, ctx.userId, "field_updated", summary);
+    }
+    if (changeSummaries.length === 0) {
+      await addActivity(ctx.tenantId, updated.id, ctx.userId, "field_updated", "Görev güncellendi");
+    }
+    audit(ctx, "task.update", "Task", updated.id, { changedFields: Object.keys(patch) });
+    return ok({ taskId: updated.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTask failed");
+  }
+}
+
+/**
+ * Yaşam döngüsü aksiyonları: tamamla/iptal/arşivle/yeniden aç + TEACHER'ın
+ * izinli statüler arası geçişi (set_status — CANCELLED/ARCHIVED HARİÇ).
+ * Görevler ASLA silinmez.
+ */
+export async function changeTaskStatusTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ taskId: string; status: TaskStatus }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(changeTaskStatusSchema, input);
+  if (!v.ok) return v;
+
+  const task = await getTask(ctx.tenantId, v.data.taskId);
+  if (!task) return fail("NOT_FOUND", "Görev bulunamadı");
+
+  const isAdmin = isTaskAdminRole(ctx.role);
+  if (!isAdmin) {
+    if (!isTaskOwnedByActor(task, ctx)) {
+      return fail("FORBIDDEN", "Yalnızca size atanan veya takipçisi olduğunuz görevleri güncelleyebilirsiniz.");
+    }
+    if (v.data.action !== "set_status") {
+      return fail("FORBIDDEN", "Tamamlandı-dışı iptal/arşiv/yeniden-aç yalnızca yönetici tarafından yapılabilir.");
+    }
+    if (v.data.status === "CANCELLED" || v.data.status === "ARCHIVED") {
+      return fail("FORBIDDEN", "İptal/arşivleme yalnızca yönetici tarafından yapılabilir.");
+    }
+  }
+
+  const now = new Date().toISOString();
+  let nextStatus: TaskStatus;
+  const patch: Parameters<typeof updateTask>[2] = {};
+  let activityAction: TaskActivityAction;
+  let activitySummary: string;
+
+  switch (v.data.action) {
+    case "complete":
+      nextStatus = "COMPLETED";
+      patch.status = nextStatus;
+      patch.completedAt = now;
+      patch.progressPercent = 100;
+      activityAction = "completed";
+      activitySummary = "Görev tamamlandı";
+      break;
+    case "cancel":
+      nextStatus = "CANCELLED";
+      patch.status = nextStatus;
+      patch.cancelledAt = now;
+      activityAction = "cancelled";
+      activitySummary = "Görev iptal edildi";
+      break;
+    case "archive":
+      nextStatus = "ARCHIVED";
+      patch.status = nextStatus;
+      patch.archivedAt = now;
+      activityAction = "archived";
+      activitySummary = "Görev arşivlendi";
+      break;
+    case "reopen":
+      nextStatus = "TODO";
+      patch.status = nextStatus;
+      patch.completedAt = undefined;
+      patch.cancelledAt = undefined;
+      patch.archivedAt = undefined;
+      activityAction = "reopened";
+      activitySummary = "Görev yeniden açıldı";
+      break;
+    case "set_status": {
+      if (!v.data.status) return fail("VALIDATION_ERROR", "status gerekli");
+      nextStatus = v.data.status;
+      patch.status = nextStatus;
+      if (nextStatus === "COMPLETED") {
+        patch.completedAt = now;
+        patch.progressPercent = 100;
+      }
+      activityAction = "status_changed";
+      activitySummary = `Durum: ${task.status} → ${nextStatus}`;
+      break;
+    }
+    default:
+      return fail("VALIDATION_ERROR", "Geçersiz aksiyon");
+  }
+
+  try {
+    const updated = await updateTask(ctx.tenantId, v.data.taskId, patch);
+    if (!updated) return fail("NOT_FOUND", "Görev bulunamadı");
+    await addActivity(ctx.tenantId, updated.id, ctx.userId, activityAction, activitySummary);
+    audit(ctx, `task.${v.data.action}`, "Task", updated.id, { fromStatus: task.status, toStatus: nextStatus });
+    return ok({ taskId: updated.id, status: nextStatus });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "changeTaskStatus failed");
+  }
+}
+
+async function assertTaskWriteAccess(ctx: ServiceContext, taskId: string): Promise<ServiceResult<Task>> {
+  const task = await getTask(ctx.tenantId, taskId);
+  if (!task) return fail("NOT_FOUND", "Görev bulunamadı");
+  if (!isTaskAdminRole(ctx.role) && !isTaskOwnedByActor(task, ctx)) {
+    return fail("FORBIDDEN", "Yalnızca size atanan veya takipçisi olduğunuz görevlerde işlem yapabilirsiniz.");
+  }
+  return ok(task);
+}
+
+export async function addTaskChecklistItemTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ itemId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(addTaskChecklistItemSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const existing = await listChecklistItems(ctx.tenantId, v.data.taskId);
+    const item = await addChecklistItem(ctx.tenantId, v.data.taskId, v.data.title, existing.length);
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "checklist_added", `Checklist eklendi: "${item.title}"`);
+    audit(ctx, "task.checklist.add", "Task", v.data.taskId, { itemId: item.id });
+    return ok({ itemId: item.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "addTaskChecklistItem failed");
+  }
+}
+
+/**
+ * İlerleme kuralı: `progressPercent` normalde MANUEL alandır (admin
+ * doğrudan set eder, veya statü COMPLETED olunca 100'e sabitlenir).
+ * Checklist her TIK'lamada otomatik ilerleme YENİDEN HESAPLAMAZ (bir
+ * admin ağırlıklı/özel bir yüzde belirlemiş olabilir, sürpriz üzerine
+ * yazma istemeyiz). TEK istisna, açık gereksinim gereği: bir checklist
+ * ÖĞESİ TAMAMLANDIĞINDA, eğer bu görevin TÜM checklist öğeleri artık
+ * tamamlanmışsa, ilerleme 100'e sabitlenir (mantıklı tamamlanma sinyali).
+ * Bunun TERSİ uygulanmaz — bir öğeyi geri açmak ilerlemeyi geri DÜŞÜRMEZ
+ * (checklist "tekrar aç" kullanımı sık, ilerlemeyi dalgalandırmak kafa
+ * karıştırır) — yalnızca admin manuel olarak düşürebilir.
+ */
+export async function setTaskChecklistItemCompletedTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ itemId: string; allCompleted: boolean }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(setTaskChecklistItemCompletedSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const updatedItem = await setChecklistItemCompleted(ctx.tenantId, v.data.itemId, v.data.isCompleted, ctx.userId);
+    if (!updatedItem) return fail("NOT_FOUND", "Checklist öğesi bulunamadı");
+
+    const items = await listChecklistItems(ctx.tenantId, v.data.taskId);
+    const allCompleted = items.length > 0 && items.every((i) => i.isCompleted);
+    if (v.data.isCompleted && allCompleted) {
+      await updateTask(ctx.tenantId, v.data.taskId, { progressPercent: 100 });
+    }
+
+    await addActivity(
+      ctx.tenantId,
+      v.data.taskId,
+      ctx.userId,
+      "checklist_updated",
+      `Checklist "${updatedItem.title}" ${v.data.isCompleted ? "tamamlandı" : "yeniden açıldı"}`
+    );
+    audit(ctx, "task.checklist.toggle", "Task", v.data.taskId, { itemId: v.data.itemId, isCompleted: v.data.isCompleted });
+    return ok({ itemId: updatedItem.id, allCompleted });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setTaskChecklistItemCompleted failed");
+  }
+}
+
+/** Soft-archive — hard delete yok (checklist "silme" burada arşivlemedir). */
+export async function archiveTaskChecklistItemTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ itemId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(archiveTaskChecklistItemSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const removed = await archiveChecklistItem(ctx.tenantId, v.data.itemId);
+    if (!removed) return fail("NOT_FOUND", "Checklist öğesi bulunamadı");
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "checklist_removed", "Checklist öğesi kaldırıldı");
+    audit(ctx, "task.checklist.archive", "Task", v.data.taskId, { itemId: v.data.itemId });
+    return ok({ itemId: v.data.itemId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveTaskChecklistItem failed");
+  }
+}
+
+export async function addTaskCommentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ commentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(addTaskCommentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const comment = await addComment(ctx.tenantId, v.data.taskId, ctx.userId, v.data.body);
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "comment_added", "Yorum eklendi");
+    audit(ctx, "task.comment.add", "Task", v.data.taskId, { commentId: comment.id });
+    return ok({ commentId: comment.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "addTaskComment failed");
+  }
+}
+
+/** Demo/Kurulum Merkezi sıfırlaması — resetDemoTool/resetToCleanTemplateTool tarafından çağrılır. */
+export async function clearTasksForTenant(tenantId: string): Promise<void> {
+  await clearTasks(tenantId);
 }
 
 export const TOOL_CATALOG = [

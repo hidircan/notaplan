@@ -1,0 +1,633 @@
+/**
+ * İş Takip modülü (insan-odaklı operasyon görev takibi) — kalıcılık katmanı.
+ * `/panel/is-takip`, `/ogretmen/is-takip` bu modülü kullanır. `/panel/workflows`
+ * (AI otomasyonu) ile İLGİSİZ, ayrı bir modül.
+ *
+ * STORE_MODE=db  → Prisma Task/TaskChecklistItem/TaskComment/TaskActivity
+ * STORE_MODE=json/memory → tek bir dosya tabanlı store (demo) — aynı desen:
+ * src/lib/teacher-availability.ts, src/lib/announcements/index.ts.
+ *
+ * Bu modül AppData'nın (src/lib/store.ts) DIŞINDADIR — additive, mevcut
+ * store şemasına dokunmaz. Tenant izolasyonu HER fonksiyonda `tenantId`
+ * parametresiyle zorunludur (çağıran taraf — tools.ts — bunu ctx.tenantId'den
+ * geçirir, asla istemciden gelen bir değerden değil).
+ */
+
+import path from "path";
+import { isDbMode, resolveDataDir } from "./config";
+import { uid } from "./utils";
+import type {
+  Task,
+  TaskStatus,
+  TaskPriority,
+  TaskCategory,
+  TaskChecklistItem,
+  TaskComment,
+  TaskActivity,
+  TaskActivityAction,
+} from "./types";
+
+const FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "tasks.json");
+
+/** Test cleanup için dışa açık — bu modülün yazdığı dosyayla aynı yol. */
+export const TASKS_FILE = FILE;
+
+type StoredTask = Task & { tenantId: string };
+type StoredChecklistItem = TaskChecklistItem & { tenantId: string };
+type StoredComment = TaskComment & { tenantId: string };
+type StoredActivity = TaskActivity & { tenantId: string };
+
+type StoreShape = {
+  tasks: StoredTask[];
+  checklist: StoredChecklistItem[];
+  comments: StoredComment[];
+  activity: StoredActivity[];
+};
+
+const EMPTY: StoreShape = { tasks: [], checklist: [], comments: [], activity: [] };
+
+async function loadAll(): Promise<StoreShape> {
+  try {
+    const fs = await import("fs/promises");
+    const raw = await fs.readFile(FILE, "utf8");
+    const parsed = JSON.parse(raw) as Partial<StoreShape>;
+    return {
+      tasks: parsed.tasks ?? [],
+      checklist: parsed.checklist ?? [],
+      comments: parsed.comments ?? [],
+      activity: parsed.activity ?? [],
+    };
+  } catch {
+    return { ...EMPTY };
+  }
+}
+
+async function saveAll(shape: StoreShape): Promise<void> {
+  const fs = await import("fs/promises");
+  await fs.mkdir(path.dirname(FILE), { recursive: true });
+  await fs.writeFile(FILE, JSON.stringify(shape, null, 2));
+}
+
+function toPublicTask(t: StoredTask): Task {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tenantId, ...rest } = t;
+  return rest;
+}
+function toPublicChecklist(c: StoredChecklistItem): TaskChecklistItem {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tenantId, ...rest } = c;
+  return rest;
+}
+function toPublicComment(c: StoredComment): TaskComment {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tenantId, ...rest } = c;
+  return rest;
+}
+function toPublicActivity(a: StoredActivity): TaskActivity {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tenantId, ...rest } = a;
+  return rest;
+}
+
+// ─── Task ──────────────────────────────────────────────────────────────
+
+export type CreateTaskInput = {
+  tenantId: string;
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  category: TaskCategory;
+  assigneeId?: string;
+  followerIds?: string[];
+  createdById: string;
+  startDate?: string;
+  dueDate?: string;
+  tags?: string[];
+  studentId?: string;
+  teacherId?: string;
+  branchId?: string;
+  lessonId?: string;
+  paymentId?: string;
+  documentId?: string;
+};
+
+async function dbTask() {
+  const { prisma } = await import("./db");
+  return prisma;
+}
+
+function mapDbTask(r: {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  category: string;
+  assigneeId: string | null;
+  followerIds: unknown;
+  createdById: string;
+  startDate: Date | null;
+  dueDate: Date | null;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  archivedAt: Date | null;
+  progressPercent: number;
+  tags: unknown;
+  studentId: string | null;
+  teacherId: string | null;
+  branchId: string | null;
+  lessonId: string | null;
+  paymentId: string | null;
+  documentId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): StoredTask {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    title: r.title,
+    description: r.description ?? undefined,
+    status: r.status as TaskStatus,
+    priority: r.priority as TaskPriority,
+    category: r.category as TaskCategory,
+    assigneeId: r.assigneeId ?? undefined,
+    followerIds: (r.followerIds as string[] | null) ?? [],
+    createdById: r.createdById,
+    startDate: r.startDate?.toISOString(),
+    dueDate: r.dueDate?.toISOString(),
+    completedAt: r.completedAt?.toISOString(),
+    cancelledAt: r.cancelledAt?.toISOString(),
+    archivedAt: r.archivedAt?.toISOString(),
+    progressPercent: r.progressPercent,
+    tags: (r.tags as string[] | null) ?? [],
+    studentId: r.studentId ?? undefined,
+    teacherId: r.teacherId ?? undefined,
+    branchId: (r.branchId as StoredTask["branchId"]) ?? undefined,
+    lessonId: r.lessonId ?? undefined,
+    paymentId: r.paymentId ?? undefined,
+    documentId: r.documentId ?? undefined,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+export async function createTask(input: CreateTaskInput): Promise<Task> {
+  const now = new Date().toISOString();
+  const record: StoredTask = {
+    id: uid("task"),
+    tenantId: input.tenantId,
+    title: input.title,
+    description: input.description,
+    status: "TODO",
+    priority: input.priority,
+    category: input.category,
+    assigneeId: input.assigneeId,
+    followerIds: input.followerIds ?? [],
+    createdById: input.createdById,
+    startDate: input.startDate,
+    dueDate: input.dueDate,
+    progressPercent: 0,
+    tags: input.tags ?? [],
+    studentId: input.studentId,
+    teacherId: input.teacherId,
+    branchId: input.branchId as StoredTask["branchId"],
+    lessonId: input.lessonId,
+    paymentId: input.paymentId,
+    documentId: input.documentId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.task.create({
+      data: {
+        id: record.id,
+        tenantId: record.tenantId,
+        title: record.title,
+        description: record.description ?? null,
+        status: record.status,
+        priority: record.priority,
+        category: record.category,
+        assigneeId: record.assigneeId ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        followerIds: record.followerIds as any,
+        createdById: record.createdById,
+        startDate: record.startDate ? new Date(record.startDate) : null,
+        dueDate: record.dueDate ? new Date(record.dueDate) : null,
+        progressPercent: 0,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tags: record.tags as any,
+        studentId: record.studentId ?? null,
+        teacherId: record.teacherId ?? null,
+        branchId: record.branchId ?? null,
+        lessonId: record.lessonId ?? null,
+        paymentId: record.paymentId ?? null,
+        documentId: record.documentId ?? null,
+      },
+    });
+    return toPublicTask(mapDbTask(row));
+  }
+  const all = await loadAll();
+  await saveAll({ ...all, tasks: [...all.tasks, record] });
+  return toPublicTask(record);
+}
+
+export async function getTask(tenantId: string, id: string): Promise<Task | null> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.task.findFirst({ where: { id, tenantId } });
+    return row ? toPublicTask(mapDbTask(row)) : null;
+  }
+  const all = await loadAll();
+  const found = all.tasks.find((t) => t.id === id && t.tenantId === tenantId);
+  return found ? toPublicTask(found) : null;
+}
+
+export type TaskFilter = {
+  status?: TaskStatus[];
+  priority?: TaskPriority;
+  category?: TaskCategory;
+  assigneeId?: string;
+  followerId?: string;
+  branchId?: string;
+  createdById?: string;
+  tag?: string;
+  search?: string;
+  dueBefore?: string;
+  dueAfter?: string;
+  /** Yalnızca bu kullanıcının sorumlu OLDUĞU veya takipçi olduğu görevler (RBAC daraltması — tool katmanı geçirir). */
+  ownedByAny?: string[];
+};
+
+function matchesFilter(t: StoredTask, filter?: TaskFilter): boolean {
+  if (!filter) return true;
+  if (filter.status && filter.status.length > 0 && !filter.status.includes(t.status)) return false;
+  if (filter.priority && t.priority !== filter.priority) return false;
+  if (filter.category && t.category !== filter.category) return false;
+  if (filter.assigneeId && t.assigneeId !== filter.assigneeId) return false;
+  if (filter.followerId && !t.followerIds.includes(filter.followerId)) return false;
+  if (filter.branchId && t.branchId !== filter.branchId) return false;
+  if (filter.createdById && t.createdById !== filter.createdById) return false;
+  if (filter.tag && !t.tags.includes(filter.tag)) return false;
+  if (filter.dueBefore && (!t.dueDate || t.dueDate > filter.dueBefore)) return false;
+  if (filter.dueAfter && (!t.dueDate || t.dueDate < filter.dueAfter)) return false;
+  if (filter.search) {
+    const q = filter.search.toLocaleLowerCase("tr");
+    const hay = `${t.title} ${t.description ?? ""}`.toLocaleLowerCase("tr");
+    if (!hay.includes(q)) return false;
+  }
+  if (filter.ownedByAny && filter.ownedByAny.length > 0) {
+    // Yalnızca sorumlu VEYA takipçi — "createdById" KASITLI OLARAK dahil
+    // değil: Faz 1'de yalnızca admin görev oluşturabilir (TEACHER asla
+    // createdById olamaz), bu yüzden görünürlük tam olarak spesifikasyondaki
+    // "sadece kendine atanan/takipçi olduğu görevler" ile eşleşir.
+    const owned =
+      (t.assigneeId && filter.ownedByAny.includes(t.assigneeId)) ||
+      t.followerIds.some((f) => filter.ownedByAny!.includes(f));
+    if (!owned) return false;
+  }
+  return true;
+}
+
+export async function listTasks(tenantId: string, filter?: TaskFilter): Promise<Task[]> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const rows = await prisma.task.findMany({ where: { tenantId }, orderBy: { updatedAt: "desc" } });
+    return rows.map((r) => toPublicTask(mapDbTask(r))).filter((t) => matchesFilter({ ...t, tenantId }, filter));
+  }
+  const all = await loadAll();
+  return all.tasks
+    .filter((t) => t.tenantId === tenantId && matchesFilter(t, filter))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map(toPublicTask);
+}
+
+export type UpdateTaskInput = Partial<
+  Pick<
+    Task,
+    | "title"
+    | "description"
+    | "status"
+    | "priority"
+    | "category"
+    | "assigneeId"
+    | "followerIds"
+    | "startDate"
+    | "dueDate"
+    | "completedAt"
+    | "cancelledAt"
+    | "archivedAt"
+    | "progressPercent"
+    | "tags"
+    | "studentId"
+    | "teacherId"
+    | "branchId"
+    | "lessonId"
+    | "paymentId"
+    | "documentId"
+  >
+>;
+
+export async function updateTask(
+  tenantId: string,
+  id: string,
+  patch: UpdateTaskInput
+): Promise<Task | null> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const existing = await prisma.task.findFirst({ where: { id, tenantId } });
+    if (!existing) return null;
+    const row = await prisma.task.update({
+      where: { id },
+      data: {
+        ...("title" in patch ? { title: patch.title } : {}),
+        ...("description" in patch ? { description: patch.description ?? null } : {}),
+        ...("status" in patch ? { status: patch.status } : {}),
+        ...("priority" in patch ? { priority: patch.priority } : {}),
+        ...("category" in patch ? { category: patch.category } : {}),
+        ...("assigneeId" in patch ? { assigneeId: patch.assigneeId ?? null } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...("followerIds" in patch ? { followerIds: patch.followerIds as any } : {}),
+        ...("startDate" in patch ? { startDate: patch.startDate ? new Date(patch.startDate) : null } : {}),
+        ...("dueDate" in patch ? { dueDate: patch.dueDate ? new Date(patch.dueDate) : null } : {}),
+        ...("completedAt" in patch ? { completedAt: patch.completedAt ? new Date(patch.completedAt) : null } : {}),
+        ...("cancelledAt" in patch ? { cancelledAt: patch.cancelledAt ? new Date(patch.cancelledAt) : null } : {}),
+        ...("archivedAt" in patch ? { archivedAt: patch.archivedAt ? new Date(patch.archivedAt) : null } : {}),
+        ...("progressPercent" in patch ? { progressPercent: patch.progressPercent } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...("tags" in patch ? { tags: patch.tags as any } : {}),
+        ...("studentId" in patch ? { studentId: patch.studentId ?? null } : {}),
+        ...("teacherId" in patch ? { teacherId: patch.teacherId ?? null } : {}),
+        ...("branchId" in patch ? { branchId: patch.branchId ?? null } : {}),
+        ...("lessonId" in patch ? { lessonId: patch.lessonId ?? null } : {}),
+        ...("paymentId" in patch ? { paymentId: patch.paymentId ?? null } : {}),
+        ...("documentId" in patch ? { documentId: patch.documentId ?? null } : {}),
+      },
+    });
+    return toPublicTask(mapDbTask(row));
+  }
+  const all = await loadAll();
+  const idx = all.tasks.findIndex((t) => t.id === id && t.tenantId === tenantId);
+  if (idx === -1) return null;
+  const updated: StoredTask = { ...all.tasks[idx], ...patch, updatedAt: now };
+  const nextTasks = [...all.tasks];
+  nextTasks[idx] = updated;
+  await saveAll({ ...all, tasks: nextTasks });
+  return toPublicTask(updated);
+}
+
+async function clearTasksDb(tenantId: string): Promise<void> {
+  const prisma = await dbTask();
+  await prisma.task.deleteMany({ where: { tenantId } });
+}
+
+/** Demo/kurulum sıfırlaması için — tenant'ın TÜM görev verisini (checklist/yorum/aktivite dahil) siler. */
+export async function clearTasks(tenantId: string): Promise<void> {
+  if (isDbMode) return clearTasksDb(tenantId);
+  const all = await loadAll();
+  await saveAll({
+    tasks: all.tasks.filter((t) => t.tenantId !== tenantId),
+    checklist: all.checklist.filter((c) => c.tenantId !== tenantId),
+    comments: all.comments.filter((c) => c.tenantId !== tenantId),
+    activity: all.activity.filter((a) => a.tenantId !== tenantId),
+  });
+}
+
+/** Kurum dışa aktarımı için — tenant'ın tüm görevleri. */
+export async function listAllTasks(tenantId: string): Promise<Task[]> {
+  return listTasks(tenantId);
+}
+
+// ─── Checklist ─────────────────────────────────────────────────────────
+
+function mapDbChecklist(r: {
+  id: string;
+  taskId: string;
+  tenantId: string;
+  title: string;
+  isCompleted: boolean;
+  sortOrder: number;
+  completedAt: Date | null;
+  completedById: string | null;
+  archivedAt: Date | null;
+}): StoredChecklistItem {
+  return {
+    id: r.id,
+    taskId: r.taskId,
+    tenantId: r.tenantId,
+    title: r.title,
+    isCompleted: r.isCompleted,
+    sortOrder: r.sortOrder,
+    completedAt: r.completedAt?.toISOString(),
+    completedById: r.completedById ?? undefined,
+    archivedAt: r.archivedAt?.toISOString(),
+  };
+}
+
+export async function addChecklistItem(
+  tenantId: string,
+  taskId: string,
+  title: string,
+  sortOrder: number
+): Promise<TaskChecklistItem> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskChecklistItem.create({
+      data: { id: uid("chk"), taskId, tenantId, title, isCompleted: false, sortOrder },
+    });
+    return toPublicChecklist(mapDbChecklist(row));
+  }
+  const all = await loadAll();
+  const record: StoredChecklistItem = {
+    id: uid("chk"),
+    taskId,
+    tenantId,
+    title,
+    isCompleted: false,
+    sortOrder,
+  };
+  await saveAll({ ...all, checklist: [...all.checklist, record] });
+  return toPublicChecklist(record);
+}
+
+export async function listChecklistItems(tenantId: string, taskId: string): Promise<TaskChecklistItem[]> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const rows = await prisma.taskChecklistItem.findMany({
+      where: { tenantId, taskId, archivedAt: null },
+      orderBy: { sortOrder: "asc" },
+    });
+    return rows.map((r) => toPublicChecklist(mapDbChecklist(r)));
+  }
+  const all = await loadAll();
+  return all.checklist
+    .filter((c) => c.tenantId === tenantId && c.taskId === taskId && !c.archivedAt)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(toPublicChecklist);
+}
+
+export async function setChecklistItemCompleted(
+  tenantId: string,
+  itemId: string,
+  isCompleted: boolean,
+  completedById: string
+): Promise<TaskChecklistItem | null> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const existing = await prisma.taskChecklistItem.findFirst({ where: { id: itemId, tenantId } });
+    if (!existing) return null;
+    const row = await prisma.taskChecklistItem.update({
+      where: { id: itemId },
+      data: {
+        isCompleted,
+        completedAt: isCompleted ? new Date() : null,
+        completedById: isCompleted ? completedById : null,
+      },
+    });
+    return toPublicChecklist(mapDbChecklist(row));
+  }
+  const all = await loadAll();
+  const idx = all.checklist.findIndex((c) => c.id === itemId && c.tenantId === tenantId);
+  if (idx === -1) return null;
+  const updated: StoredChecklistItem = {
+    ...all.checklist[idx],
+    isCompleted,
+    completedAt: isCompleted ? now : undefined,
+    completedById: isCompleted ? completedById : undefined,
+  };
+  const next = [...all.checklist];
+  next[idx] = updated;
+  await saveAll({ ...all, checklist: next });
+  return toPublicChecklist(updated);
+}
+
+/** Soft-archive — hard delete yok (madde C gereksinimi). */
+export async function archiveChecklistItem(tenantId: string, itemId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const result = await prisma.taskChecklistItem.updateMany({
+      where: { id: itemId, tenantId },
+      data: { archivedAt: new Date() },
+    });
+    return result.count > 0;
+  }
+  const all = await loadAll();
+  const idx = all.checklist.findIndex((c) => c.id === itemId && c.tenantId === tenantId);
+  if (idx === -1) return false;
+  const next = [...all.checklist];
+  next[idx] = { ...next[idx], archivedAt: now };
+  await saveAll({ ...all, checklist: next });
+  return true;
+}
+
+// ─── Comments ──────────────────────────────────────────────────────────
+
+function mapDbComment(r: {
+  id: string;
+  taskId: string;
+  tenantId: string;
+  authorId: string;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}): StoredComment {
+  return {
+    id: r.id,
+    taskId: r.taskId,
+    tenantId: r.tenantId,
+    authorId: r.authorId,
+    body: r.body,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    deletedAt: r.deletedAt?.toISOString(),
+  };
+}
+
+export async function addComment(
+  tenantId: string,
+  taskId: string,
+  authorId: string,
+  body: string
+): Promise<TaskComment> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskComment.create({
+      data: { id: uid("cmt"), taskId, tenantId, authorId, body },
+    });
+    return toPublicComment(mapDbComment(row));
+  }
+  const all = await loadAll();
+  const record: StoredComment = { id: uid("cmt"), taskId, tenantId, authorId, body, createdAt: now, updatedAt: now };
+  await saveAll({ ...all, comments: [...all.comments, record] });
+  return toPublicComment(record);
+}
+
+export async function listComments(tenantId: string, taskId: string): Promise<TaskComment[]> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const rows = await prisma.taskComment.findMany({
+      where: { tenantId, taskId, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => toPublicComment(mapDbComment(r)));
+  }
+  const all = await loadAll();
+  return all.comments
+    .filter((c) => c.tenantId === tenantId && c.taskId === taskId && !c.deletedAt)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map(toPublicComment);
+}
+
+// ─── Activity (görev geçmişi/audit izi) ────────────────────────────────
+
+export async function addActivity(
+  tenantId: string,
+  taskId: string,
+  actorId: string,
+  action: TaskActivityAction,
+  summary: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    await prisma.taskActivity.create({
+      data: { id: uid("act"), taskId, tenantId, actorId, action, summary },
+    });
+    return;
+  }
+  const all = await loadAll();
+  const record: StoredActivity = { id: uid("act"), taskId, tenantId, actorId, action, summary, createdAt: now };
+  await saveAll({ ...all, activity: [...all.activity, record] });
+}
+
+export async function listActivity(tenantId: string, taskId: string): Promise<TaskActivity[]> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const rows = await prisma.taskActivity.findMany({
+      where: { tenantId, taskId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) =>
+      toPublicActivity({
+        id: r.id,
+        taskId: r.taskId,
+        tenantId: r.tenantId,
+        actorId: r.actorId,
+        action: r.action as TaskActivityAction,
+        summary: r.summary,
+        createdAt: r.createdAt.toISOString(),
+      })
+    );
+  }
+  const all = await loadAll();
+  return all.activity
+    .filter((a) => a.tenantId === tenantId && a.taskId === taskId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublicActivity);
+}

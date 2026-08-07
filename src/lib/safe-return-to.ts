@@ -16,7 +16,13 @@
  * (assertStudentAccess / readScopedData) reddeder — burası yalnızca
  * yönlendirmenin uygulama dışına ÇIKMAMASINI garanti eder.
  */
-const ALLOWED_RETURN_TO_PREFIXES = ["/panel/odemeler/"] as const;
+const ALLOWED_RETURN_TO_PREFIXES = [
+  "/panel/odemeler/",
+  "/panel/ogrenciler/",
+  "/panel/ogretmenler/",
+  "/panel/program",
+  "/panel/is-takip",
+] as const;
 
 export function resolveSafeReturnTo(raw: string | undefined | null): string | null {
   if (!raw) return null;

@@ -149,6 +149,21 @@ function fullExtraFixture(): StandaloneExportData {
         updatedAt: new Date().toISOString(),
       },
     ],
+    tasks: [
+      {
+        id: "task1",
+        title: "Kayıt formunu güncelle",
+        status: "TODO",
+        priority: "MEDIUM",
+        category: "Kayıt",
+        followerIds: [],
+        createdById: "u1",
+        progressPercent: 0,
+        tags: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
   };
 }
 

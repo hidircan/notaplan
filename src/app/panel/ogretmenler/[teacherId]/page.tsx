@@ -134,6 +134,16 @@ export default async function TeacherDetailPage({
             Geri Bildirim İncelemesi →
           </Link>
           {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+            <Link
+              href={`/panel/is-takip?newTaskTeacherId=${teacher.id}&returnTo=${encodeURIComponent(
+                `/panel/ogretmenler/${teacher.id}`
+              )}`}
+              className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+            >
+              Bu öğretmen için görev oluştur →
+            </Link>
+          ) : null}
+          {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
             <TeacherArchiveAction teacherId={teacher.id} teacherName={teacher.name} archived={!teacher.active} />
           ) : null}
         </div>

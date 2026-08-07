@@ -951,3 +951,127 @@ export function studentLevelRequired(t?: StudentType): boolean {
   return isMebStudentType(t);
 }
 
+/**
+ * İş Takip modülü (insan-odaklı operasyon görev takibi — `/panel/is-takip`,
+ * `/ogretmen/is-takip`). `/panel/workflows` (AI otomasyonu) ile İLGİSİZ,
+ * tamamen ayrı bir modül. Kalıcılık `src/lib/tasks.ts`'te (AppData'nın
+ * DIŞINDA, `teacher-availability.ts` ile aynı desende: STORE_MODE=db →
+ * Prisma Task/TaskChecklistItem/TaskComment/TaskActivity, json/memory →
+ * dosya tabanlı store) — additive, mevcut AppData şemasına dokunmaz.
+ */
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" | "CANCELLED" | "ARCHIVED";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type TaskCategory =
+  | "Kayıt"
+  | "Eğitim"
+  | "Tahsilat"
+  | "Veli İletişimi"
+  | "Öğretmen"
+  | "Program"
+  | "Evrak"
+  | "Teknik";
+
+export const TASK_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED", "ARCHIVED"];
+export const TASK_PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+export const TASK_CATEGORIES: TaskCategory[] = [
+  "Kayıt",
+  "Eğitim",
+  "Tahsilat",
+  "Veli İletişimi",
+  "Öğretmen",
+  "Program",
+  "Evrak",
+  "Teknik",
+];
+
+/** Görevin "hâlâ açık" (kapanmamış) sayılan statüleri — KPI/filtre için tek kaynak. */
+export const OPEN_TASK_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "BLOCKED"];
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  category: TaskCategory;
+  /**
+   * Sorumlu/takipçi kimliği: bir Teacher.id (öğretmen personel) VEYA bir
+   * ctx.userId (admin/yönetici) olabilir — bu sistemde bağımsız, listelenebilir
+   * bir "personel/kullanıcı dizini" henüz yok (yalnızca Teacher kayıtları +
+   * sabit bootstrap kimlikleri var, bkz. src/lib/auth/users.ts). "Bu görev
+   * bana mı ait" kontrolü bu yüzden `assigneeId === ctx.teacherId ||
+   * assigneeId === ctx.userId` ile yapılır (bkz. tasks.ts isTaskOwnedByActor).
+   */
+  assigneeId?: string;
+  followerIds: string[];
+  createdById: string;
+  startDate?: string;
+  dueDate?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  archivedAt?: string;
+  progressPercent: number;
+  tags: string[];
+  studentId?: string;
+  teacherId?: string;
+  branchId?: BranchId;
+  lessonId?: string;
+  paymentId?: string;
+  documentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskChecklistItem {
+  id: string;
+  taskId: string;
+  title: string;
+  isCompleted: boolean;
+  sortOrder: number;
+  completedAt?: string;
+  completedById?: string;
+  /** Soft-archive — hard delete yok (bkz. modül gereksinimi). */
+  archivedAt?: string;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Soft delete — hard delete yok. */
+  deletedAt?: string;
+}
+
+export type TaskActivityAction =
+  | "created"
+  | "field_updated"
+  | "status_changed"
+  | "priority_changed"
+  | "category_changed"
+  | "assignee_changed"
+  | "follower_added"
+  | "follower_removed"
+  | "date_changed"
+  | "checklist_added"
+  | "checklist_updated"
+  | "checklist_removed"
+  | "comment_added"
+  | "comment_updated"
+  | "completed"
+  | "cancelled"
+  | "archived"
+  | "reopened";
+
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  actorId: string;
+  action: TaskActivityAction;
+  /** İnsan-okur Türkçe özet, ör. "Durum: TODO → IN_PROGRESS" — ham/hassas veri yok. */
+  summary: string;
+  createdAt: string;
+}
+

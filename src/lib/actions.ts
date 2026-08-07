@@ -64,6 +64,13 @@ import {
   updateRoomTool,
   createInstrumentCatalogTool,
   updateInstrumentCatalogTool,
+  createTaskTool,
+  updateTaskTool,
+  changeTaskStatusTool,
+  addTaskChecklistItemTool,
+  setTaskChecklistItemCompletedTool,
+  archiveTaskChecklistItemTool,
+  addTaskCommentTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -72,7 +79,7 @@ import { buildLessonCommunicationDraft, type LessonCommunicationDraft } from "./
 import type { LessonSlotSuggestion } from "./lesson-scheduling";
 import type { SeriesOccurrenceCheck } from "./lesson-series";
 import type { TeacherEarningsResult } from "./teacher-payout";
-import type { FeeRoundingMode, TeacherFeeRule, TeacherPayout } from "./types";
+import type { FeeRoundingMode, TeacherFeeRule, TeacherPayout, TaskStatus, TaskPriority, TaskCategory } from "./types";
 import type { ImportPreview } from "./import/types";
 import type { ImportCommitResult } from "./import/commit-result";
 import type { BranchImportRow } from "./import/branches";
@@ -1295,4 +1302,188 @@ export async function actionLogout() {
 export async function actionRequireAuth(): Promise<boolean> {
   const ctx = await getSessionContext();
   return Boolean(ctx);
+}
+
+// ─── İş Takip (Task) modülü — /panel/is-takip, /ogretmen/is-takip ────────
+// /panel/workflows (AI otomasyonu) ile İLGİSİZ, ayrı bir modül. RBAC her
+// eylemde tools.ts'te (ctx.role/ctx.teacherId'e göre) zaten kesin olarak
+// uygulanır — buradaki server action'lar yalnızca ince adaptörlerdir.
+
+export type TaskActionResult<T = undefined> =
+  | { ok: true; data: T }
+  | { ok: false; message: string };
+
+function parseOptionalStringList(raw: FormDataEntryValue | null): string[] | undefined {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  return s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+async function createTaskFromFormData(formData: FormData): Promise<TaskActionResult<{ taskId: string }>> {
+  try {
+    const result = await withAuthContext("actionCreateTask", (ctx) =>
+      createTaskTool(ctx, {
+        title: String(formData.get("title") || ""),
+        description: String(formData.get("description") || "") || undefined,
+        priority: (String(formData.get("priority") || "MEDIUM") as TaskPriority) || "MEDIUM",
+        category: String(formData.get("category") || "") as TaskCategory,
+        assigneeId: String(formData.get("assigneeId") || "") || undefined,
+        followerIds: parseOptionalStringList(formData.get("followerIds")),
+        startDate: String(formData.get("startDate") || "") || undefined,
+        dueDate: String(formData.get("dueDate") || "") || undefined,
+        tags: parseOptionalStringList(formData.get("tags")),
+        studentId: String(formData.get("studentId") || "") || undefined,
+        teacherId: String(formData.get("teacherId") || "") || undefined,
+        branchId: String(formData.get("branchId") || "") || undefined,
+        lessonId: String(formData.get("lessonId") || "") || undefined,
+        paymentId: String(formData.get("paymentId") || "") || undefined,
+        documentId: String(formData.get("documentId") || "") || undefined,
+      })
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { taskId: result.data.taskId } };
+  } catch (error) {
+    logger.error("actionCreateTask failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görev oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+/** Client'tan `useTransition` ile çağrılabilir — sonucu (taskId veya hata mesajı) döner. */
+export async function actionCreateTask(
+  formData: FormData
+): Promise<TaskActionResult<{ taskId: string }>> {
+  return createTaskFromFormData(formData);
+}
+
+/**
+ * `<form action={...}>` ile doğrudan kullanım için — Next.js form action'ları
+ * `void | Promise<void>` bekler; hata varsa (ör. FORBIDDEN, VALIDATION_ERROR)
+ * `logger.error` ile kaydedilip Next'in hata sınırına düşer (mevcut
+ * `actionAddStudent` ile aynı davranış deseni), başarılıysa listeye döner.
+ */
+export async function actionCreateTaskForm(formData: FormData): Promise<void> {
+  const result = await createTaskFromFormData(formData);
+  if (!result.ok) {
+    logger.error("actionCreateTaskForm failed", new Error(result.message));
+    throw new Error(result.message);
+  }
+}
+
+export async function actionUpdateTask(input: {
+  taskId: string;
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  category?: TaskCategory;
+  assigneeId?: string | null;
+  followerIds?: string[];
+  startDate?: string | null;
+  dueDate?: string | null;
+  progressPercent?: number;
+  tags?: string[];
+}): Promise<TaskActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateTask", (ctx) => updateTaskTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: undefined };
+  } catch (error) {
+    logger.error("actionUpdateTask failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görev güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionChangeTaskStatus(input: {
+  taskId: string;
+  action: "complete" | "cancel" | "archive" | "reopen" | "set_status";
+  status?: TaskStatus;
+}): Promise<TaskActionResult<{ status: TaskStatus }>> {
+  try {
+    const result = await withAuthContext("actionChangeTaskStatus", (ctx) => changeTaskStatusTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { status: result.data.status } };
+  } catch (error) {
+    logger.error("actionChangeTaskStatus failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görev durumu güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionAddTaskChecklistItem(input: {
+  taskId: string;
+  title: string;
+}): Promise<TaskActionResult<{ itemId: string }>> {
+  try {
+    const result = await withAuthContext("actionAddTaskChecklistItem", (ctx) =>
+      addTaskChecklistItemTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { itemId: result.data.itemId } };
+  } catch (error) {
+    logger.error("actionAddTaskChecklistItem failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Checklist eklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionSetTaskChecklistItemCompleted(input: {
+  taskId: string;
+  itemId: string;
+  isCompleted: boolean;
+}): Promise<TaskActionResult> {
+  try {
+    const result = await withAuthContext("actionSetTaskChecklistItemCompleted", (ctx) =>
+      setTaskChecklistItemCompletedTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: undefined };
+  } catch (error) {
+    logger.error("actionSetTaskChecklistItemCompleted failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Checklist güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionArchiveTaskChecklistItem(input: {
+  taskId: string;
+  itemId: string;
+}): Promise<TaskActionResult> {
+  try {
+    const result = await withAuthContext("actionArchiveTaskChecklistItem", (ctx) =>
+      archiveTaskChecklistItemTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: undefined };
+  } catch (error) {
+    logger.error("actionArchiveTaskChecklistItem failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Checklist kaldırılırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionAddTaskComment(input: {
+  taskId: string;
+  body: string;
+}): Promise<TaskActionResult<{ commentId: string }>> {
+  try {
+    const result = await withAuthContext("actionAddTaskComment", (ctx) => addTaskCommentTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { commentId: result.data.commentId } };
+  } catch (error) {
+    logger.error("actionAddTaskComment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Yorum eklenirken beklenmeyen bir hata oluştu." };
+  }
 }

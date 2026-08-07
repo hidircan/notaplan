@@ -641,3 +641,115 @@ export const updateTeacherInstrumentsSchema = z.object({
   (v) => new Set(v.instrumentLevels.map((r) => r.instrument)).size === v.instrumentLevels.length,
   { message: "Aynı enstrüman birden fazla kez eklenemez.", path: ["instrumentLevels"] }
 );
+
+// ─── İş Takip (Task) modülü — /panel/is-takip, /ogretmen/is-takip ────────
+// /panel/workflows (AI otomasyonu) ile İLGİSİZ, ayrı bir modül.
+
+export const TASK_STATUS_ENUM = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED", "ARCHIVED"] as const;
+export const TASK_PRIORITY_ENUM = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+export const TASK_CATEGORY_ENUM = [
+  "Kayıt",
+  "Eğitim",
+  "Tahsilat",
+  "Veli İletişimi",
+  "Öğretmen",
+  "Program",
+  "Evrak",
+  "Teknik",
+] as const;
+
+const taskLinksSchema = z.object({
+  studentId: z.string().min(1).optional(),
+  teacherId: z.string().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  lessonId: z.string().min(1).optional(),
+  paymentId: z.string().min(1).optional(),
+  documentId: z.string().min(1).optional(),
+});
+
+export const createTaskSchema = z
+  .object({
+    title: z.string().min(1, "Başlık zorunludur"),
+    description: z.string().optional(),
+    priority: z.enum(TASK_PRIORITY_ENUM).default("MEDIUM"),
+    category: z.enum(TASK_CATEGORY_ENUM),
+    assigneeId: z.string().min(1).optional(),
+    followerIds: z.array(z.string().min(1)).optional(),
+    startDate: z.string().optional(),
+    dueDate: z.string().optional(),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .merge(taskLinksSchema)
+  .refine((v) => !v.startDate || !v.dueDate || v.startDate <= v.dueDate, {
+    message: "Son tarih başlangıç tarihinden önce olamaz.",
+    path: ["dueDate"],
+  });
+
+/**
+ * Admin tam alan seti günceller; TEACHER (çalışan) yalnızca kısıtlı bir alt
+ * kümeyi (status/progressPercent) — bu ayrım şemada değil, tool katmanında
+ * (updateTaskTool) uygulanır çünkü kısıt ROL'e bağlıdır, girdi şekline değil.
+ */
+export const updateTaskSchema = z
+  .object({
+    taskId: z.string().min(1),
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    status: z.enum(TASK_STATUS_ENUM).optional(),
+    priority: z.enum(TASK_PRIORITY_ENUM).optional(),
+    category: z.enum(TASK_CATEGORY_ENUM).optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
+    followerIds: z.array(z.string().min(1)).optional(),
+    startDate: z.string().nullable().optional(),
+    dueDate: z.string().nullable().optional(),
+    progressPercent: z.coerce.number().int().min(0).max(100).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .merge(taskLinksSchema)
+  .refine((v) => !v.startDate || !v.dueDate || v.startDate <= v.dueDate, {
+    message: "Son tarih başlangıç tarihinden önce olamaz.",
+    path: ["dueDate"],
+  });
+
+export const changeTaskStatusSchema = z.object({
+  taskId: z.string().min(1),
+  action: z.enum(["complete", "cancel", "archive", "reopen", "set_status"]),
+  /** yalnızca action:"set_status" için — TEACHER'ın izinli statüler arası geçişi. */
+  status: z.enum(TASK_STATUS_ENUM).optional(),
+});
+
+export const addTaskChecklistItemSchema = z.object({
+  taskId: z.string().min(1),
+  title: z.string().min(1),
+});
+
+export const setTaskChecklistItemCompletedSchema = z.object({
+  taskId: z.string().min(1),
+  itemId: z.string().min(1),
+  isCompleted: z.boolean(),
+});
+
+export const archiveTaskChecklistItemSchema = z.object({
+  taskId: z.string().min(1),
+  itemId: z.string().min(1),
+});
+
+export const addTaskCommentSchema = z.object({
+  taskId: z.string().min(1),
+  body: z.string().min(1),
+});
+
+export const listTasksFilterSchema = z.object({
+  status: z.array(z.enum(TASK_STATUS_ENUM)).optional(),
+  priority: z.enum(TASK_PRIORITY_ENUM).optional(),
+  category: z.enum(TASK_CATEGORY_ENUM).optional(),
+  assigneeId: z.string().optional(),
+  followerId: z.string().optional(),
+  branchId: z.string().optional(),
+  createdById: z.string().optional(),
+  tag: z.string().optional(),
+  search: z.string().optional(),
+  dueBefore: z.string().optional(),
+  dueAfter: z.string().optional(),
+  quickFilter: z.enum(["all", "mine", "today", "week", "overdue", "completed", "archived"]).optional(),
+});

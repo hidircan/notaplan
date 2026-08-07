@@ -42,6 +42,7 @@ model Tenant {
   trialLessons TrialLesson[]
   documentTemplates DocumentTemplate[]
   documentInstances DocumentInstance[]
+  tasks Task[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1025,4 +1026,97 @@ model DocumentInstance {
   @@unique([tenantId, reference])
   @@index([tenantId, studentId])
   @@index([tenantId, kind])
+}
+
+/// İş Takip modülü (insan-odaklı operasyon görev takibi — /panel/is-takip,
+/// /ogretmen/is-takip). /panel/workflows (AI otomasyonu) ile İLGİSİZ, ayrı
+/// bir modül. Bağlı kayıtlar (studentId/teacherId/branchId/lessonId/
+/// paymentId/documentId) yalnızca ID olarak tutulur — FK/relation YOK,
+/// silme/tenant-taşıma ile ilgili kısıtlama zinciri oluşturmasın diye;
+/// aynı-tenant doğrulaması uygulama katmanında (src/lib/tasks.ts) yapılır.
+model Task {
+  id           String    @id
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?   @db.Text
+  /// TODO | IN_PROGRESS | BLOCKED | COMPLETED | CANCELLED | ARCHIVED
+  status       String    @default("TODO")
+  /// LOW | MEDIUM | HIGH | URGENT
+  priority     String    @default("MEDIUM")
+  /// Kayıt | Eğitim | Tahsilat | Veli İletişimi | Öğretmen | Program | Evrak | Teknik
+  category     String
+  assigneeId   String?
+  followerIds  Json      @default("[]")
+  createdById  String
+  startDate    DateTime?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  archivedAt   DateTime?
+  progressPercent Int    @default(0)
+  tags         Json      @default("[]")
+  studentId    String?
+  teacherId    String?
+  branchId     String?
+  lessonId     String?
+  paymentId    String?
+  documentId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  checklistItems TaskChecklistItem[]
+  comments       TaskComment[]
+  activities     TaskActivity[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, studentId])
+  @@index([tenantId, teacherId])
+}
+
+model TaskChecklistItem {
+  id            String    @id
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenantId      String
+  title         String
+  isCompleted   Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  completedAt   DateTime?
+  completedById String?
+  archivedAt    DateTime?
+
+  @@index([taskId])
+  @@index([tenantId])
+}
+
+model TaskComment {
+  id        String    @id
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenantId  String
+  authorId  String
+  body      String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([taskId])
+  @@index([tenantId])
+}
+
+model TaskActivity {
+  id        String   @id
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenantId  String
+  actorId   String
+  action    String
+  summary   String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([tenantId])
 }
