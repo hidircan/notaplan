@@ -61,6 +61,8 @@ import {
   updatePackageTool,
   archiveTeacherTool,
   updateRoomTool,
+  createInstrumentCatalogTool,
+  updateInstrumentCatalogTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -484,6 +486,44 @@ export async function actionUpdateRoom(input: {
     logger.error("actionUpdateRoom failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Oda güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type CreateInstrumentActionResult = { ok: true } | { ok: false; message: string };
+
+/** ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: yeni ekleme. */
+export async function actionCreateInstrument(formData: FormData): Promise<CreateInstrumentActionResult> {
+  try {
+    const result = await withAuthContext("actionCreateInstrument", (ctx) =>
+      createInstrumentCatalogTool(ctx, { name: String(formData.get("name") || "") })
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionCreateInstrument failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Enstrüman eklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateInstrumentActionResult = { ok: true } | { ok: false; message: string };
+
+/** ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: ad/durum güncelleme. */
+export async function actionUpdateInstrument(input: {
+  entryId: string;
+  name?: string;
+  status?: "active" | "archived";
+}): Promise<UpdateInstrumentActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateInstrument", (ctx) => updateInstrumentCatalogTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateInstrument failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Enstrüman güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

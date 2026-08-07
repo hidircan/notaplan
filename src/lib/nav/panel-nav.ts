@@ -27,6 +27,7 @@ import {
   Wrench,
   Palette,
   Package as PackageIcon,
+  Music,
 } from "lucide-react";
 
 export type PanelNavItem = {
@@ -59,6 +60,8 @@ export const PANEL_OPS_NAV: PanelNavItem[] = [
   { href: "/panel/subeler", label: "Şubeler", icon: Building2 },
   /** ÖNCELİK 4 (devam) — Paket Yönetimi: yalnız admin roller yönetebilir. */
   { href: "/panel/paketler", label: "Paketler", icon: PackageIcon, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  /** ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: yalnız admin roller. */
+  { href: "/panel/enstrumanlar", label: "Enstrümanlar", icon: Music, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
 ];
 
 export const PANEL_AI_NAV: PanelNavItem[] = [

@@ -581,6 +581,17 @@ export const closedDaySchema = z.object({
 });
 
 /** ÖNCELİK 4 (devam) — Paket Yönetimi. */
+/** ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu. */
+export const createInstrumentCatalogSchema = z.object({
+  name: z.string().min(1),
+});
+
+export const updateInstrumentCatalogSchema = z.object({
+  entryId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  status: z.enum(["active", "archived"]).optional(),
+});
+
 export const createPackageSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),

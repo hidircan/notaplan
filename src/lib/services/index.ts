@@ -110,4 +110,7 @@ export {
   getSocialMediaConsentTool,
   archiveTeacherTool,
   updateRoomTool,
+  listInstrumentCatalogTool,
+  createInstrumentCatalogTool,
+  updateInstrumentCatalogTool,
 } from "./tools";

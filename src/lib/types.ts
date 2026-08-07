@@ -817,6 +817,23 @@ export interface SocialMediaConsent {
   updatedAt: string;
 }
 
+/**
+ * ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu. Sabit `Instrument`
+ * TS union'ının (yukarıda) yerini almaz — kurumun o kümenin ÜSTÜNE
+ * ekleyebileceği ek enstrümanları tutar (ör. Bas Gitar, Ukulele). Hard
+ * delete yok; `status:"archived"` ile pasife alınır.
+ */
+export type InstrumentCatalogStatus = "active" | "archived";
+
+export interface InstrumentCatalogEntry {
+  id: string;
+  name: string;
+  status: InstrumentCatalogStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ClosedDayKind = "public_holiday" | "custom";
 
 /** PRODUCT_BACKLOG §4.2 — kapalı gün (resmî tatil veya özel) */

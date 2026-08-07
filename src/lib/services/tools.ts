@@ -56,6 +56,11 @@ import {
   setSocialMediaConsent,
   getLatestSocialMediaConsent,
 } from "../social-media-consent";
+import {
+  createInstrumentCatalogEntry,
+  updateInstrumentCatalogEntry,
+  listInstrumentCatalog,
+} from "../instrument-catalog";
 import { effectiveLessonOpsStatus } from "../lesson-ops";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import {
@@ -201,9 +206,12 @@ import {
   createPackageSchema,
   updatePackageSchema,
   socialMediaConsentSchema,
+  createInstrumentCatalogSchema,
+  updateInstrumentCatalogSchema,
 } from "../validation";
 import {
   DEFAULT_COLLECTIONS_SETTINGS,
+  INSTRUMENTS,
   type Announcement,
   type AnnouncementAudienceRef,
   type AnnouncementStatus,
@@ -931,6 +939,59 @@ export async function updateTeacherInstrumentsTool(
 }
 
 /** ÖNCELİK 4 (devam) — Paket Yönetimi: yeni paket (admin only, tenant-scoped, audit'li). */
+/**
+ * ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu. Salt okuma tüm
+ * personel rollerine açık (ders planlama/formlar bunu okuyabilmeli); yazma
+ * (ekleme/düzenleme/pasife alma) yalnız SCHOOL_ADMIN/SUPER_ADMIN.
+ */
+export async function listInstrumentCatalogTool(
+  ctx: ServiceContext,
+  _input: unknown
+): Promise<ServiceResult<{ entries: import("../types").InstrumentCatalogEntry[]; staticInstruments: string[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN", "AI_AGENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const entries = await listInstrumentCatalog(ctx.tenantId);
+  return ok({ entries, staticInstruments: [...INSTRUMENTS] });
+}
+
+export async function createInstrumentCatalogTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ entryId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createInstrumentCatalogSchema, input);
+  if (!v.ok) return v;
+
+  const result = await createInstrumentCatalogEntry({ tenantId: ctx.tenantId, name: v.data.name, createdBy: ctx.userId });
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "instrument.create", "InstrumentCatalogEntry", result.entry.id, { name: result.entry.name });
+  return ok({ entryId: result.entry.id });
+}
+
+export async function updateInstrumentCatalogTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ entryId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateInstrumentCatalogSchema, input);
+  if (!v.ok) return v;
+
+  const result = await updateInstrumentCatalogEntry(ctx.tenantId, v.data.entryId, {
+    name: v.data.name,
+    status: v.data.status,
+  });
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "instrument.update", "InstrumentCatalogEntry", v.data.entryId, {
+    name: v.data.name,
+    status: v.data.status,
+  });
+  return ok({ entryId: v.data.entryId });
+}
+
 export async function createPackageTool(
   ctx: ServiceContext,
   input: unknown

@@ -37,6 +37,7 @@ model Tenant {
   studentCurriculumTopics StudentCurriculumTopic[]
   socialMediaConsents SocialMediaConsent[]
   packages   Package[]
+  instrumentCatalogEntries InstrumentCatalogEntry[]
   closedDays ClosedDay[]
   trialLessons TrialLesson[]
   documentTemplates DocumentTemplate[]
@@ -890,6 +891,30 @@ model ClosedDay {
 
   @@unique([tenantId, date])
   @@index([tenantId])
+}
+
+/// ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu. Additive: mevcut
+/// sabit `Instrument` TS enum'unun (src/lib/types.ts INSTRUMENTS) yerini
+/// ALMAZ — o tip hâlâ Piyano/Yan Flüt/Gitar/Bateri/Keman/Şan için TypeScript
+/// güvenliği sağlar. Bu tablo, kurumun o sabit kümenin ÜSTÜNE ekleyebileceği
+/// ek enstrümanları (ör. Bas Gitar, Ukulele) yönetir — server-side doğrulama
+/// hem statik enum'u HEM bu tabloyu (aktif kayıtlar) birlikte kabul eder.
+/// Hard delete YOK — `status` ile pasife alınır. Aynı tenant içinde harf
+/// büyüklüğünden bağımsız yinelenen isim engellenir (bkz.
+/// src/lib/instrument-catalog.ts createInstrumentCatalogEntry).
+model InstrumentCatalogEntry {
+  id        String   @id
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  /// "active" | "archived"
+  status    String   @default("active")
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
 }
 
 /// ÖNCELİK 4 (devam) — Paket Yönetimi. Additive/yeni: mevcut serbest metin
