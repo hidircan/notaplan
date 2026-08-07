@@ -2,7 +2,7 @@ import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag, type Apply
 import { prisma } from "./db";
 import type { Prisma } from "@prisma/client";
 import { logger } from "./logger";
-import { createSeedData } from "./seed";
+import { createSeedData, createEmptyTemplateData } from "./seed";
 import type {
   AppData,
   AttendanceStatus,
@@ -702,6 +702,19 @@ export async function resetData(): Promise<AppData> {
   const seed = createSeedData();
   seed.settings.tenantId = tenantId();
   await seedDatabase(seed);
+  return readData();
+}
+
+/** Kurulum Merkezi — boş şablona sıfırla (bkz. store.ts resetToCleanTemplate). */
+export async function resetToCleanTemplate(): Promise<AppData> {
+  logger.info("resetToCleanTemplate", "resetting tenant to clean template");
+  const tid = tenantId();
+  const current = await readData();
+  const template = createEmptyTemplateData();
+  template.settings.tenantId = tid;
+  template.settings.name = current.settings.name;
+  template.settings.shortName = current.settings.shortName;
+  await seedDatabase(template);
   return readData();
 }
 

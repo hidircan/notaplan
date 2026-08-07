@@ -54,6 +54,7 @@ import {
   updateCollectionsSettingsTool,
   markNotificationReadTool,
   resetDemoTool,
+  resetToCleanTemplateTool,
   setNationalIdTool,
   setSocialMediaConsentTool,
   updateTeacherInstrumentsTool,
@@ -322,6 +323,23 @@ export async function actionResetDemo() {
     revalidateAll();
   } catch (error) {
     logger.error("actionResetDemo failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    throw error;
+  }
+}
+
+/**
+ * Kurulum Merkezi — "Boş şablona sıfırla". `actionResetDemo`'dan bilinçli
+ * olarak ayrık: örnek veri BIRAKMAZ, yalnızca boş bir kurum iskeleti kurar.
+ */
+export async function actionResetToCleanTemplate() {
+  try {
+    await withAuthContext("actionResetToCleanTemplate", async (ctx) => {
+      assertOk(await resetToCleanTemplateTool(ctx));
+    });
+    revalidateAll();
+  } catch (error) {
+    logger.error("actionResetToCleanTemplate failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
   }

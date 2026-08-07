@@ -488,3 +488,44 @@ export function createSeedData(): AppData {
     ],
   };
 }
+
+/**
+ * Kurulum Merkezi — "Boş şablona sıfırla". `createSeedData()`'nın aksine
+ * hiçbir demo öğretmen/öğrenci/ders/ödeme içermez; yalnızca çalışılabilir bir
+ * kurum iskeleti bırakır (tek varsayılan şube, boş listeler) ki Kurulum
+ * Merkezi'ndeki adımlar ("Şube ekle", "Öğretmen ekle" ...) sıfırdan takip
+ * edilebilsin. `tenantId`/`name`/`shortName` çağıran tarafından mevcut
+ * kurumun kimliğini korumak için override edilir — bkz. resetToCleanTemplateTool.
+ */
+export function createEmptyTemplateData(): AppData {
+  return {
+    settings: {
+      tenantId: DEFAULT_TENANT_ID,
+      name: "Yeni Kurum",
+      shortName: "Yeni Kurum",
+      city: "",
+      website: "",
+      email: "",
+      phone: "",
+      logoUrl: "",
+      makeupWindowDays: 14,
+      lessonDurationMinutes: 45,
+      workingHours: { start: "10:00", end: "21:00" },
+      workingDays: [1, 2, 3, 4, 5, 6],
+      currency: "TRY",
+      feeRoundingMode: "exact_minutes",
+      branches: [],
+    },
+    teachers: [],
+    students: [],
+    rooms: [],
+    lessons: [],
+    lessonSeries: [],
+    attendances: [],
+    makeupRequests: [],
+    payments: [],
+    teacherFeeRules: [],
+    teacherPayouts: [],
+    packages: [],
+  };
+}

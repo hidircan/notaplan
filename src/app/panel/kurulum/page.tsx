@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, BellRing, CheckCircle2, Circle, Download, RefreshCcw, Upload } from "lucide-react";
-import { actionResetDemo } from "@/lib/actions";
+import { actionResetDemo, actionResetToCleanTemplate } from "@/lib/actions";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Card, PageHeader } from "@/components/ui";
 import { computeSetupProgress, type SetupStepId } from "@/lib/setup-progress";
 import { EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-export";
 import { DEFAULT_COLLECTIONS_SETTINGS } from "@/lib/types";
 import { CollectionsSettingsForm } from "@/components/collections-settings-form";
+import { SetupResetAction } from "@/components/setup-reset-action";
 
 const EXPORT_LABELS: Record<ExportEntity, string> = {
   students: "Öğrenciler",
@@ -218,14 +219,53 @@ export default async function KurulumPage() {
           <div className="flex-1">
             <p className="font-semibold text-slate-900 dark:text-slate-50">Demo ortamı</p>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Demo verisini sıfırlamak mevcut demo değişikliklerini geri alır. Bu işlem yalnızca
-              yönetici yetkisiyle yapılabilir.
+              Demo verisini sıfırlamak mevcut demo öğretmen/öğrenci/ders/ödeme örneklerini geri
+              yükler — sunum ve deneme amaçlıdır. Bu işlem yalnızca yönetici yetkisiyle yapılabilir
+              ve geri alınamaz.
             </p>
-            <form action={actionResetDemo} className="mt-3">
-              <Button type="submit" variant="secondary">
-                Demo verisini geri yükle
-              </Button>
-            </form>
+            <div className="mt-3">
+              <SetupResetAction
+                action={actionResetDemo}
+                triggerLabel="Demo verisini geri yükle"
+                triggerVariant="secondary"
+                title="Demo verisi geri yüklensin mi?"
+                bullets={[
+                  "Mevcut tüm öğretmen/öğrenci/ders/ödeme kayıtları silinir.",
+                  "Yerine örnek demo verisi (Nilüfer Acar Müzik Akademisi) yüklenir.",
+                  "Bu işlem geri alınamaz.",
+                ]}
+                confirmLabel="Demo verisini geri yükle"
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mt-6 border-rose-200 bg-rose-50/40">
+        <div className="flex items-start gap-3">
+          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900 dark:text-slate-50">Boş şablona sıfırla</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Demo sıfırlamadan FARKLI bir işlem: hiçbir örnek kayıt bırakmaz, yalnızca kurum
+              kimliğinizi (ad, kurulum ayarları) koruyan boş bir kurulum iskeleti bırakır. Gerçek
+              operasyona sıfırdan başlamak için kullanın.
+            </p>
+            <div className="mt-3">
+              <SetupResetAction
+                action={actionResetToCleanTemplate}
+                triggerLabel="Boş şablona sıfırla"
+                triggerVariant="danger"
+                title="Boş şablona sıfırlansın mı?"
+                bullets={[
+                  "TÜM öğretmen/öğrenci/şube/oda/ders/ödeme kayıtları kalıcı olarak silinir.",
+                  "Demo örnek verisi YENİDEN yüklenmez — kurulum sıfırdan başlar.",
+                  "Kurum adı ve genel ayarlar korunur.",
+                  "Bu işlem geri alınamaz.",
+                ]}
+                confirmLabel="Boş şablona sıfırla"
+              />
+            </div>
           </div>
         </div>
       </Card>

@@ -35,6 +35,7 @@ import {
   markTeacherPayoutPaid,
   readData,
   resetData,
+  resetToCleanTemplate,
   startLessonLive,
   updateBranch,
   updateCollectionsSettings,
@@ -2960,9 +2961,40 @@ export async function resetDemoTool(
     await clearHomework(ctx.tenantId);
     await clearTeachingMaterials(ctx.tenantId);
     await clearTeacherFeedback(ctx.tenantId);
+    audit(ctx, "setup.reset_demo_data", "Tenant", ctx.tenantId);
     return ok({ reset: true });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "reset failed");
+  }
+}
+
+/**
+ * Kurulum Merkezi — "Boş şablona sıfırla": demo verisini geri yüklemekten
+ * (resetDemoTool) AYRI, bilinçli olarak farklı bir eylem. Örnek
+ * öğretmen/öğrenci/ders/ödeme kaydı BIRAKMAZ — yalnızca kurum kimliğini
+ * (tenantId/ad) koruyan boş bir iskelet bırakır, ki Kurulum Merkezi'ndeki
+ * adımlar sıfırdan takip edilebilsin. Aynı yan-store temizliğini paylaşır
+ * (follow-up cases, bildirimler vb.) çünkü onlar da AppData dışında tutulur.
+ */
+export async function resetToCleanTemplateTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ reset: true }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    await resetToCleanTemplate();
+    await clearFollowUpCases(ctx.tenantId);
+    await clearNotifications(ctx.tenantId);
+    await clearAnnouncements(ctx.tenantId);
+    await clearAssessments(ctx.tenantId);
+    await clearAvailabilityRequests(ctx.tenantId);
+    await clearHomework(ctx.tenantId);
+    await clearTeachingMaterials(ctx.tenantId);
+    await clearTeacherFeedback(ctx.tenantId);
+    audit(ctx, "setup.reset_clean_template", "Tenant", ctx.tenantId);
+    return ok({ reset: true });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "resetToCleanTemplate failed");
   }
 }
 

@@ -3,7 +3,7 @@ import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag } from "./l
  * Serverless / demo memory store.
  * Process warm olduğu sürece veri kalır; cold start'ta seed yeniden yüklenir.
  */
-import { createSeedData } from "./seed";
+import { createSeedData, createEmptyTemplateData } from "./seed";
 import { tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
 import type {
@@ -114,6 +114,16 @@ export async function writeData(data: AppData): Promise<void> {
 
 export async function resetData(): Promise<AppData> {
   return save(createSeedData());
+}
+
+/** Kurulum Merkezi — boş şablona sıfırla (bkz. store.ts resetToCleanTemplate). */
+export async function resetToCleanTemplate(): Promise<AppData> {
+  const current = load();
+  const template = createEmptyTemplateData();
+  template.settings.tenantId = current.settings.tenantId;
+  template.settings.name = current.settings.name;
+  template.settings.shortName = current.settings.shortName;
+  return save(template);
 }
 
 /** memory modunda tek bir işlem-içi kurum verisi vardır (bkz. store-json.ts'in aynı fonksiyonu). */

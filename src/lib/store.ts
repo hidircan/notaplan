@@ -33,6 +33,7 @@ import type { LessonTimeCorrection, LessonLiveUpdateResult } from "./lesson-live
 type StoreApi = {
   readData: () => Promise<AppData>;
   resetData: () => Promise<AppData>;
+  resetToCleanTemplate: () => Promise<AppData>;
   markAttendance: (input: {
     lessonId: string;
     status: AttendanceStatus;
@@ -210,6 +211,15 @@ function applyMakeupExpiry(data: AppData): AppData {
 
 export async function resetData(): Promise<AppData> {
   return withTenantScope(() => store.resetData());
+}
+
+/**
+ * Kurulum Merkezi — "Boş şablona sıfırla". Demo verisinden ayrı, ayrık bir
+ * eylem: mevcut kurum kimliğini (tenantId/ad) korur ama tüm demo
+ * öğretmen/öğrenci/ders/ödeme kayıtlarını temizler.
+ */
+export async function resetToCleanTemplate(): Promise<AppData> {
+  return withTenantScope(() => store.resetToCleanTemplate());
 }
 
 export async function markAttendance(input: {

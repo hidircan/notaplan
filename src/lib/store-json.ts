@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "./config";
-import { createSeedData } from "./seed";
+import { createSeedData, createEmptyTemplateData } from "./seed";
 import { tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
 import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
@@ -115,6 +115,17 @@ export async function resetData(): Promise<AppData> {
   const seed = createSeedData();
   await writeData(seed);
   return seed;
+}
+
+/** Kurulum Merkezi — boş şablona sıfırla (bkz. store.ts resetToCleanTemplate). */
+export async function resetToCleanTemplate(): Promise<AppData> {
+  const current = await readData();
+  const template = createEmptyTemplateData();
+  template.settings.tenantId = current.settings.tenantId;
+  template.settings.name = current.settings.name;
+  template.settings.shortName = current.settings.shortName;
+  await writeData(template);
+  return template;
 }
 
 /**
