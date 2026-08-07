@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Palette, Video } from "lucide-react";
+import { ChevronLeft, ChevronRight, Bell, BookOpen, CalendarDays, FileText, Home, Megaphone, Music2, Palette, Video } from "lucide-react";
+import { addDays, isSameDay, parseISO } from "date-fns";
 import { requireSessionContext } from "@/lib/auth/session";
 import { readData } from "@/lib/store";
 import { listAnnouncementsForUserTool, listCurriculumForStudentTool } from "@/lib/services";
 import { listNotificationsForUser } from "@/lib/notifications";
+import { listClosedDays } from "@/lib/closed-day-overrides";
 import { NotificationList } from "@/components/notification-list";
 import { LogoutButton } from "@/components/logout-button";
 import { Badge, Card } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDate, formatTime } from "@/lib/utils";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+import { ownStudentWeekLessons } from "@/lib/student-portal-scope";
+import { normalizeWeekStart, previousWeekParam, nextWeekParam, todayWeekParam, isCurrentWeek } from "@/lib/program-week";
+import { weeklyClosedDaysForTerm, resolveDayStatus } from "@/lib/attendance-calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +25,12 @@ export const dynamic = "force-dynamic";
  * bağlantıları eklendi (kendi alt-sayfaları, bkz. /ogrenci/odevlerim ve
  * /ogrenci/materyaller).
  */
-export default async function OgrenciPortalPage() {
+export default async function OgrenciPortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>;
+}) {
+  const { week } = await searchParams;
   let session;
   try {
     session = await requireSessionContext();
@@ -63,15 +73,34 @@ export default async function OgrenciPortalPage() {
 
   const teacher = data.teachers.find((t) => t.id === student.teacherId);
 
-  const upcoming = data.lessons
-    .filter(
-      (l) =>
-        l.studentId === student.id &&
-        (l.status === "scheduled" || l.status === "in_progress") &&
-        new Date(l.startAt) >= new Date()
-    )
-    .sort((a, b) => a.startAt.localeCompare(b.startAt))
-    .slice(0, 5);
+  // ÖNCELİK 4 (devam) — öğrenci portalı haftalık ders programı. Kimlik
+  // KESİN olarak session'dan gelir (`student.id` === `session.studentId`,
+  // yukarıda çözüldü) — client'tan hiçbir studentId kabul edilmez, bu
+  // yüzden URL/API manipülasyonuyla başka bir öğrencinin (veya başka bir
+  // tenant'ın, zaten `readData()` tenant-scoped) programına erişim mümkün
+  // değildir. Dönem-bazlı gün seti mevcut ortak mantıktan (attendance-calendar.ts)
+  // gelir — tekrar yazılmadı: Güz'de Pazartesi kapalı/hafta sonu açık, Yaz'da
+  // tersi. Resmî tatil/özel kapalı gün önceliği de aynı `resolveDayStatus`
+  // ile, admin/veli/takvim ekranlarıyla birebir aynı kuraldan okunur.
+  const studentTerm = student.termType ?? "guz";
+  const now = new Date();
+  const weekStart = normalizeWeekStart(week, now);
+  const weekEndExclusive = addDays(weekStart, 7);
+  const showingCurrentWeek = isCurrentWeek(weekStart, now);
+  const closedWeekdays = weeklyClosedDaysForTerm(studentTerm);
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(
+    (d) => !closedWeekdays.includes(d.getDay())
+  );
+  const weekLessons = ownStudentWeekLessons(
+    data.lessons,
+    student.id,
+    weekStart.toISOString(),
+    weekEndExclusive.toISOString()
+  );
+  const closedDayOverrides = await listClosedDays(session.tenantId);
+  const prevWeekHref = `/ogrenci?week=${previousWeekParam(weekStart)}`;
+  const nextWeekHref = `/ogrenci?week=${nextWeekParam(weekStart)}`;
+  const todayWeekHref = `/ogrenci?week=${todayWeekParam(now)}`;
 
   const past = data.lessons
     .filter((l) => l.studentId === student.id && new Date(l.startAt) < new Date())
@@ -216,26 +245,107 @@ export default async function OgrenciPortalPage() {
           </section>
         ) : null}
 
-        <section>
+        <section id="haftalik-program">
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-sm font-semibold text-slate-800">Yaklaşan dersler</h2>
+            <h2 className="text-sm font-semibold text-slate-800">Haftalık ders programım</h2>
           </div>
-          {upcoming.length === 0 ? (
+
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+            <Link
+              href={prevWeekHref}
+              aria-label="Önceki hafta"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Önceki
+            </Link>
+            {showingCurrentWeek ? (
+              <span
+                aria-current="true"
+                className="rounded-lg border border-emerald-300 bg-emerald-100 px-2.5 py-1.5 text-xs font-semibold text-emerald-800"
+              >
+                Bugün
+              </span>
+            ) : (
+              <Link
+                href={todayWeekHref}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Bugün
+              </Link>
+            )}
+            <Link
+              href={nextWeekHref}
+              aria-label="Sonraki hafta"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Sonraki <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <p className="mb-2 px-1 text-center text-[11px] text-slate-500">
+            {formatDate(weekStart.toISOString(), "d MMM")} – {formatDate(addDays(weekStart, 6).toISOString(), "d MMM yyyy")} ·{" "}
+            {studentTerm === "yaz" ? "Yaz dönemi" : "Güz dönemi"}
+          </p>
+
+          {weekDays.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500">Yaklaşan ders yok.</p>
+              <p className="text-sm text-slate-500">Bu dönem için açık gün yok.</p>
             </Card>
           ) : (
             <div className="space-y-2">
-              {upcoming.map((l) => (
-                <Card key={l.id} className="!p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-slate-900">{formatDateTime(l.startAt)}</p>
-                    <Badge status={l.type === "makeup" ? "makeup" : computeLiveDisplayStatus(l)} />
-                  </div>
-                  <p className="text-sm text-slate-500">{l.instrument}</p>
-                </Card>
-              ))}
+              {weekDays.map((day) => {
+                const today = showingCurrentWeek && isSameDay(day, now);
+                const dayLessons = weekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
+                const dayStatus = resolveDayStatus(day, studentTerm, closedDayOverrides);
+                return (
+                  <Card key={day.toISOString()} className={today ? "!p-4 border-emerald-200 bg-emerald-50/30" : "!p-4"}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{formatDate(day.toISOString(), "EEEE d MMM")}</p>
+                      <div className="flex items-center gap-1.5">
+                        {dayStatus.status === "closed" ? (
+                          <span className="rounded-full bg-black px-2 py-0.5 text-[10px] font-semibold text-white" title={dayStatus.label}>
+                            Kapalı
+                          </span>
+                        ) : null}
+                        {today ? <Badge status="scheduled">Bugün</Badge> : null}
+                      </div>
+                    </div>
+                    {dayStatus.status === "closed" ? (
+                      <p className="text-xs text-slate-400">{dayStatus.label} — bu gün ders yok.</p>
+                    ) : dayLessons.length === 0 ? (
+                      <p className="text-xs text-slate-400">Bu gün dersiniz yok.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {dayLessons.map((l) => {
+                          const lessonTeacher = data.teachers.find((t) => t.id === l.teacherId);
+                          const liveStatus = computeLiveDisplayStatus(l);
+                          return (
+                            <div
+                              key={l.id}
+                              className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs"
+                              style={{ borderLeftWidth: 3, borderLeftColor: lessonTeacher?.color ?? "#10b981" }}
+                            >
+                              <p className="font-semibold text-slate-800">
+                                {formatTime(l.startAt)}–{formatTime(l.endAt)} · {l.instrument}
+                              </p>
+                              <p className="text-slate-500">{lessonTeacher?.name ?? "—"}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <Badge status={l.type === "makeup" ? "makeup" : liveStatus} />
+                                <LessonOpsBadges
+                                  studentAttended={l.studentAttended}
+                                  lessonProcessed={l.lessonProcessed}
+                                  opsMakeupFlag={l.opsMakeupFlag}
+                                  opsClosedFlag={l.opsClosedFlag}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>

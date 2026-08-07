@@ -339,6 +339,10 @@ export async function actionAddStudent(formData: FormData) {
           enrollmentStartDate: String(formData.get("enrollmentStartDate") || "") || undefined,
           level: String(formData.get("level") || "") || undefined,
           targetExam: String(formData.get("targetExam") || "") || undefined,
+          termType: (() => {
+            const raw = String(formData.get("termType") || "");
+            return raw === "guz" || raw === "yaz" ? raw : undefined;
+          })(),
         })
       );
     });
@@ -360,6 +364,8 @@ export async function actionUpdateStudentProfile(input: {
   level?: string;
   targetExam?: string;
   specialNotes?: string;
+  /** ÖNCELİK 4 (devam) — yalnız SCHOOL_ADMIN/SUPER_ADMIN (updateStudentProfileTool RBAC'ı) set edebilir. */
+  termType?: "guz" | "yaz";
 }): Promise<UpdateStudentProfileActionResult> {
   try {
     const result = await withAuthContext("actionUpdateStudentProfile", (ctx) =>

@@ -214,6 +214,13 @@ export default async function OgrencilerPage() {
               <Label>Hedef sınav / performans dönemi (opsiyonel)</Label>
               <Input name="targetExam" placeholder="Örn. 2027 Konservatuvar giriş sınavı" />
             </div>
+            <div>
+              <Label>Yoklama Takvimi dönemi</Label>
+              <Select name="termType" defaultValue="guz">
+                <option value="guz">Güz Dönemi</option>
+                <option value="yaz">Yaz Dönemi</option>
+              </Select>
+            </div>
             <Button type="submit" className="w-full">
               Öğrenci ekle
             </Button>

@@ -26,6 +26,7 @@ import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/paym
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
+import { StudentTermTypeEditor } from "@/components/student-term-type-editor";
 import { StudentArchiveToggle } from "@/components/student-archive-toggle";
 import { NationalIdReveal } from "@/components/national-id-reveal";
 import { maskNationalId } from "@/lib/pii/tc-identity";
@@ -177,6 +178,16 @@ export default async function StudentDetailPage({
             <Field label="Seviye" value={student.level ?? "Belirtilmemiş"} />
             <Field label="Kayıt başlangıç tarihi" value={student.enrollmentStartDate ? formatDate(student.enrollmentStartDate) : "Belirtilmemiş"} />
             <Field label="Ders süresi" value={student.lessonDurationMinutes ? `${student.lessonDurationMinutes} dk` : "Belirtilmemiş"} />
+            <Field
+              label="Yoklama Takvimi dönemi"
+              custom={
+                session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+                  <StudentTermTypeEditor studentId={student.id} initialTermType={student.termType ?? "guz"} />
+                ) : (
+                  <span className="text-[var(--color-text)]">{student.termType === "yaz" ? "Yaz Dönemi" : "Güz Dönemi"}</span>
+                )
+              }
+            />
           </dl>
         </Card>
       </section>

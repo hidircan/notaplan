@@ -58,6 +58,8 @@ export const studentSchema = z.object({
   level: optionalTrimmed,
   targetExam: optionalTrimmed,
   specialNotes: optionalTrimmed,
+  /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz). Verilmezse legacy (undefined) — kayıt akışı kırılmaz. */
+  termType: z.enum(["guz", "yaz"]).optional(),
 });
 
 export const updateStudentProfileSchema = z.object({

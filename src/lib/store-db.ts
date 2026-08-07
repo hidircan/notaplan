@@ -148,6 +148,13 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       targetExam: student.targetExam ?? undefined,
       specialNotes: student.specialNotes ?? undefined,
       communicationOptOut: student.communicationOptOut,
+      // ÖNCELİK 4 (devam) — bu satır eksikti: db modunda termType hiç
+      // okunmuyordu (yalnızca yazılıyordu), bu yüzden dönem seçici her zaman
+      // "guz" fallback'ine düşerdi. Bu turda fark edilip düzeltildi.
+      termType: (student as { termType?: string | null }).termType as
+        | import("./types").StudentTermType
+        | undefined
+        ?? undefined,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -883,6 +890,7 @@ export async function updateStudentProfile(
       targetExam: patch.targetExam,
       specialNotes: patch.specialNotes,
       communicationOptOut: patch.communicationOptOut,
+      termType: patch.termType,
     },
   });
   if (result.count === 0) throw new Error("Öğrenci bulunamadı");

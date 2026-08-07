@@ -4,6 +4,7 @@ import path from "path";
 import { resolveDataDir } from "../config";
 import {
   createLessonTool,
+  createStudentTool,
   setLessonOpsFlagTool,
   setMonthlyPlanAmountTool,
   setDayOverrideTool,
@@ -331,5 +332,80 @@ describe("ÖNCELİK 4 (devam) — öğrenci dönemine göre varsayılan takvim",
       termType: "yaz",
     });
     expect(res.ok).toBe(false);
+  });
+
+  it("admin yeni öğrenci oluştururken termType atayabilir — form/kayıt akışıyla uyumlu", async () => {
+    const res = await createStudentTool(ctx(), {
+      name: "Test Öğrenci",
+      email: "",
+      phone: "5551234567",
+      parentName: "Veli Adı",
+      parentPhone: "5559876543",
+      branchId: "erzene",
+      instrument: "Piyano",
+      teacherId: "t1",
+      packageName: "Bireysel Aylık — 4 ders",
+      weeklyLessonCount: 1,
+      monthlyFee: 3000,
+      notes: "",
+      termType: "yaz",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const data = await readData();
+    const created = data.students.find((s) => s.id === res.data.studentId);
+    expect(created?.termType).toBe("yaz");
+  });
+
+  it("PARENT/TEACHER yeni öğrenci oluşturamaz (dolayısıyla termType de atayamaz)", async () => {
+    const res = await createStudentTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
+      name: "X",
+      email: "",
+      phone: "5551234567",
+      parentName: "Y",
+      parentPhone: "5559876543",
+      branchId: "erzene",
+      instrument: "Piyano",
+      teacherId: "t1",
+      packageName: "Bireysel Aylık — 4 ders",
+      weeklyLessonCount: 1,
+      monthlyFee: 3000,
+      notes: "",
+      termType: "yaz",
+    });
+    expect(res.ok).toBe(false);
+  });
+
+  it("termType hiç verilmeden oluşturulan (legacy) öğrenci veri kaybı/hata olmadan Güz fallback'i ile takvimde çalışır", async () => {
+    const res = await createStudentTool(ctx(), {
+      name: "Legacy Öğrenci",
+      email: "",
+      phone: "5551234567",
+      parentName: "Veli Adı",
+      parentPhone: "5559876543",
+      branchId: "erzene",
+      instrument: "Piyano",
+      teacherId: "t1",
+      packageName: "Bireysel Aylık — 4 ders",
+      weeklyLessonCount: 1,
+      monthlyFee: 3000,
+      notes: "",
+      // termType verilmedi — legacy senaryo
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const data = await readData();
+    const created = data.students.find((s) => s.id === res.data.studentId);
+    expect(created?.termType).toBeUndefined();
+
+    const calendarRes = await getAttendanceCalendarMonthTool(ctx(), {
+      studentId: res.data.studentId,
+      year: 2026,
+      month: 9,
+    });
+    expect(calendarRes.ok).toBe(true);
+    if (calendarRes.ok) expect(calendarRes.data.term).toBe("guz"); // fallback, hata yok
   });
 });
