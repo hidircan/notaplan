@@ -112,26 +112,35 @@ export default async function TeacherDetailPage({
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <BackButton fallbackHref="/panel/ogretmenler" label="Öğretmenlere dön" className="mb-3" />
-      <PageHeader
-        title={teacher.name}
-        description={`${branch?.shortName ?? "—"} · ${teacher.instruments.join(", ")}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/panel/ogretmenler/${teacher.id}/geri-bildirim`}
-              className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
-            >
-              Geri Bildirim İncelemesi →
-            </Link>
-            {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
-              <TeacherArchiveAction teacherId={teacher.id} teacherName={teacher.name} archived={!teacher.active} />
-            ) : null}
-          </div>
-        }
-      />
+
+      {/*
+        ÖNCELİK 4 (devam) — öğretmen ekranı görsel revizyonu: fotoğraf/avatar
+        YOK; öğretmen adı büyük, ortalanmış, düz metin bir başlık (h1) olarak
+        görünür. Mevcut önemli bilgiler (durum/enstrümanlar/şube/iletişim/
+        sözleşme uyarısı) altında düzenli bir kart bölümünde kalır — yalnızca
+        listenin paylaştığı genel `PageHeader` (sol hizalı) bu sayfada
+        KULLANILMAZ; diğer liste ekranları etkilenmez.
+      */}
+      <div className="mb-6 text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text)] sm:text-4xl">{teacher.name}</h1>
+        <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
+          {branch?.shortName ?? "—"} · {teacher.instruments.join(", ")}
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Link
+            href={`/panel/ogretmenler/${teacher.id}/geri-bildirim`}
+            className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+          >
+            Geri Bildirim İncelemesi →
+          </Link>
+          {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+            <TeacherArchiveAction teacherId={teacher.id} teacherName={teacher.name} archived={!teacher.active} />
+          ) : null}
+        </div>
+      </div>
 
       <Card className="mb-6 !p-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-center">
           <Badge status={teacher.active ? "confirmed" : "cancelled"}>
             {teacher.active ? "Aktif" : "Pasif"}
           </Badge>
