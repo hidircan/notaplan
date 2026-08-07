@@ -103,4 +103,9 @@ export {
   uploadSignedDocumentTool,
   getDocumentInstanceTool,
   resolveCollectionsIbanTool,
+  updateTeacherInstrumentsTool,
+  createPackageTool,
+  updatePackageTool,
+  setSocialMediaConsentTool,
+  getSocialMediaConsentTool,
 } from "./tools";

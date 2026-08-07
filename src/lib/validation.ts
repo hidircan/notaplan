@@ -60,6 +60,15 @@ export const studentSchema = z.object({
   specialNotes: optionalTrimmed,
   /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz). Verilmezse legacy (undefined) — kayıt akışı kırılmaz. */
   termType: z.enum(["guz", "yaz"]).optional(),
+  /** ÖNCELİK 4 (devam) — Paket Yönetimi + ek profil alanları. Hepsi opsiyonel — legacy kayıt akışı kırılmaz. */
+  packageId: z.string().optional(),
+  birthDate: optionalTrimmed,
+  birthPlace: optionalTrimmed,
+  schoolOrOccupation: optionalTrimmed,
+  address: optionalTrimmed,
+  lessonDurationMinutes: z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+    message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+  }).optional(),
 });
 
 export const updateStudentProfileSchema = z.object({
@@ -74,13 +83,37 @@ export const updateStudentProfileSchema = z.object({
   termType: z.enum(["guz", "yaz"]).optional(),
 });
 
-export const teacherSchema = z.object({
-  name: z.string().min(1),
-  email: optionalEmail,
-  phone: z.string().min(1),
-  branchId: z.string().min(1),
-  instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
+const TEACHER_INSTRUMENT_ENUM = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
+const INSTRUMENT_LEVEL_ENUM = ["Başlangıç", "Orta", "İleri"] as const;
+
+/** ÖNCELİK 4 (devam) — çoklu enstrüman satırı: {enstrüman, seviye}. */
+export const teacherInstrumentSkillSchema = z.object({
+  instrument: z.enum(TEACHER_INSTRUMENT_ENUM),
+  level: z.enum(INSTRUMENT_LEVEL_ENUM),
 });
+
+export const teacherSchema = z
+  .object({
+    name: z.string().min(1),
+    email: optionalEmail,
+    phone: z.string().min(1),
+    branchId: z.string().min(1),
+    instrument: z.enum(TEACHER_INSTRUMENT_ENUM),
+    /**
+     * ÖNCELİK 4 (devam) — çoklu enstrüman+seviye. Verilmezse legacy tek
+     * enstrüman davranışı (yalnızca `instrument`) korunur — geriye dönük
+     * uyumluluk için zorunlu değil.
+     */
+    instrumentLevels: z.array(teacherInstrumentSkillSchema).optional(),
+  })
+  .refine(
+    (v) => {
+      if (!v.instrumentLevels || v.instrumentLevels.length === 0) return true;
+      const seen = new Set(v.instrumentLevels.map((r) => r.instrument));
+      return seen.size === v.instrumentLevels.length;
+    },
+    { message: "Aynı enstrüman birden fazla kez eklenemez.", path: ["instrumentLevels"] }
+  );
 
 export const roomSchema = z.object({
   name: z.string().min(1),
@@ -531,3 +564,33 @@ export const closedDaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   name: z.string().min(1).max(120),
 });
+
+/** ÖNCELİK 4 (devam) — Paket Yönetimi. */
+export const createPackageSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  price30Min: z.coerce.number().int().min(0),
+  price40Min: z.coerce.number().int().min(0),
+  price50Min: z.coerce.number().int().min(0),
+  termLabel: z.enum(["guz", "yaz"]).optional(),
+});
+
+export const updatePackageSchema = z.object({
+  packageId: z.string().min(1),
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  price30Min: z.coerce.number().int().min(0).optional(),
+  price40Min: z.coerce.number().int().min(0).optional(),
+  price50Min: z.coerce.number().int().min(0).optional(),
+  termLabel: z.enum(["guz", "yaz"]).optional(),
+  status: z.enum(["active", "archived"]).optional(),
+});
+
+/** ÖNCELİK 4 (devam) — öğretmen çoklu enstrüman+seviye düzenleme (öğretmen detayı). */
+export const updateTeacherInstrumentsSchema = z.object({
+  teacherId: z.string().min(1),
+  instrumentLevels: z.array(teacherInstrumentSkillSchema).min(1),
+}).refine(
+  (v) => new Set(v.instrumentLevels.map((r) => r.instrument)).size === v.instrumentLevels.length,
+  { message: "Aynı enstrüman birden fazla kez eklenemez.", path: ["instrumentLevels"] }
+);

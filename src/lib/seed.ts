@@ -457,5 +457,34 @@ export function createSeedData(): AppData {
     payments,
     teacherFeeRules,
     teacherPayouts: [],
+    // ÖNCELİK 4 (devam) — Paket Yönetimi seed'i (görev tanımındaki iki demo paket).
+    packages: [
+      {
+        id: "pkg_yaz_8h",
+        title: "8 Haftalık Yaz Paketi",
+        description: "8 özel ders + 8 grup solfej hediye",
+        status: "active",
+        price30Min: 10800,
+        price40Min: 12800,
+        price50Min: 14800,
+        termLabel: "yaz",
+        createdBy: "seed",
+        createdAt: at(-90, 8),
+        updatedAt: at(-90, 8),
+      },
+      {
+        id: "pkg_yaz_mini",
+        title: "Yaz Mini Paket",
+        description: "4 özel ders + 4 grup solfej hediye",
+        status: "active",
+        price30Min: 6000,
+        price40Min: 7000,
+        price50Min: 8000,
+        termLabel: "yaz",
+        createdBy: "seed",
+        createdAt: at(-90, 8),
+        updatedAt: at(-90, 8),
+      },
+    ],
   };
 }

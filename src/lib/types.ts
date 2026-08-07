@@ -163,10 +163,41 @@ export interface Student {
   archivedAt?: string;
   /** ÖNCELİK 4 — Yoklama Takvimi dönemi. Boşsa "guz" varsayılır. */
   termType?: StudentTermType;
+  /**
+   * ÖNCELİK 4 (devam) — Paket Yönetimi. Additive: yoksa (legacy) `packageName`
+   * serbest metniyle görünmeye devam eder — bkz. src/lib/packages.ts.
+   */
+  packageId?: string;
+  birthPlace?: string;
+  schoolOrOccupation?: string;
 }
 
 /** ÖNCELİK 4 — Yoklama Takvimi'nin gösterdiği ay aralığını belirler. */
 export type StudentTermType = "guz" | "yaz";
+
+export type PackageStatus = "active" | "archived";
+
+/**
+ * ÖNCELİK 4 (devam) — Paket Yönetimi. Fiyatlar TL, tam sayı (Payment.amount
+ * ile aynı kural — asla float/kuruş ondalığı). Hard delete yok; `status`
+ * ile pasife alınır. Fiyat/açıklama revizyonu GEÇMİŞ Payment kayıtlarını
+ * asla değiştirmez — Payment.amount oluşturma anında donmuş bir tam sayıdır,
+ * Package'a canlı referans vermez.
+ */
+export interface Package {
+  id: string;
+  title: string;
+  description?: string;
+  status: PackageStatus;
+  price30Min: number;
+  price40Min: number;
+  price50Min: number;
+  /** "guz" | "yaz" | undefined (Genel — her iki dönemde de geçerli). */
+  termLabel?: StudentTermType;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /** EPIC 4 — öğrenci eğitim profili alanları, tek bir yerden güncellenir. */
 export type StudentProfilePatch = Partial<
@@ -193,6 +224,9 @@ export type StudentProfilePatch = Partial<
     | "nationalIdLast2"
     | "educationMethod"
     | "termType"
+    | "packageId"
+    | "birthPlace"
+    | "schoolOrOccupation"
   >
 >;
 
@@ -572,6 +606,13 @@ export interface AppData {
   payments: Payment[];
   teacherFeeRules: TeacherFeeRule[];
   teacherPayouts: TeacherPayout[];
+  /**
+   * ÖNCELİK 4 (devam) — Paket Yönetimi. Opsiyonel (required değil) —
+   * mevcut birçok test fixture'ı elle AppData nesnesi kurar ve bu alanı
+   * içermez; zorunlu yapmak ilgisiz onlarca dosyayı kırar. readData()
+   * her zaman `data.packages ?? []` ile güvenli varsayılan uygular.
+   */
+  packages?: Package[];
 }
 
 /**

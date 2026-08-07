@@ -41,12 +41,19 @@ import {
   updateMakeupSlaEscalation,
   updateStudentProfile,
   updateTeacherAvailability,
+  updateTeacherInstruments,
   updateTeacherFeeRule,
   switchLessonOpsFlagLive,
   upsertMonthlyPlanPayment,
+  addPackage,
+  updatePackage,
 } from "../store";
 import { setClosedDay, listClosedDays } from "../closed-day-overrides";
 import { resolveDayStatus, isWeeklyClosedDayForTerm } from "../attendance-calendar";
+import {
+  setSocialMediaConsent,
+  getLatestSocialMediaConsent,
+} from "../social-media-consent";
 import { effectiveLessonOpsStatus } from "../lesson-ops";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import {
@@ -186,6 +193,10 @@ import {
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
   updateStudentProfileSchema,
+  updateTeacherInstrumentsSchema,
+  createPackageSchema,
+  updatePackageSchema,
+  socialMediaConsentSchema,
 } from "../validation";
 import {
   DEFAULT_COLLECTIONS_SETTINGS,
@@ -804,6 +815,7 @@ export async function createStudentTool(
       instruments: [v.data.instrument as Instrument],
       email: v.data.email ?? "",
       notes: v.data.notes ?? "",
+      lessonDurationMinutes: v.data.lessonDurationMinutes as Student["lessonDurationMinutes"],
     });
     const after = await readData();
     const created = after.students.find((s) => !ids.has(s.id));
@@ -850,6 +862,14 @@ export async function createTeacherTool(
   if (!v.ok) return v;
 
   try {
+    // ÖNCELİK 4 (devam) — çoklu enstrüman verilmişse `instruments` bundan
+    // türetilir (benzersiz enstrüman listesi); yoksa legacy tek-enstrüman
+    // davranışı ([instrument]) aynen korunur.
+    const instruments =
+      v.data.instrumentLevels && v.data.instrumentLevels.length > 0
+        ? Array.from(new Set(v.data.instrumentLevels.map((r) => r.instrument as Instrument)))
+        : [v.data.instrument as Instrument];
+
     const before = await readData();
     const ids = new Set(before.teachers.map((t) => t.id));
     await addTeacher({
@@ -857,7 +877,8 @@ export async function createTeacherTool(
       email: v.data.email ?? "",
       phone: v.data.phone,
       branchId: v.data.branchId as BranchId,
-      instruments: [v.data.instrument as Instrument],
+      instruments,
+      instrumentLevels: v.data.instrumentLevels as Teacher["instrumentLevels"],
       availability: [
         { dayOfWeek: 1, start: "10:00", end: "18:00" },
         { dayOfWeek: 2, start: "10:00", end: "18:00" },
@@ -869,10 +890,124 @@ export async function createTeacherTool(
     });
     const after = await readData();
     const created = after.teachers.find((t) => !ids.has(t.id));
+    if (created) audit(ctx, "teacher.create", "Teacher", created.id, { instrumentCount: instruments.length });
     return ok({ teacherId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTeacher failed");
   }
+}
+
+/** ÖNCELİK 4 (devam) — öğretmen çoklu enstrüman+seviye düzenleme (admin only). */
+export async function updateTeacherInstrumentsTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ teacherId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateTeacherInstrumentsSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  if (!data.teachers.some((t) => t.id === v.data.teacherId)) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+
+  try {
+    const instruments = Array.from(new Set(v.data.instrumentLevels.map((r) => r.instrument as Instrument)));
+    const updated = await updateTeacherInstruments(
+      v.data.teacherId,
+      instruments,
+      v.data.instrumentLevels as Teacher["instrumentLevels"]
+    );
+    if (!updated) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+    audit(ctx, "teacher.instruments_update", "Teacher", v.data.teacherId, { instrumentCount: instruments.length });
+    return ok({ teacherId: v.data.teacherId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTeacherInstruments failed");
+  }
+}
+
+/** ÖNCELİK 4 (devam) — Paket Yönetimi: yeni paket (admin only, tenant-scoped, audit'li). */
+export async function createPackageTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ packageId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createPackageSchema, input);
+  if (!v.ok) return v;
+
+  const result = await addPackage({ ...v.data, createdBy: ctx.userId });
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "package.create", "Package", result.pkg.id, { title: result.pkg.title });
+  return ok({ packageId: result.pkg.id });
+}
+
+/**
+ * ÖNCELİK 4 (devam) — Paket Yönetimi: fiyat/açıklama/durum güncelleme
+ * (arşivleme dahil, `status:"archived"`). Hard delete YOK. GEÇMİŞ Payment
+ * kayıtlarına dokunmaz — Package sadece ileriye dönük referans/görüntüleme
+ * amaçlıdır (bkz. src/lib/packages.ts dokümantasyonu).
+ */
+export async function updatePackageTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ packageId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updatePackageSchema, input);
+  if (!v.ok) return v;
+
+  const { packageId, ...patch } = v.data;
+  const result = await updatePackage(packageId, patch);
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "package.update", "Package", packageId, patch);
+  return ok({ packageId });
+}
+
+/**
+ * ÖNCELİK 4 (devam) — Sosyal medya izni set etme (admin only, audit'li,
+ * mevcut SocialMediaConsent modelinden — bkz. social-media-consent.ts).
+ * Her çağrı yeni bir tarihçe satırı ekler; öğrenci/veli/öğretmen bu izni
+ * göremez/değiştiremez (yalnızca admin RBAC).
+ */
+export async function setSocialMediaConsentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(socialMediaConsentSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  if (!data.students.some((s) => s.id === v.data.studentId)) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+
+  const record = await setSocialMediaConsent({ ...v.data, tenantId: ctx.tenantId, actorUserId: ctx.userId });
+  audit(ctx, "student.social_media_consent", "Student", v.data.studentId, { status: record.status });
+  return ok({ studentId: v.data.studentId, status: record.status });
+}
+
+/** Öğrenci detayında gösterim için en güncel izin — staff erişimi (RBAC mevcut assertStudentAccess ile aynı desen). */
+export async function getSocialMediaConsentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ consent: Awaited<ReturnType<typeof getLatestSocialMediaConsent>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+
+  const consent = await getLatestSocialMediaConsent(ctx.tenantId, v.data.studentId);
+  return ok({ consent });
 }
 
 export async function createBranchTool(

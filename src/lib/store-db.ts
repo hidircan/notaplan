@@ -52,6 +52,13 @@ import {
   type CreateTeacherPayoutResult,
   type MarkPayoutPaidResult,
 } from "./teacher-payout";
+import {
+  createPackageData,
+  updatePackageData,
+  type PackageInput,
+  type PackagePatch,
+  type PackageMutationResult,
+} from "./packages";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -120,6 +127,8 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       phone: teacher.phone,
       branchId: teacher.branchId as BranchId,
       instruments: teacher.instruments as Instrument[],
+      instrumentLevels:
+        ((teacher as { instrumentLevels?: unknown }).instrumentLevels as Teacher["instrumentLevels"]) ?? undefined,
       availability: teacher.availability as Teacher["availability"],
       maxDailyLessons: teacher.maxDailyLessons,
       active: teacher.active,
@@ -155,6 +164,10 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
         | import("./types").StudentTermType
         | undefined
         ?? undefined,
+      // ÖNCELİK 4 (devam) — Paket Yönetimi + ek profil alanları.
+      packageId: (student as { packageId?: string | null }).packageId ?? undefined,
+      birthPlace: (student as { birthPlace?: string | null }).birthPlace ?? undefined,
+      schoolOrOccupation: (student as { schoolOrOccupation?: string | null }).schoolOrOccupation ?? undefined,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -333,6 +346,8 @@ export async function seedDatabase(seed: AppData) {
     prisma.room.deleteMany({ where: { tenantId: tid } }),
     prisma.branch.deleteMany({ where: { tenantId: tid } }),
     prisma.school.deleteMany({ where: { tenantId: tid } }),
+    // ÖNCELİK 4 (devam) — Package Student'tan sonra silinir (FK), School'dan bağımsızdır (tenant-çapında).
+    prisma.package.deleteMany({ where: { tenantId: tid } }),
   ]);
 
   await prisma.tenant.upsert({
@@ -389,10 +404,33 @@ export async function seedDatabase(seed: AppData) {
           branchId: teacher.branchId,
           schoolId: school.id,
           instruments: teacher.instruments,
+          instrumentLevels: teacher.instrumentLevels ?? undefined,
           availability: teacher.availability,
           maxDailyLessons: teacher.maxDailyLessons,
           active: teacher.active,
           color: teacher.color,
+        },
+      })
+    )
+  );
+
+  // ÖNCELİK 4 (devam) — Package tenant-çapında (School'a bağlı değil).
+  await Promise.all(
+    (seed.packages ?? []).map((pkg) =>
+      prisma.package.create({
+        data: {
+          id: pkg.id,
+          tenantId: tid,
+          title: pkg.title,
+          description: pkg.description,
+          status: pkg.status,
+          price30Min: pkg.price30Min,
+          price40Min: pkg.price40Min,
+          price50Min: pkg.price50Min,
+          termLabel: pkg.termLabel,
+          createdBy: pkg.createdBy,
+          createdAt: new Date(pkg.createdAt),
+          updatedAt: new Date(pkg.updatedAt),
         },
       })
     )
@@ -603,6 +641,28 @@ const schoolInclude = {
   teacherPayouts: true,
 } as const;
 
+/**
+ * ÖNCELİK 4 (devam) — Package tenant çapındadır (School'a değil Tenant'a
+ * bağlı, `ClosedDay`/`SocialMediaConsent` ile aynı desen), bu yüzden
+ * `schoolInclude`'a değil ayrı bir sorguya girer.
+ */
+async function readPackages(tid: string): Promise<AppData["packages"]> {
+  const rows = await prisma.package.findMany({ where: { tenantId: tid }, orderBy: { createdAt: "asc" } });
+  return rows.map((p) => ({
+    id: p.id,
+    title: p.title,
+    description: p.description ?? undefined,
+    status: p.status as import("./types").PackageStatus,
+    price30Min: p.price30Min,
+    price40Min: p.price40Min,
+    price50Min: p.price50Min,
+    termLabel: (p.termLabel as import("./types").StudentTermType | null) ?? undefined,
+    createdBy: p.createdBy,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  }));
+}
+
 export async function readData(): Promise<AppData> {
   const tid = tenantId();
   const school = await prisma.school.findFirst({
@@ -620,10 +680,10 @@ export async function readData(): Promise<AppData> {
       include: schoolInclude,
     });
     if (!seededSchool) throw new Error("Okul verisi bulunamadı");
-    return mapSchoolToAppData(seededSchool);
+    return { ...mapSchoolToAppData(seededSchool), packages: await readPackages(tid) };
   }
 
-  return mapSchoolToAppData(school);
+  return { ...mapSchoolToAppData(school), packages: await readPackages(tid) };
 }
 
 export async function resetData(): Promise<AppData> {
@@ -891,6 +951,9 @@ export async function updateStudentProfile(
       specialNotes: patch.specialNotes,
       communicationOptOut: patch.communicationOptOut,
       termType: patch.termType,
+      packageId: patch.packageId,
+      birthPlace: patch.birthPlace,
+      schoolOrOccupation: patch.schoolOrOccupation,
     },
   });
   if (result.count === 0) throw new Error("Öğrenci bulunamadı");
@@ -916,6 +979,7 @@ export async function addTeacher(
       active: true,
       color: colors[Math.floor(Math.random() * colors.length)],
       instruments: teacher.instruments,
+      instrumentLevels: teacher.instrumentLevels ?? undefined,
       availability: teacher.availability,
     },
   });
@@ -937,6 +1001,28 @@ export async function updateTeacherAvailability(
     where: { id: teacherId, tenantId: tid },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: { availability: availability as any },
+  });
+  if (result.count === 0) return null;
+  const data = await readData();
+  return data.teachers.find((t) => t.id === teacherId) ?? null;
+}
+
+/** ÖNCELİK 4 (devam) — çoklu enstrüman+seviye düzenleme (öğretmen detayı). */
+export async function updateTeacherInstruments(
+  teacherId: string,
+  instruments: Teacher["instruments"],
+  instrumentLevels: Teacher["instrumentLevels"]
+): Promise<Teacher | null> {
+  logger.info("updateTeacherInstruments", teacherId);
+  const tid = requireTenantId();
+  const result = await prisma.teacher.updateMany({
+    where: { id: teacherId, tenantId: tid },
+    data: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instruments: instruments as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instrumentLevels: (instrumentLevels ?? null) as any,
+    },
   });
   if (result.count === 0) return null;
   const data = await readData();
@@ -1672,6 +1758,55 @@ async function requireTeacherSchoolId(tid: string, teacherId: string): Promise<s
   const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, tenantId: tid } });
   if (!teacher) throw new Error("Öğretmen bulunamadı");
   return teacher.schoolId;
+}
+
+export async function addPackage(input: PackageInput): Promise<PackageMutationResult> {
+  logger.info("addPackage", input.title);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = createPackageData(data, input);
+  if (!result.ok) return result;
+
+  await prisma.package.create({
+    data: {
+      id: result.pkg.id,
+      tenantId: tid,
+      title: result.pkg.title,
+      description: result.pkg.description,
+      status: result.pkg.status,
+      price30Min: result.pkg.price30Min,
+      price40Min: result.pkg.price40Min,
+      price50Min: result.pkg.price50Min,
+      termLabel: result.pkg.termLabel,
+      createdBy: result.pkg.createdBy,
+      createdAt: new Date(result.pkg.createdAt),
+      updatedAt: new Date(result.pkg.updatedAt),
+    },
+  });
+  return { ok: true, data: await readData(), pkg: result.pkg };
+}
+
+export async function updatePackage(packageId: string, patch: PackagePatch): Promise<PackageMutationResult> {
+  logger.info("updatePackage", packageId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = updatePackageData(data, packageId, patch);
+  if (!result.ok) return result;
+
+  const updateResult = await prisma.package.updateMany({
+    where: { id: packageId, tenantId: tid },
+    data: {
+      title: patch.title,
+      description: patch.description,
+      status: patch.status,
+      price30Min: patch.price30Min,
+      price40Min: patch.price40Min,
+      price50Min: patch.price50Min,
+      termLabel: patch.termLabel,
+    },
+  });
+  if (updateResult.count === 0) return { ok: false, message: "Paket bulunamadı." };
+  return { ok: true, data: await readData(), pkg: result.pkg };
 }
 
 export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMutationResult> {

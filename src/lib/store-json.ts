@@ -56,6 +56,13 @@ import {
   type CreateTeacherPayoutResult,
   type MarkPayoutPaidResult,
 } from "./teacher-payout";
+import {
+  createPackageData,
+  updatePackageData,
+  type PackageInput,
+  type PackagePatch,
+  type PackageMutationResult,
+} from "./packages";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -93,6 +100,7 @@ export async function readData(): Promise<AppData> {
   if (!data.settings.feeRoundingMode) data.settings.feeRoundingMode = "exact_minutes";
   if (!data.teacherFeeRules) data.teacherFeeRules = [];
   if (!data.teacherPayouts) data.teacherPayouts = [];
+  if (!data.packages) data.packages = [];
   assertTenant(data);
   return data;
 }
@@ -329,6 +337,22 @@ export async function updateTeacherAvailability(
   return updated;
 }
 
+/** ÖNCELİK 4 (devam) — çoklu enstrüman+seviye düzenleme (öğretmen detayı). */
+export async function updateTeacherInstruments(
+  teacherId: string,
+  instruments: Teacher["instruments"],
+  instrumentLevels: Teacher["instrumentLevels"]
+): Promise<Teacher | null> {
+  const data = await readData();
+  const idx = data.teachers.findIndex((t) => t.id === teacherId);
+  if (idx === -1) return null;
+  const updated: Teacher = { ...data.teachers[idx], instruments, instrumentLevels };
+  const teachers = [...data.teachers];
+  teachers[idx] = updated;
+  await writeData({ ...data, teachers });
+  return updated;
+}
+
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   const data = await readData();
   const payments: Payment[] = data.payments.map((p) =>
@@ -484,6 +508,20 @@ export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMut
   const data = await readData();
   assertTeacherExists(data, input.teacherId);
   const result = createTeacherFeeRuleData(data, input);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function addPackage(input: PackageInput): Promise<PackageMutationResult> {
+  const data = await readData();
+  const result = createPackageData(data, input);
+  if (result.ok) await writeData(result.data);
+  return result;
+}
+
+export async function updatePackage(packageId: string, patch: PackagePatch): Promise<PackageMutationResult> {
+  const data = await readData();
+  const result = updatePackageData(data, packageId, patch);
   if (result.ok) await writeData(result.data);
   return result;
 }

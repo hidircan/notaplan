@@ -20,6 +20,7 @@ import {
   listHomeworkForStudentTool,
   listStudentDocumentsTool,
   listTeachingMaterialsForStudentTool,
+  getSocialMediaConsentTool,
 } from "@/lib/services";
 import { computeOverallScore } from "@/lib/assessment/score";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
@@ -99,13 +100,14 @@ export default async function StudentDetailPage({
   const payments = sortPaymentsForProfile(data.payments.filter((p) => p.studentId === student.id));
   const paymentSummary = computeStudentPaymentSummary(payments);
 
-  const [homeworkResult, materialsResult, curriculumResult, assessmentResult, documentsResult] =
+  const [homeworkResult, materialsResult, curriculumResult, assessmentResult, documentsResult, consentResult] =
     await Promise.all([
       listHomeworkForStudentTool(session, { studentId: student.id }),
       listTeachingMaterialsForStudentTool(session, { studentId: student.id }),
       listCurriculumForStudentTool(session, { studentId: student.id }),
       getAssessmentReportTool(session, { studentId: student.id }),
       listStudentDocumentsTool(session, { studentId: student.id }),
+      getSocialMediaConsentTool(session, { studentId: student.id }),
     ]);
   const homework = homeworkResult.ok ? homeworkResult.data.homework : [];
   const materials = materialsResult.ok ? materialsResult.data.materials : [];
@@ -113,6 +115,8 @@ export default async function StudentDetailPage({
   const curriculumOverall = curriculumResult.ok ? curriculumResult.data.overallPercent : 0;
   const assessments = assessmentResult.ok ? assessmentResult.data.assessments : [];
   const documents = documentsResult.ok ? documentsResult.data.documents : [];
+  const socialMediaConsent = consentResult.ok ? consentResult.data.consent : undefined;
+  const packages = data.packages ?? [];
 
   const age = student.birthDate ? computeAge(student.birthDate) : null;
 
@@ -186,6 +190,28 @@ export default async function StudentDetailPage({
                 ) : (
                   <span className="text-[var(--color-text)]">{student.termType === "yaz" ? "Yaz Dönemi" : "Güz Dönemi"}</span>
                 )
+              }
+            />
+            <Field label="Doğum yeri" value={student.birthPlace ?? "Belirtilmemiş"} />
+            <Field label="Okulu / mesleği" value={student.schoolOrOccupation ?? "Belirtilmemiş"} />
+            <Field
+              label="Paket Yönetimi paketi"
+              value={
+                student.packageId
+                  ? packages.find((p) => p.id === student.packageId)?.title ?? "Bulunamadı"
+                  : "Seçilmedi (serbest metin paket kullanılıyor)"
+              }
+            />
+            <Field
+              label="Sosyal medya izni"
+              value={
+                socialMediaConsent
+                  ? socialMediaConsent.status === "granted"
+                    ? `Var — ${formatDate(socialMediaConsent.grantedAt)}`
+                    : socialMediaConsent.status === "withdrawn"
+                      ? `Geri çekildi — ${socialMediaConsent.withdrawnAt ? formatDate(socialMediaConsent.withdrawnAt) : "—"}`
+                      : "Yok"
+                  : "Henüz kaydedilmemiş"
               }
             />
           </dl>

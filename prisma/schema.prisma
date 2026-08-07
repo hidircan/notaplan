@@ -36,6 +36,7 @@ model Tenant {
   teacherFeedbacks    TeacherFeedback[]
   studentCurriculumTopics StudentCurriculumTopic[]
   socialMediaConsents SocialMediaConsent[]
+  packages   Package[]
   closedDays ClosedDay[]
   trialLessons TrialLesson[]
   documentTemplates DocumentTemplate[]
@@ -143,6 +144,10 @@ model Teacher {
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId        String
   instruments     Json
+  /// ÖNCELİK 4 (devam) — çoklu enstrüman + seviye çiftleri: [{instrument, level}].
+  /// NULL = legacy kayıt (bu alan eklenmeden önce oluşturuldu); UI bu durumda
+  /// yalnızca `instruments`'ı (seviyesiz) gösterir, hata vermez.
+  instrumentLevels Json?
   availability    Json
   maxDailyLessons Int
   active          Boolean
@@ -212,6 +217,17 @@ model Student {
   /// ÖNCELİK 4 — "guz" (Eylül-Haziran) | "yaz" (Temmuz-Ağustos). Boşsa "guz"
   /// varsayılır (mevcut kayıtların çoğu normal dönem öğrencisi).
   termType               String?
+  /// ÖNCELİK 4 (devam) — Paket Yönetimi entegrasyonu. Additive: legacy
+  /// öğrenciler packageId=NULL kalır ve serbest metin `packageName` ile
+  /// görünmeye devam eder — bu FK hiçbir mevcut kaydı bozmaz/backfill etmez.
+  /// Paket SİLİNMEZ (yalnız arşivlenir), bu yüzden onDelete: Restrict.
+  package                Package?  @relation(fields: [packageId], references: [id])
+  packageId              String?
+  birthPlace             String?
+  schoolOrOccupation     String?
+  /// Sosyal medya izni — MEVCUT `SocialMediaConsent` modelinde tutulur
+  /// (öğrenci başına en güncel kayıt + tarihçe); Student üzerinde ayrı bir
+  /// alan/paralel model YOK — bkz. src/lib/social-media-consent.ts.
   lessons           Lesson[]
   lessonSeries      LessonSeries[]
   attendances       Attendance[]
@@ -866,6 +882,39 @@ model ClosedDay {
 
   @@unique([tenantId, date])
   @@index([tenantId])
+}
+
+/// ÖNCELİK 4 (devam) — Paket Yönetimi. Additive/yeni: mevcut serbest metin
+/// `Student.packageName` alanının yerini almaz, üstüne eklenir (bkz.
+/// Student.packageId, opsiyonel FK). Fiyatlar KURUŞ/TL tam sayı (Payment.amount
+/// ile aynı kural — asla float) — 30/40/50 dk ders süresi başına ayrı fiyat.
+/// Hard delete YOK: `status` ile pasife alınır/arşivlenir; geçmiş
+/// Payment/tahsilat kayıtları paket fiyatı sonradan değişse bile ETKİLENMEZ
+/// (Payment.amount oluşturma anında donmuş bir değerdir, Package'a canlı
+/// referans vermez — bkz. lesson-ops.ts computeLessonChargeAmount, bu paket
+/// fiyatını DEĞİL öğrencinin kendi monthlyFee'sini kullanır; paket fiyatı
+/// yalnızca YENİ öğrenci kaydında/ileriye dönük referans amaçlıdır).
+model Package {
+  id          String    @id
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  /// "active" | "archived" — pasif/arşivlenmiş paket yeni öğrenci kaydında seçilemez.
+  status      String    @default("active")
+  /// TL, tam sayı (kuruş hassasiyeti gerekmiyor — mevcut Payment.amount ile aynı kural).
+  price30Min  Int
+  price40Min  Int
+  price50Min  Int
+  /// "guz" | "yaz" | null (Genel — her iki dönemde de geçerli).
+  termLabel   String?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  students    Student[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
 }
 
 /// PRODUCT_BACKLOG §5

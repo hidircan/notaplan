@@ -164,18 +164,37 @@ export default async function OgrencilerPage() {
               </Select>
             </div>
             <div>
+              {/* Öğretmen seçimi — yalnız aynı tenant içindeki AKTİF öğretmenler. */}
               <Label>Öğretmen</Label>
-              <Select name="teacherId" defaultValue={data.teachers[0]?.id}>
-                {data.teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.instruments.join(", ")})
-                  </option>
-                ))}
+              <Select name="teacherId" defaultValue={data.teachers.find((t) => t.active)?.id}>
+                {data.teachers
+                  .filter((t) => t.active)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.instruments.join(", ")})
+                    </option>
+                  ))}
               </Select>
             </div>
             <div>
-              <Label>Paket</Label>
+              <Label>Paket (serbest metin — geçmişle uyum için)</Label>
               <Input name="packageName" defaultValue="Bireysel Aylık — 4 ders" />
+            </div>
+            <div>
+              {/* ÖNCELİK 4 (devam) — Paket Yönetimi'nden AKTİF paket seçimi (opsiyonel,
+                  additive; legacy `packageName` metin alanının yerini almaz). */}
+              <Label>Paket Yönetimi paketi (opsiyonel)</Label>
+              <Select name="packageId" defaultValue="">
+                <option value="">Seçilmedi (yalnızca yukarıdaki serbest metin paket kullanılır)</option>
+                {(data.packages ?? [])
+                  .filter((p) => p.status === "active")
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} — 30dk {p.price30Min.toLocaleString("tr-TR")} TL / 40dk{" "}
+                      {p.price40Min.toLocaleString("tr-TR")} TL / 50dk {p.price50Min.toLocaleString("tr-TR")} TL
+                    </option>
+                  ))}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -186,6 +205,14 @@ export default async function OgrencilerPage() {
                 <Label>Aylık ücret</Label>
                 <Input name="monthlyFee" type="number" defaultValue={3000} min={0} />
               </div>
+            </div>
+            <div>
+              <Label>Ders süresi</Label>
+              <Select name="lessonDurationMinutes" defaultValue="40">
+                <option value="30">30 dk</option>
+                <option value="40">40 dk</option>
+                <option value="50">50 dk</option>
+              </Select>
             </div>
             <div>
               <Label>Not</Label>
@@ -220,6 +247,33 @@ export default async function OgrencilerPage() {
                 <option value="guz">Güz Dönemi</option>
                 <option value="yaz">Yaz Dönemi</option>
               </Select>
+            </div>
+            <div>
+              <Label>Doğum tarihi (opsiyonel)</Label>
+              <Input name="birthDate" type="date" />
+            </div>
+            <div>
+              <Label>Doğum yeri (opsiyonel)</Label>
+              <Input name="birthPlace" placeholder="Örn. İzmir" />
+            </div>
+            <div>
+              <Label>Okulu / mesleği (opsiyonel)</Label>
+              <Input name="schoolOrOccupation" placeholder="Örn. Erzene İlkokulu 3-A" />
+            </div>
+            <div>
+              <Label>Ev adresi (opsiyonel)</Label>
+              <Input name="address" placeholder="Opsiyonel" />
+            </div>
+            <div>
+              {/* T.C. kimlik — şifreli saklanır (setNationalIdTool), listede/exportta asla düz metin görünmez. */}
+              <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
+              <Input name="nationalId" inputMode="numeric" maxLength={11} placeholder="11 haneli" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input id="social-media-consent" type="checkbox" name="socialMediaConsent" value="granted" className="h-4 w-4" />
+              <label htmlFor="social-media-consent" className="text-sm text-[var(--color-text)]">
+                Sosyal medya paylaşım izni var
+              </label>
             </div>
             <Button type="submit" className="w-full">
               Öğrenci ekle

@@ -21,6 +21,7 @@ import { canViewFullNationalId } from "@/lib/pii";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
 import { computeTeacherEarningsForPeriod } from "@/lib/teacher-payout";
+import { TeacherInstrumentsEditor } from "@/components/teacher-instruments-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -180,7 +181,7 @@ export default async function TeacherDetailPage({
         {!teacher.instrumentLevels || teacher.instrumentLevels.length === 0 ? (
           <EmptyState title="Enstrüman seviyesi tanımlanmamış" />
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="mb-3 flex flex-wrap gap-2">
             {teacher.instrumentLevels.map((skill) => (
               <Card key={skill.instrument} className="!p-3">
                 <p className="text-sm font-medium text-[var(--color-text)]">{skill.instrument}</p>
@@ -189,6 +190,16 @@ export default async function TeacherDetailPage({
             ))}
           </div>
         )}
+        {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+          <TeacherInstrumentsEditor
+            teacherId={teacher.id}
+            initialRows={
+              teacher.instrumentLevels && teacher.instrumentLevels.length > 0
+                ? teacher.instrumentLevels
+                : teacher.instruments.map((i) => ({ instrument: i, level: "Başlangıç" as const }))
+            }
+          />
+        ) : null}
       </section>
 
       <section id="sozlesme" className="mb-8 scroll-mt-4">

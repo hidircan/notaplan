@@ -54,6 +54,11 @@ import {
   updateCollectionsSettingsTool,
   markNotificationReadTool,
   resetDemoTool,
+  setNationalIdTool,
+  setSocialMediaConsentTool,
+  updateTeacherInstrumentsTool,
+  createPackageTool,
+  updatePackageTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -321,7 +326,7 @@ export async function actionResetDemo() {
 export async function actionAddStudent(formData: FormData) {
   try {
     await withAuthContext("actionAddStudent", async (ctx) => {
-      assertOk(
+      const created = assertOk(
         await createStudentTool(ctx, {
           name: String(formData.get("name") || ""),
           email: String(formData.get("email") || ""),
@@ -343,8 +348,40 @@ export async function actionAddStudent(formData: FormData) {
             const raw = String(formData.get("termType") || "");
             return raw === "guz" || raw === "yaz" ? raw : undefined;
           })(),
+          // ÖNCELİK 4 (devam) — Paket Yönetimi + ek profil alanları.
+          packageId: String(formData.get("packageId") || "") || undefined,
+          birthDate: String(formData.get("birthDate") || "") || undefined,
+          birthPlace: String(formData.get("birthPlace") || "") || undefined,
+          schoolOrOccupation: String(formData.get("schoolOrOccupation") || "") || undefined,
+          address: String(formData.get("address") || "") || undefined,
+          lessonDurationMinutes: (() => {
+            const raw = Number(formData.get("lessonDurationMinutes") || 0);
+            return raw === 30 || raw === 40 || raw === 50 ? raw : undefined;
+          })(),
         })
       );
+
+      // T.C. kimlik — şifreli saklama, mevcut setNationalIdTool üzerinden
+      // (asla düz metin Student.nationalIdCipher dışında bir yere yazılmaz).
+      const nationalId = String(formData.get("nationalId") || "").trim();
+      if (nationalId) {
+        await setNationalIdTool(ctx, { entity: "student", entityId: created.studentId, nationalId });
+      }
+
+      // Sosyal medya izni — mevcut SocialMediaConsent modeli üzerinden.
+      // Checkbox işaretliyse "granted", işaretsizse (FormData'da hiç yoksa)
+      // "denied" — sessizce atlanmaz, her yeni öğrenci için açıkça kaydedilir.
+      const socialMediaConsent = formData.get("socialMediaConsent") === "granted" ? "granted" : "denied";
+      await setSocialMediaConsentTool(ctx, {
+        studentId: created.studentId,
+        status: socialMediaConsent,
+        representativeName: String(formData.get("parentName") || ""),
+        relationship: "Veli",
+        // socialMediaConsentSchema en az 1 scope ister; "Hayır" durumunda
+        // izin verilen kapsam yoktur ama şema formalitesi için "name" ile
+        // kaydedilir — asıl karar `status` alanıdır (granted/denied).
+        scopes: socialMediaConsent === "granted" ? (["photo", "video", "name"] as const) : (["name"] as const),
+      });
     });
     revalidateAll();
   } catch (error) {
@@ -470,6 +507,19 @@ export async function actionMarkNotificationRead(
 export async function actionAddTeacher(formData: FormData) {
   try {
     await withAuthContext("actionAddTeacher", async (ctx) => {
+      // ÖNCELİK 4 (devam) — çoklu enstrüman+seviye, "TeacherInstrumentsField"
+      // client bileşeninin gizli JSON input'undan gelir; verilmezse (veya
+      // geçersizse) legacy tek-enstrüman davranışı korunur.
+      let instrumentLevels: { instrument: string; level: string }[] | undefined;
+      const rawInstrumentLevels = String(formData.get("instrumentLevelsJson") || "");
+      if (rawInstrumentLevels) {
+        try {
+          const parsed = JSON.parse(rawInstrumentLevels);
+          if (Array.isArray(parsed) && parsed.length > 0) instrumentLevels = parsed;
+        } catch {
+          // geçersiz JSON — legacy tek-enstrüman davranışına düş
+        }
+      }
       assertOk(
         await createTeacherTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -477,6 +527,7 @@ export async function actionAddTeacher(formData: FormData) {
           phone: String(formData.get("phone") || ""),
           branchId: String(formData.get("branchId") || ""),
           instrument: String(formData.get("instrument") || "Piyano"),
+          instrumentLevels,
         })
       );
     });
@@ -485,6 +536,77 @@ export async function actionAddTeacher(formData: FormData) {
     logger.error("actionAddTeacher failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
+  }
+}
+
+export type UpdateTeacherInstrumentsActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionUpdateTeacherInstruments(input: {
+  teacherId: string;
+  instrumentLevels: { instrument: string; level: string }[];
+}): Promise<UpdateTeacherInstrumentsActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateTeacherInstruments", (ctx) =>
+      updateTeacherInstrumentsTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateTeacherInstruments failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Enstrüman/seviye güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type CreatePackageActionResult = { ok: true; packageId: string } | { ok: false; message: string };
+
+export async function actionCreatePackage(formData: FormData): Promise<CreatePackageActionResult> {
+  try {
+    return await withAuthContext("actionCreatePackage", async (ctx) => {
+      const result = await createPackageTool(ctx, {
+        title: String(formData.get("title") || ""),
+        description: String(formData.get("description") || "") || undefined,
+        price30Min: Number(formData.get("price30Min") || 0),
+        price40Min: Number(formData.get("price40Min") || 0),
+        price50Min: Number(formData.get("price50Min") || 0),
+        termLabel: (() => {
+          const raw = String(formData.get("termLabel") || "");
+          return raw === "guz" || raw === "yaz" ? raw : undefined;
+        })(),
+      });
+      if (!result.ok) return { ok: false as const, message: result.error.message };
+      revalidateAll();
+      return { ok: true as const, packageId: result.data.packageId };
+    });
+  } catch (error) {
+    logger.error("actionCreatePackage failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Paket oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdatePackageActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionUpdatePackage(input: {
+  packageId: string;
+  title?: string;
+  description?: string;
+  price30Min?: number;
+  price40Min?: number;
+  price50Min?: number;
+  termLabel?: "guz" | "yaz";
+  status?: "active" | "archived";
+}): Promise<UpdatePackageActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdatePackage", (ctx) => updatePackageTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdatePackage failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Paket güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

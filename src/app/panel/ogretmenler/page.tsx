@@ -8,6 +8,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { computeTeacherPerformanceScore } from "@/lib/insights/teacher-performance";
+import { TeacherInstrumentsField } from "@/components/teacher-instruments-field";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 
 export const dynamic = "force-dynamic";
@@ -175,7 +176,7 @@ export default async function OgretmenlerPage() {
               <Input name="phone" placeholder="05xx xxx xxxx" />
             </div>
             <div>
-              <Label>Ana enstrüman</Label>
+              <Label>Ana enstrüman (yalnızca hiç enstrüman eklenmezse kullanılır)</Label>
               <Select name="instrument" defaultValue="Piyano">
                 {["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"].map((i) => (
                   <option key={i} value={i}>
@@ -183,6 +184,10 @@ export default async function OgretmenlerPage() {
                   </option>
                 ))}
               </Select>
+            </div>
+            <div>
+              <Label>Enstrümanlar ve seviyeleri</Label>
+              <TeacherInstrumentsField name="instrumentLevelsJson" />
             </div>
             <div>
               <Label>Şube</Label>

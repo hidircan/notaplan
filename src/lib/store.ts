@@ -49,6 +49,17 @@ type StoreApi = {
     teacherId: string,
     availability: Teacher["availability"]
   ) => Promise<Teacher | null>;
+  /** ÖNCELİK 4 (devam) — çoklu enstrüman+seviye düzenleme. */
+  updateTeacherInstruments: (
+    teacherId: string,
+    instruments: Teacher["instruments"],
+    instrumentLevels: Teacher["instrumentLevels"]
+  ) => Promise<Teacher | null>;
+  addPackage: (input: import("./packages").PackageInput) => Promise<import("./packages").PackageMutationResult>;
+  updatePackage: (
+    packageId: string,
+    patch: import("./packages").PackagePatch
+  ) => Promise<import("./packages").PackageMutationResult>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
   addLesson: (input: {
@@ -249,6 +260,27 @@ export async function updateTeacherAvailability(
   availability: Teacher["availability"]
 ): Promise<Teacher | null> {
   return withTenantScope(() => store.updateTeacherAvailability(teacherId, availability));
+}
+
+export async function updateTeacherInstruments(
+  teacherId: string,
+  instruments: Teacher["instruments"],
+  instrumentLevels: Teacher["instrumentLevels"]
+): Promise<Teacher | null> {
+  return withTenantScope(() => store.updateTeacherInstruments(teacherId, instruments, instrumentLevels));
+}
+
+export async function addPackage(
+  input: import("./packages").PackageInput
+): Promise<import("./packages").PackageMutationResult> {
+  return withTenantScope(() => store.addPackage(input));
+}
+
+export async function updatePackage(
+  packageId: string,
+  patch: import("./packages").PackagePatch
+): Promise<import("./packages").PackageMutationResult> {
+  return withTenantScope(() => store.updatePackage(packageId, patch));
 }
 
 export async function markPaymentPaid(paymentId: string): Promise<AppData> {
