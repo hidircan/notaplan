@@ -62,6 +62,13 @@ type StoreApi = {
   ) => Promise<import("./packages").PackageMutationResult>;
   markPaymentPaid: (paymentId: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
+  /** ÖNCELİK 4 (devam) — oda düzenleme. */
+  updateRoom: (
+    roomId: string,
+    patch: Partial<Pick<Room, "name" | "capacity" | "branchId" | "instruments" | "active" | "archivedAt">>
+  ) => Promise<Room | null>;
+  /** ÖNCELİK 4 (devam) — öğretmen arşivleme/geri alma (hard delete YOK). */
+  archiveTeacher: (teacherId: string, archived: boolean) => Promise<Teacher | null>;
   addLesson: (input: {
     studentId: string;
     teacherId: string;
@@ -289,6 +296,17 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   return withTenantScope(() => store.addRoom(room));
+}
+
+export async function updateRoom(
+  roomId: string,
+  patch: Partial<Pick<Room, "name" | "capacity" | "branchId" | "instruments" | "active" | "archivedAt">>
+): Promise<Room | null> {
+  return withTenantScope(() => store.updateRoom(roomId, patch));
+}
+
+export async function archiveTeacher(teacherId: string, archived: boolean): Promise<Teacher | null> {
+  return withTenantScope(() => store.archiveTeacher(teacherId, archived));
 }
 
 export async function addLesson(input: {

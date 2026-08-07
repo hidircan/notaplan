@@ -150,9 +150,16 @@ function teacherOptionsFor(teachers: Teacher[], instrument: Instrument, student?
   });
 }
 
-/** Seçili öğretmenin şubesiyle ve enstrümanla uyumlu odalarla daraltır. */
+/**
+ * Seçili öğretmenin şubesiyle ve enstrümanla uyumlu, AKTİF odalarla daraltır.
+ * ÖNCELİK 4 (devam) — pasife alınmış bir oda yeni ders planlamasında
+ * seçilemez (`r.active !== false` — legacy odalarda `active` alanı yoksa
+ * varsayılan aktif kabul edilir, geriye dönük kırılma yok).
+ */
 function roomOptionsFor(rooms: Room[], instrument: Instrument, teacher?: Teacher): Room[] {
-  return rooms.filter((r) => r.instruments.includes(instrument) && (!teacher || r.branchId === teacher.branchId));
+  return rooms.filter(
+    (r) => r.active !== false && r.instruments.includes(instrument) && (!teacher || r.branchId === teacher.branchId)
+  );
 }
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];

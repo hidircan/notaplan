@@ -132,6 +132,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       availability: teacher.availability as Teacher["availability"],
       maxDailyLessons: teacher.maxDailyLessons,
       active: teacher.active,
+      archivedAt: (teacher as { archivedAt?: Date | null }).archivedAt?.toISOString() ?? undefined,
       color: teacher.color,
     })),
     students: school.students.map((student) => ({
@@ -175,6 +176,8 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       branchId: room.branchId as BranchId,
       capacity: room.capacity,
       instruments: room.instruments as Instrument[],
+      active: (room as { active?: boolean }).active ?? true,
+      archivedAt: (room as { archivedAt?: Date | null }).archivedAt?.toISOString() ?? undefined,
     })),
     lessons: school.lessons.map((lesson) => ({
       id: lesson.id,
@@ -1312,6 +1315,43 @@ export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
     },
   });
   return readData();
+}
+
+/** ÖNCELİK 4 (devam) — oda düzenleme (ad/kapasite/şube/enstrüman/aktiflik). */
+export async function updateRoom(
+  roomId: string,
+  patch: Partial<Pick<Room, "name" | "capacity" | "branchId" | "instruments" | "active" | "archivedAt">>
+): Promise<Room | null> {
+  logger.info("updateRoom", roomId);
+  const tid = requireTenantId();
+  const result = await prisma.room.updateMany({
+    where: { id: roomId, tenantId: tid },
+    data: {
+      name: patch.name,
+      capacity: patch.capacity,
+      branchId: patch.branchId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instruments: patch.instruments as any,
+      active: patch.active,
+      archivedAt: patch.archivedAt ? new Date(patch.archivedAt) : patch.archivedAt === undefined ? undefined : null,
+    },
+  });
+  if (result.count === 0) return null;
+  const data = await readData();
+  return data.rooms.find((r) => r.id === roomId) ?? null;
+}
+
+/** ÖNCELİK 4 (devam) — öğretmen arşivleme/geri alma (hard delete YOK). */
+export async function archiveTeacher(teacherId: string, archived: boolean): Promise<Teacher | null> {
+  logger.info("archiveTeacher", teacherId, archived);
+  const tid = requireTenantId();
+  const result = await prisma.teacher.updateMany({
+    where: { id: teacherId, tenantId: tid },
+    data: { active: !archived, archivedAt: archived ? new Date() : null },
+  });
+  if (result.count === 0) return null;
+  const data = await readData();
+  return data.teachers.find((t) => t.id === teacherId) ?? null;
 }
 
 export async function addLesson(input: {

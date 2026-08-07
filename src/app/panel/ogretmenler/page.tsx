@@ -10,10 +10,15 @@ import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { computeTeacherPerformanceScore } from "@/lib/insights/teacher-performance";
 import { TeacherInstrumentsField } from "@/components/teacher-instruments-field";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
+import { TeacherArchiveAction } from "@/components/teacher-archive-action";
 
 export const dynamic = "force-dynamic";
 
-export default async function OgretmenlerPage() {
+export default async function OgretmenlerPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ durum?: string }>;
+} = {}) {
   let session;
   try {
     session = await requireSessionContext();
@@ -23,6 +28,15 @@ export default async function OgretmenlerPage() {
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
   const canSeePerformance = session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN";
+  const canManage = session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN";
+
+  // ÖNCELİK 4 (devam) — varsayılan yalnız Aktif Öğretmenler; "Arşivlenmiş
+  // Öğretmenler" ayrı bir sekme/filtre. Arşiv öğretmenler burada dahi (CSV
+  // eşleştirme, yeni ders/öğrenci öğretmen seçicisi vb.) hiç seçilebilir
+  // olarak sunulmaz — yalnız görüntüleme + "Yeniden Aktifleştir" amaçlıdır.
+  const { durum } = (await searchParams) ?? {};
+  const showArchived = durum === "arsiv";
+  const visibleTeachers = data.teachers.filter((t) => (showArchived ? !t.active : t.active));
 
   return (
     <div>
@@ -32,9 +46,39 @@ export default async function OgretmenlerPage() {
         description="Müsaitlik pencereleri telafi motoru tarafından kullanılır."
       />
 
+      <div className="mb-4 flex items-center gap-1 rounded-md border border-slate-200 p-0.5 dark:border-slate-700" role="tablist" aria-label="Öğretmen durumu">
+        <Link
+          href="/panel/ogretmenler"
+          role="tab"
+          aria-selected={!showArchived}
+          className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+            !showArchived ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400"
+          }`}
+        >
+          Aktif Öğretmenler
+        </Link>
+        <Link
+          href="/panel/ogretmenler?durum=arsiv"
+          role="tab"
+          aria-selected={showArchived}
+          className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+            showArchived ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400"
+          }`}
+        >
+          Arşivlenmiş Öğretmenler
+        </Link>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          {data.teachers.map((t) => {
+          {visibleTeachers.length === 0 ? (
+            <Card>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {showArchived ? "Arşivlenmiş öğretmen yok." : "Aktif öğretmen yok."}
+              </p>
+            </Card>
+          ) : null}
+          {visibleTeachers.map((t) => {
             const studentCount = data.students.filter((s) => s.teacherId === t.id && s.active).length;
             const weekLessons = data.lessons.filter((l) => l.teacherId === t.id && l.status !== "cancelled").length;
             return (
@@ -64,10 +108,15 @@ export default async function OgretmenlerPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {t.instruments.map((i) => (
-                      <Badge key={i}>{i}</Badge>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap gap-1">
+                      {t.instruments.map((i) => (
+                        <Badge key={i}>{i}</Badge>
+                      ))}
+                    </div>
+                    {canManage ? (
+                      <TeacherArchiveAction teacherId={t.id} teacherName={t.name} archived={!t.active} />
+                    ) : null}
                   </div>
                 </div>
 

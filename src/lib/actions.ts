@@ -59,6 +59,8 @@ import {
   updateTeacherInstrumentsTool,
   createPackageTool,
   updatePackageTool,
+  archiveTeacherTool,
+  updateRoomTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -436,6 +438,52 @@ export async function actionArchiveStudent(input: {
     logger.error("actionArchiveStudent failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Öğrenci durumu güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type ArchiveTeacherActionResult =
+  | { ok: true }
+  | { ok: false; message: string; futureLessonCount?: number };
+
+/** ÖNCELİK 4 (devam) — öğretmen arşivleme/geri alma — hard delete yok. */
+export async function actionArchiveTeacher(input: {
+  teacherId: string;
+  archived: boolean;
+}): Promise<ArchiveTeacherActionResult> {
+  try {
+    const result = await withAuthContext("actionArchiveTeacher", (ctx) => archiveTeacherTool(ctx, input));
+    if (!result.ok) {
+      const details = result.error.details as { futureLessonCount?: number } | undefined;
+      return { ok: false, message: result.error.message, futureLessonCount: details?.futureLessonCount };
+    }
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionArchiveTeacher failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Öğretmen durumu güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateRoomActionResult = { ok: true } | { ok: false; message: string };
+
+/** ÖNCELİK 4 (devam) — oda düzenleme/pasife alma — hard delete yok. */
+export async function actionUpdateRoom(input: {
+  roomId: string;
+  name?: string;
+  capacity?: number;
+  branchId?: string;
+  active?: boolean;
+}): Promise<UpdateRoomActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateRoom", (ctx) => updateRoomTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateRoom failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Oda güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

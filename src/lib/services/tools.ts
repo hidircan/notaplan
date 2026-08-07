@@ -12,6 +12,8 @@ import {
   addLessonSeries,
   addPayment,
   addRoom,
+  updateRoom,
+  archiveTeacher,
   addStudent,
   addTeacher,
   addTeacherFeeRule,
@@ -179,6 +181,8 @@ import {
   createTrialLessonSchema,
   updateTrialLessonStatusSchema,
   archiveStudentSchema,
+  archiveTeacherSchema,
+  updateRoomSchema,
   setNationalIdSchema,
   createDocumentInstanceSchema,
   startLessonSchema,
@@ -3000,6 +3004,89 @@ export async function archiveStudentTool(
     return ok({ studentId: v.data.studentId, archived: v.data.archived });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveStudent failed");
+  }
+}
+
+/**
+ * ÖNCELİK 4 (devam) — öğretmen arşivleme/geri alma (hard delete YOK,
+ * `active:false` + `archivedAt`). Öğretmenin GELECEKTEKİ (startAt > şimdi)
+ * planlı/devam eden dersleri varsa arşivleme REDDEDİLİR — sessizce ders
+ * iptal edilmez veya başka öğretmene taşınmaz; admin önce bu dersleri
+ * mevcut taşıma/iptal akışlarıyla (updateLessonScheduleTool/cancelLessonTool)
+ * elle çözmelidir. Geri alma (`archived:false`) bu kontrole tabi değildir.
+ */
+export async function archiveTeacherTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ teacherId: string; archived: boolean; futureLessonCount?: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(archiveTeacherSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const teacher = data.teachers.find((t) => t.id === v.data.teacherId);
+  if (!teacher) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+
+  if (v.data.archived) {
+    const nowIso = new Date().toISOString();
+    const futureLessonCount = data.lessons.filter(
+      (l) =>
+        l.teacherId === v.data.teacherId &&
+        (l.status === "scheduled" || l.status === "in_progress") &&
+        l.startAt > nowIso
+    ).length;
+    if (futureLessonCount > 0) {
+      return fail(
+        "CONFLICT",
+        `Bu öğretmenin ${futureLessonCount} gelecekteki planlı dersi var. Arşivlemeden önce bu dersleri başka bir öğretmene taşıyın veya iptal edin.`,
+        { futureLessonCount }
+      );
+    }
+  }
+
+  try {
+    const updated = await archiveTeacher(v.data.teacherId, v.data.archived);
+    if (!updated) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+    audit(ctx, v.data.archived ? "teacher.archive" : "teacher.restore", "Teacher", v.data.teacherId, {});
+    return ok({ teacherId: v.data.teacherId, archived: v.data.archived });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveTeacher failed");
+  }
+}
+
+/** ÖNCELİK 4 (devam) — oda düzenleme (ad/kapasite/şube) + pasife alma/geri alma. Hard delete yok. */
+export async function updateRoomTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ roomId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateRoomSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const room = data.rooms.find((r) => r.id === v.data.roomId);
+  if (!room) return fail("NOT_FOUND", "Oda bulunamadı");
+  if (v.data.branchId && !data.settings.branches.some((b) => b.id === v.data.branchId)) {
+    return fail("VALIDATION_ERROR", "Şube bulunamadı");
+  }
+
+  try {
+    const { roomId, active, ...patch } = v.data;
+    const updated = await updateRoom(roomId, {
+      ...patch,
+      ...(active !== undefined
+        ? { active, archivedAt: active ? undefined : new Date().toISOString() }
+        : {}),
+    });
+    if (!updated) return fail("NOT_FOUND", "Oda bulunamadı");
+    audit(ctx, active === false ? "room.archive" : active === true ? "room.restore" : "room.update", "Room", roomId, patch);
+    return ok({ roomId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateRoom failed");
   }
 }
 

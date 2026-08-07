@@ -536,6 +536,21 @@ export const archiveStudentSchema = z.object({
   archived: z.boolean(),
 });
 
+/** ÖNCELİK 4 (devam) — öğretmen arşivleme (hard delete YOK). */
+export const archiveTeacherSchema = z.object({
+  teacherId: z.string().min(1),
+  archived: z.boolean(),
+});
+
+/** ÖNCELİK 4 (devam) — oda düzenleme/pasife alma. */
+export const updateRoomSchema = z.object({
+  roomId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  capacity: z.coerce.number().int().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+
 export const setNationalIdSchema = z.object({
   entity: z.enum(["student","teacher"]),
   entityId: z.string().min(1),

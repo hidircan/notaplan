@@ -108,4 +108,6 @@ export {
   updatePackageTool,
   setSocialMediaConsentTool,
   getSocialMediaConsentTool,
+  archiveTeacherTool,
+  updateRoomTool,
 } from "./tools";

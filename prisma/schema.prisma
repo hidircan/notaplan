@@ -151,6 +151,10 @@ model Teacher {
   availability    Json
   maxDailyLessons Int
   active          Boolean
+  /// ÖNCELİK 4 (devam) — öğretmen arşivleme (hard delete YOK). NULL = aktif
+  /// veya legacy kayıt; set edilmişse arşivlenme anı. `active=false` ile
+  /// birlikte kullanılır — bkz. src/lib/services/tools.ts archiveTeacherTool.
+  archivedAt      DateTime?
   color           String
   students        Student[]
   lessons         Lesson[]
@@ -249,6 +253,10 @@ model Room {
   schoolId    String
   capacity    Int
   instruments Json
+  /// ÖNCELİK 4 (devam) — oda pasife alma (hard delete YOK). Varsayılan true —
+  /// mevcut odalar migration sonrası hiçbir davranış değişikliği görmez.
+  active      Boolean  @default(true)
+  archivedAt  DateTime?
   lessons     Lesson[]
   lessonSeries LessonSeries[]
 

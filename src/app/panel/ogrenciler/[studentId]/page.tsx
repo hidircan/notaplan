@@ -29,6 +29,7 @@ import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentTermTypeEditor } from "@/components/student-term-type-editor";
 import { StudentArchiveToggle } from "@/components/student-archive-toggle";
+import { BackButton } from "@/components/back-button";
 import { NationalIdReveal } from "@/components/national-id-reveal";
 import { maskNationalId } from "@/lib/pii/tc-identity";
 import { canViewFullNationalId } from "@/lib/pii";
@@ -123,6 +124,7 @@ export default async function StudentDetailPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
+      <BackButton fallbackHref="/panel/ogrenciler" label="Öğrencilere dön" className="mb-3" />
       <PageHeader
         title={student.name}
         description={`${branch?.shortName ?? "—"} · ${student.packageName.split("—")[0]?.trim() ?? student.packageName}`}

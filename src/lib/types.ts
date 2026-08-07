@@ -77,6 +77,8 @@ export interface Teacher {
   instrumentLevels?: TeacherInstrumentSkill[];
   /** Haftalık ders saati eşiği — üstü nakit varsayılan, altı havale */
   weeklyHoursThreshold?: number;
+  /** ÖNCELİK 4 (devam) — arşivleme (hard delete YOK); `active:false` ile birlikte set edilir. */
+  archivedAt?: string;
 }
 
 /**
@@ -357,6 +359,9 @@ export interface Room {
   branchId: BranchId;
   capacity: number;
   instruments: Instrument[];
+  /** ÖNCELİK 4 (devam) — pasife alma (hard delete YOK). Verilmezse (legacy) true varsayılır. */
+  active?: boolean;
+  archivedAt?: string;
 }
 
 export interface Lesson {

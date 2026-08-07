@@ -347,6 +347,35 @@ export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
   return save({ ...data, rooms: [...data.rooms, r] });
 }
 
+export async function updateRoom(
+  roomId: string,
+  patch: Partial<Pick<Room, "name" | "capacity" | "branchId" | "instruments" | "active" | "archivedAt">>
+): Promise<Room | null> {
+  const data = load();
+  const idx = data.rooms.findIndex((r) => r.id === roomId);
+  if (idx === -1) return null;
+  const updated: Room = { ...data.rooms[idx], ...patch };
+  const rooms = [...data.rooms];
+  rooms[idx] = updated;
+  save({ ...data, rooms });
+  return updated;
+}
+
+export async function archiveTeacher(teacherId: string, archived: boolean): Promise<Teacher | null> {
+  const data = load();
+  const idx = data.teachers.findIndex((t) => t.id === teacherId);
+  if (idx === -1) return null;
+  const updated: Teacher = {
+    ...data.teachers[idx],
+    active: !archived,
+    archivedAt: archived ? new Date().toISOString() : undefined,
+  };
+  const teachers = [...data.teachers];
+  teachers[idx] = updated;
+  save({ ...data, teachers });
+  return updated;
+}
+
 export async function addLesson(input: {
   studentId: string;
   teacherId: string;

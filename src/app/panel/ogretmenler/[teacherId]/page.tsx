@@ -22,6 +22,8 @@ import { formatDate, formatMoney } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
 import { computeTeacherEarningsForPeriod } from "@/lib/teacher-payout";
 import { TeacherInstrumentsEditor } from "@/components/teacher-instruments-editor";
+import { BackButton } from "@/components/back-button";
+import { TeacherArchiveAction } from "@/components/teacher-archive-action";
 
 export const dynamic = "force-dynamic";
 
@@ -102,16 +104,22 @@ export default async function TeacherDetailPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
+      <BackButton fallbackHref="/panel/ogretmenler" label="Öğretmenlere dön" className="mb-3" />
       <PageHeader
         title={teacher.name}
         description={`${branch?.shortName ?? "—"} · ${teacher.instruments.join(", ")}`}
         actions={
-          <Link
-            href={`/panel/ogretmenler/${teacher.id}/geri-bildirim`}
-            className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
-          >
-            Geri Bildirim İncelemesi →
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/panel/ogretmenler/${teacher.id}/geri-bildirim`}
+              className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+            >
+              Geri Bildirim İncelemesi →
+            </Link>
+            {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+              <TeacherArchiveAction teacherId={teacher.id} teacherName={teacher.name} archived={!teacher.active} />
+            ) : null}
+          </div>
         }
       />
 
