@@ -9,6 +9,8 @@ import { createLessonTool, updateLessonScheduleTool } from "../services/tools";
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+import { isWeeklyClosedDayForTerm } from "../attendance-calendar";
+import { findOpenLessonSlot } from "./helpers/lesson-slot";
 
 /** store-json.ts'in kendi çözdüğü dosya yoluyla aynı — VERCEL=1 test ortamında /tmp'e yönlenir. */
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
@@ -37,9 +39,14 @@ describe("Program Stüdyosu · öneri dışında manuel planlama", () => {
     // Öneri motorunun taramadığı, ama gerçekte geçerli bir slotu elle bul.
     let manualStartAt: string | null = null;
     for (let offset = 1; offset <= 14 && !manualStartAt; offset++) {
+      const day = new Date();
+      day.setDate(day.getDate() + offset);
+      // Merkezi kapalı gün kuralı (legacy: yalnızca Pazartesi) — testin
+      // çalıştığı gün tesadüfen Pazartesi'ye denk gelen bir hafta
+      // penceresine girerse bile yanlış (kapalı) bir gün denenmesin.
+      if (isWeeklyClosedDayForTerm(day)) continue;
       for (let hour = 9; hour <= 17 && !manualStartAt; hour++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
+        const d = new Date(day);
         d.setHours(hour, 0, 0, 0);
         const candidate = d.toISOString();
         if (suggestedKeys.has(candidate)) continue;
@@ -75,9 +82,12 @@ describe("Program Stüdyosu · haftalık veri kaynağı", () => {
 
     let startAt: string | null = null;
     for (let offset = 1; offset <= 14 && !startAt; offset++) {
+      const day = new Date();
+      day.setDate(day.getDate() + offset);
+      // Merkezi kapalı gün kuralı — bkz. yukarıdaki blok.
+      if (isWeeklyClosedDayForTerm(day)) continue;
       for (let hour = 9; hour <= 17 && !startAt; hour++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
+        const d = new Date(day);
         d.setHours(hour, 0, 0, 0);
         const candidate = d.toISOString();
         const check = validateLessonSlot(
@@ -115,28 +125,7 @@ describe("Program Stüdyosu · haftalık veri kaynağı", () => {
 });
 
 describe("Program Stüdyosu · ders süresi seçenekleri (30/40/50 dk)", () => {
-  async function findOpenSlot(
-    data: Awaited<ReturnType<typeof readData>>,
-    studentId: string,
-    teacherId: string,
-    roomId: string
-  ): Promise<string> {
-    for (let offset = 1; offset <= 14; offset++) {
-      for (let hour = 9; hour <= 16; hour++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
-        d.setHours(hour, 0, 0, 0);
-        const candidate = d.toISOString();
-        const check = validateLessonSlot(
-          data,
-          { instrument: "Piyano", studentId },
-          { teacherId, roomId, startAt: candidate }
-        );
-        if (check.ok) return candidate;
-      }
-    }
-    throw new Error("no open slot found");
-  }
+  const findOpenSlot = findOpenLessonSlot;
 
   it("durationMinutes verilmezse yeni ders varsayılan 40 dakika sürer", async () => {
     const data = await readData();

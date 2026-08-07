@@ -11,6 +11,8 @@ import {
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+import type { AppData, Lesson } from "../types";
+import { isWeeklyClosedDayForTerm } from "../attendance-calendar";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
 
@@ -22,6 +24,29 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
     channel: "web",
     ...overrides,
   };
+}
+
+/**
+ * "l14" seed dersi çakışma senaryosu için sabit bir referans olarak
+ * kullanılıyordu — ama `l14`'ün tarihi seed'de "bugün + 2 gün" olarak
+ * üretiliyor (bkz. src/lib/seed.ts lessonDefs). Test paketi tesadüfen bir
+ * Cumartesi/Pazar çalıştırılırsa bu +2 gün bir Pazartesi'ye denk gelebilir;
+ * o zaman buradan türetilen `weekday: 1` merkezi kapalı-gün kuralı yüzünden
+ * (createLessonSeriesTool zod şeması) VALIDATION_ERROR ile reddedilir —
+ * testin beklediği CONFLICT senaryosuna hiç ulaşılamaz. Bu ürün hatası
+ * değil; test fixture'ının hangi günde çalıştırılırsa çalıştırılsın GEÇERLİ
+ * bir haftanın gününe denk gelen bir çakışma dersi seçmesi gerekiyordu.
+ * `l14` hâlâ tercih edilir (mevcut senaryo davranışı korunur); yalnızca
+ * geçersiz bir güne denk gelirse aynı merkezi kuralla (`isWeeklyClosedDayForTerm`
+ * — burada yeniden yazılmaz, doğrudan kullanılır) geçerli başka bir seed
+ * dersine düşülür.
+ */
+function pickConflictSeedLesson(data: AppData): Lesson {
+  const preferred = data.lessons.find((l) => l.id === "l14");
+  const candidates = preferred ? [preferred, ...data.lessons] : data.lessons;
+  const found = candidates.find((l) => !isWeeklyClosedDayForTerm(new Date(l.startAt)));
+  if (!found) throw new Error("no valid (non-Monday) seed lesson found for conflict test");
+  return found;
 }
 
 beforeEach(async () => {
@@ -83,7 +108,7 @@ describe("createLessonSeriesTool", () => {
 
   it("varsayılan davranışta çakışma varsa CONFLICT döner, hiçbir kayıt yazılmaz", async () => {
     const data0 = await readData();
-    const l14 = data0.lessons.find((l) => l.id === "l14")!;
+    const l14 = pickConflictSeedLesson(data0);
     const conflictInput = {
       ...baseInput,
       studentId: "s3",
@@ -108,7 +133,7 @@ describe("createLessonSeriesTool", () => {
 
   it("skipConflicts=true ile yalnızca çakışmayanlar oluşur", async () => {
     const data0 = await readData();
-    const l14 = data0.lessons.find((l) => l.id === "l14")!;
+    const l14 = pickConflictSeedLesson(data0);
     const conflictDate = l14.startAt.slice(0, 10);
     const input = {
       ...baseInput,

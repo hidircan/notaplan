@@ -7,6 +7,7 @@ import { createRoomTool, createLessonTool, createPaymentRecordTool } from "../se
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+import { isWeeklyClosedDayForTerm } from "../attendance-calendar";
 
 /** store-json.ts'in kendi çözdüğü dosya yoluyla aynı — VERCEL=1 test ortamında /tmp'e yönlenir. */
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
@@ -76,9 +77,14 @@ describe("Kurulum Merkezi · ders planlama", () => {
 
     let startAt: string | null = null;
     for (let offset = 1; offset <= 14 && !startAt; offset++) {
+      const day = new Date();
+      day.setDate(day.getDate() + offset);
+      // Merkezi kapalı gün kuralı (legacy: yalnızca Pazartesi) — testin
+      // çalıştığı gün tesadüfen Pazartesi'ye denk gelen bir hafta penceresine
+      // girerse bile yanlış (kapalı) bir gün denenmesin.
+      if (isWeeklyClosedDayForTerm(day)) continue;
       for (let hour = 9; hour <= 17 && !startAt; hour++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
+        const d = new Date(day);
         d.setHours(hour, 0, 0, 0);
         const candidate = d.toISOString();
         const check = validateLessonSlot(
@@ -118,9 +124,14 @@ describe("Kurulum Merkezi · ders planlama", () => {
 
     let startAt: string | null = null;
     for (let offset = 1; offset <= 14 && !startAt; offset++) {
+      const day = new Date();
+      day.setDate(day.getDate() + offset);
+      // Merkezi kapalı gün kuralı (legacy: yalnızca Pazartesi) — testin
+      // çalıştığı gün tesadüfen Pazartesi'ye denk gelen bir hafta penceresine
+      // girerse bile yanlış (kapalı) bir gün denenmesin.
+      if (isWeeklyClosedDayForTerm(day)) continue;
       for (let hour = 9; hour <= 17 && !startAt; hour++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
+        const d = new Date(day);
         d.setHours(hour, 0, 0, 0);
         const candidate = d.toISOString();
         const check = validateLessonSlot(

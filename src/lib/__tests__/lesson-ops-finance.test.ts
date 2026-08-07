@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "../config";
-import { validateLessonSlot } from "../makeup-engine";
 import { createLessonTool, setLessonOpsFlagTool, cancelLessonTool } from "../services/tools";
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
 import { applyLessonOpsFlag, computeLessonChargeAmount } from "../lesson-ops";
+import { findOpenLessonSlot } from "./helpers/lesson-slot";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
 
@@ -25,32 +25,9 @@ beforeEach(async () => {
   await fs.rm(DATA_FILE, { force: true });
 });
 
-async function findOpenSlot(
-  data: Awaited<ReturnType<typeof readData>>,
-  studentId: string,
-  teacherId: string,
-  roomId: string
-): Promise<string> {
-  for (let offset = 1; offset <= 14; offset++) {
-    for (let hour = 9; hour <= 16; hour++) {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      d.setHours(hour, 0, 0, 0);
-      const candidate = d.toISOString();
-      const check = validateLessonSlot(
-        data,
-        { instrument: "Piyano", studentId },
-        { teacherId, roomId, startAt: candidate }
-      );
-      if (check.ok) return candidate;
-    }
-  }
-  throw new Error("no open slot found");
-}
-
 async function createTestLesson(): Promise<string> {
   const data = await readData();
-  const startAt = await findOpenSlot(data, "s1", "t1", "r1");
+  const startAt = await findOpenLessonSlot(data, "s1", "t1", "r1");
   const res = await createLessonTool(ctx(), {
     studentId: "s1",
     teacherId: "t1",
@@ -131,7 +108,7 @@ describe("Geldi/İşlendi — otomatik tahsilat (çift kayıt önleme)", () => {
   it("iki farklı ders için ayrı ayrı tahsilat oluşur — birbirini etkilemez", async () => {
     const lessonId1 = await createTestLesson();
     const data = await readData();
-    const startAt2 = await findOpenSlot(data, "s1", "t1", "r1");
+    const startAt2 = await findOpenLessonSlot(data, "s1", "t1", "r1");
     const created2 = await createLessonTool(ctx(), {
       studentId: "s1",
       teacherId: "t1",
@@ -188,7 +165,7 @@ describe("Telafi — varsayılan olarak mali sonuç doğurmaz", () => {
 
     // Telafi dersi GERÇEKLEŞTİĞİNDE (yeni, ayrı bir lessonId) kendi Geldi/İşlendi'si
     // aynı mekanizmadan geçer ve KENDİ tarihi üzerinden ücret oluşturur.
-    const realizedMakeupStartAt = await findOpenSlot(afterMakeup, "s1", "t1", "r1");
+    const realizedMakeupStartAt = await findOpenLessonSlot(afterMakeup, "s1", "t1", "r1");
     const realizedLesson = await createLessonTool(ctx(), {
       studentId: "s1",
       teacherId: "t1",
