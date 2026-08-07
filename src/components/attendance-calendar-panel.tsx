@@ -16,11 +16,17 @@
  * katmanındaki ikinci bir savunma.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LessonOpsActions } from "./lesson-ops-actions";
-import { currentAcademicAnchorYear } from "@/lib/attendance-calendar";
+import {
+  currentAcademicAnchorYear,
+  resolveDayFillSegments,
+  attendanceCalendarTextColor,
+  ATTENDANCE_CALENDAR_COLORS,
+  type AttendanceCalendarColorKey,
+} from "@/lib/attendance-calendar";
 
 /**
  * Asıl tanım `src/lib/attendance-calendar.ts`'de (`currentAcademicAnchorYear`)
@@ -44,12 +50,18 @@ type LessonPaymentInfo = {
   source: string;
 };
 
+type DayLessonOpsInfo = {
+  lessonId: string;
+  opsStatus: "attended" | "processed" | "makeup" | null;
+};
+
 type DayInfo = {
   date: string;
   status: "open" | "closed";
   reason: string;
   label: string;
   lessonIds: string[];
+  lessons: DayLessonOpsInfo[];
   payments: LessonPaymentInfo[];
 };
 
@@ -112,19 +124,37 @@ export function termMonthList(termType: string, anchorYear: number): { year: num
 
 
 /**
- * NOT (bilinen kısıtlama): `/attendance-calendar/month` yalnızca lessonId
- * listesi döner (Geldi/İşlendi/Telafi bayrakları değil) — bu yüzden kutu
- * rengi burada sadece açık/kapalı ayrımını yansıtır; günün içindeki derse
- * tıklanınca gerçek Geldi/İşlendi/Telafi durumu `LessonOpsActions` ile
- * görülüp değiştirilebilir. Tam renk-kodlu ızgara için API'nin lesson
- * flag'lerini de döndürecek şekilde genişletilmesi gerekir (sonraki iterasyon).
- * Dersi olan günler artık ayrıca kalın siyah çerçeve + ders sayısı rozeti
- * ile de işaretleniyor — renk körlüğünde bile tek başına ayırt edilebilir.
+ * Gün kutusunun ARKA PLAN DOLGUSU — TEK kaynak `ATTENDANCE_CALENDAR_COLORS` +
+ * `resolveDayFillSegments` (bkz. src/lib/attendance-calendar.ts). Kapalı gün
+ * her zaman tek siyah dolgu (statü hiç yazılamaz — en yüksek öncelik). Aynı
+ * günde birden fazla ders, FARKLI statülerdeyse tek renge indirgenmez: her
+ * dersin kendi rengi eşit genişlikte bir dikey şeritte gösterilir (segmentli
+ * dolgu) — hiçbir ders diğerini gizlemez. Tüm dersler aynı statüdeyse (veya
+ * tek ders varsa) düz tek renk döner. Dersi olan günler ayrıca kalın siyah
+ * çerçeve + ders sayısı rozetiyle de işaretlenir (renk körlüğünde bile
+ * ayırt edilebilir ikinci bir sinyal).
  */
-function dayColor(day: DayInfo): string {
-  if (day.status === "closed") return "#0a0a0a";
-  if (day.lessonIds.length > 0) return "#93c5fd"; // dersi olan açık gün — nötr mavi
-  return "#e5e7eb";
+function dayFillStyle(day: DayInfo): { style: CSSProperties; segmentCount: number } {
+  const segments = resolveDayFillSegments(day.status, day.lessons);
+  if (segments.length <= 1) {
+    const key: AttendanceCalendarColorKey = segments[0] ?? "open";
+    return {
+      style: { backgroundColor: ATTENDANCE_CALENDAR_COLORS[key], color: attendanceCalendarTextColor(key) },
+      segmentCount: 1,
+    };
+  }
+  const n = segments.length;
+  const stops = segments
+    .map((key, i) => `${ATTENDANCE_CALENDAR_COLORS[key]} ${(i / n) * 100}% ${((i + 1) / n) * 100}%`)
+    .join(", ");
+  return {
+    style: {
+      backgroundImage: `linear-gradient(90deg, ${stops})`,
+      color: "#ffffff",
+      textShadow: "0 0 2px rgba(0,0,0,0.85), 0 0 3px rgba(0,0,0,0.85)",
+    },
+    segmentCount: n,
+  };
 }
 
 export function AttendanceCalendarPanel({
@@ -229,6 +259,63 @@ export function AttendanceCalendarPanel({
     setError(null);
   }
 
+  /**
+   * Yoklama Takvimi kutu rengi anında güncellenir — `LessonOpsActions`'ın
+   * `effective` statüsü değiştiği her an (iyimser set, hata sonrası geri
+   * alma, onaylanan geçiş) bu callback tetiklenir; sayfa yenilenmeden
+   * yalnızca ilgili dersin günündeki `lessons[].opsStatus` yerinde güncellenir.
+   */
+  const onLessonStatusChange = useCallback(
+    (lessonId: string, flag: "attended" | "processed" | "makeup" | null) => {
+      setByMonth((prev) => {
+        let changed = false;
+        const next: Record<string, MonthResponse> = { ...prev };
+        for (const key of Object.keys(next)) {
+          const month = next[key]!;
+          const dayIdx = month.days.findIndex((d) => d.lessonIds.includes(lessonId));
+          if (dayIdx === -1) continue;
+          const day = month.days[dayIdx]!;
+          const lessonIdx = day.lessons.findIndex((l) => l.lessonId === lessonId);
+          if (lessonIdx === -1) continue;
+          if (day.lessons[lessonIdx]!.opsStatus === flag) continue;
+          const nextLessons = day.lessons.slice();
+          nextLessons[lessonIdx] = { ...nextLessons[lessonIdx]!, opsStatus: flag };
+          const nextDays = month.days.slice();
+          nextDays[dayIdx] = { ...day, lessons: nextLessons };
+          next[key] = { ...month, days: nextDays };
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    },
+    []
+  );
+
+  /**
+   * İstek tamamlandığında (başarı/hata fark etmeksizin) o ayı sunucudan
+   * tazeler — böylece yukarıdaki iyimser renk güncellemesi, gerçek
+   * (tutar/ödeme dahil) sunucu verisiyle nihai olarak doğrulanır/düzeltilir.
+   */
+  const onLessonOpsSettled = useCallback(
+    (lessonId: string) => {
+      const monthEntry = Object.entries(byMonth).find(([, m]) => m.days.some((d) => d.lessonIds.includes(lessonId)));
+      if (!monthEntry) return;
+      const [key, month] = monthEntry;
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${month.year}&month=${month.month}`
+          );
+          const json = (await res.json()) as { ok: boolean; data?: MonthResponse };
+          if (json.ok && json.data) setByMonth((prev) => ({ ...prev, [key]: json.data! }));
+        } catch {
+          // sessizce atla — iyimser renk zaten görünür durumda
+        }
+      })();
+    },
+    [byMonth, studentId]
+  );
+
   async function onToggleOverride(day: DayInfo) {
     if (!canEdit || readOnly) return;
     setError(null);
@@ -293,14 +380,17 @@ export function AttendanceCalendarPanel({
     <div className="space-y-4">
       {/* Sabit renk lejantı */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-xs">
-        <LegendDot color="#16a34a" label="Geldi" />
-        <LegendDot color="#dc2626" label="İşlendi" />
-        <LegendDot color="#ca8a04" label="Telafi" />
-        <LegendDot color="#0a0a0a" label="Kapalı" />
-        <LegendDot color="#e5e7eb" label="Açık / işaretsiz" />
+        <LegendDot color={ATTENDANCE_CALENDAR_COLORS.attended} label="Geldi" />
+        <LegendDot color={ATTENDANCE_CALENDAR_COLORS.processed} label="İşlendi" />
+        <LegendDot color={ATTENDANCE_CALENDAR_COLORS.makeup} label="Telafi" />
+        <LegendDot color={ATTENDANCE_CALENDAR_COLORS.closed} label="Kapalı" />
+        <LegendDot color={ATTENDANCE_CALENDAR_COLORS.open} label="Açık / işaretsiz" />
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border-2 border-black bg-[#93c5fd]" />
-          Planlı dersi olan gün
+          <span
+            className="inline-block h-3 w-3 rounded-sm border-2 border-black"
+            style={{ backgroundColor: ATTENDANCE_CALENDAR_COLORS.planned }}
+          />
+          Planlı dersi var, statü henüz girilmedi
         </span>
       </div>
 
@@ -420,29 +510,32 @@ export function AttendanceCalendarPanel({
                 </p>
               ) : (
                 <div className="grid grid-cols-7 gap-1">
-                  {data.days.map((day) => (
-                    <button
-                      key={day.date}
-                      type="button"
-                      title={`${day.date} — ${day.label}${day.lessonIds.length ? ` · ${day.lessonIds.length} ders` : ""}`}
-                      onClick={() => onDayClick(day)}
-                      className={cn(
-                        "relative aspect-square rounded text-[10px] font-semibold text-white transition",
-                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)]",
-                        "hover:brightness-95 active:brightness-90",
-                        day.lessonIds.length > 0 && "border-2 border-black",
-                        selectedDay === day.date && "ring-2 ring-[var(--color-primary)]"
-                      )}
-                      style={{ backgroundColor: dayColor(day) }}
-                    >
-                      {Number(day.date.slice(8, 10))}
-                      {day.lessonIds.length > 1 ? (
-                        <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[8px] font-bold text-white">
-                          {day.lessonIds.length}
-                        </span>
-                      ) : null}
-                    </button>
-                  ))}
+                  {data.days.map((day) => {
+                    const { style, segmentCount } = dayFillStyle(day);
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        title={`${day.date} — ${day.label}${day.lessonIds.length ? ` · ${day.lessonIds.length} ders` : ""}`}
+                        onClick={() => onDayClick(day)}
+                        className={cn(
+                          "relative aspect-square rounded text-[10px] font-semibold transition",
+                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)]",
+                          "hover:brightness-95 active:brightness-90",
+                          day.lessonIds.length > 0 && "border-2 border-black",
+                          selectedDay === day.date && "ring-2 ring-[var(--color-primary)]"
+                        )}
+                        style={style}
+                      >
+                        {Number(day.date.slice(8, 10))}
+                        {segmentCount > 1 ? (
+                          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[8px] font-bold text-white">
+                            {segmentCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -452,6 +545,8 @@ export function AttendanceCalendarPanel({
                   canEdit={canEdit}
                   readOnly={readOnly}
                   onToggleOverride={onToggleOverride}
+                  onLessonStatusChange={onLessonStatusChange}
+                  onLessonOpsSettled={onLessonOpsSettled}
                 />
               ) : null}
             </div>
@@ -476,11 +571,15 @@ function DayDetail({
   canEdit,
   readOnly,
   onToggleOverride,
+  onLessonStatusChange,
+  onLessonOpsSettled,
 }: {
   day: DayInfo;
   canEdit: boolean;
   readOnly: boolean;
   onToggleOverride: (day: DayInfo) => void | Promise<void>;
+  onLessonStatusChange: (lessonId: string, flag: "attended" | "processed" | "makeup" | null) => void;
+  onLessonOpsSettled: (lessonId: string) => void;
 }) {
   return (
     <div className="mt-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2">
@@ -510,9 +609,21 @@ function DayDetail({
         </p>
       ) : (
         <div className="mt-2 space-y-2">
-          {day.lessonIds.map((lessonId) => (
-            <LessonOpsActions key={lessonId} lessonId={lessonId} compact />
-          ))}
+          {day.lessonIds.map((lessonId) => {
+            const opsStatus = day.lessons.find((l) => l.lessonId === lessonId)?.opsStatus ?? null;
+            return (
+              <LessonOpsActions
+                key={lessonId}
+                lessonId={lessonId}
+                compact
+                studentAttended={opsStatus === "attended"}
+                lessonProcessed={opsStatus === "processed"}
+                opsMakeupFlag={opsStatus === "makeup"}
+                onStatusChange={onLessonStatusChange}
+                onSettled={onLessonOpsSettled}
+              />
+            );
+          })}
         </div>
       )}
       {day.payments.length > 0 ? (

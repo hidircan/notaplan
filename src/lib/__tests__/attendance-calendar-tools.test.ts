@@ -409,3 +409,100 @@ describe("ÖNCELİK 4 (devam) — öğrenci dönemine göre varsayılan takvim",
     if (calendarRes.ok) expect(calendarRes.data.term).toBe("guz"); // fallback, hata yok
   });
 });
+
+describe("Yoklama Takvimi gün kutusu — gerçek Geldi/İşlendi/Telafi statüsü takvime taşınır", () => {
+  it("Geldi işaretlenen dersin günü, lessons[] içinde opsStatus='attended' döner (kutu rengi buradan hesaplanır)", async () => {
+    const lessonId = await createTestLesson();
+    const setRes = await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    expect(setRes.ok).toBe(true);
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.lessons).toHaveLength(1);
+    expect(day.lessons[0]).toEqual({ lessonId, opsStatus: "attended" });
+  });
+
+  it("İşlendi'ye geçiş sonrası (confirmSwitch) takvimdeki opsStatus da 'processed'e günceller — mükerrer/eski statü kalmaz", async () => {
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "processed", confirmSwitch: true });
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.lessons).toEqual([{ lessonId, opsStatus: "processed" }]);
+  });
+
+  it("henüz hiçbir statü işaretlenmemiş ders için opsStatus null döner (kutu 'planlı' rengiyle gösterilir, 'Geldi' varsayılmaz)", async () => {
+    const lessonId = await createTestLesson();
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.lessons).toEqual([{ lessonId, opsStatus: null }]);
+  });
+
+  it("aynı günde İKİ ders FARKLI statülerde ise ikisi de lessons[] içinde ayrı ayrı, kendi gerçek statüsüyle döner — biri diğerini gizlemez", async () => {
+    const startAt1 = await findOpenSlot();
+    const d1 = new Date(startAt1);
+    // Aynı gün, en az 2 saat sonrası — aynı öğretmen/oda ile çakışmasın.
+    const d2 = new Date(d1);
+    d2.setHours(d1.getHours() + 3, 0, 0, 0);
+    const startAt2 = d2.toISOString();
+
+    const res1 = await createLessonTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      instrument: "Piyano",
+      startAt: startAt1,
+    });
+    expect(res1.ok).toBe(true);
+    if (!res1.ok) return;
+    const res2 = await createLessonTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      instrument: "Piyano",
+      startAt: startAt2,
+    });
+    expect(res2.ok).toBe(true);
+    if (!res2.ok) return;
+
+    await setLessonOpsFlagTool(ctx(), { lessonId: res1.data.lessonId, flag: "attended" });
+    await setLessonOpsFlagTool(ctx(), { lessonId: res2.data.lessonId, flag: "makeup" });
+
+    const [y, m] = startAt1.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === startAt1.slice(0, 10))!;
+    expect(day.lessons).toHaveLength(2);
+    const byId = Object.fromEntries(day.lessons.map((l) => [l.lessonId, l.opsStatus]));
+    expect(byId[res1.data.lessonId]).toBe("attended");
+    expect(byId[res2.data.lessonId]).toBe("makeup");
+  });
+
+  it("başka öğretmenin/tenant dışının LessonOps değişiklikleri bu takvime sızmaz (IDOR ile aynı sınır zaten engelliyor)", async () => {
+    const res = await getAttendanceCalendarMonthTool(ctx({ role: "TEACHER", teacherId: "t2" }), {
+      studentId: "s1", // s1 t1'e ait, t2'nin öğrencisi değil
+      year: 2026,
+      month: 9,
+    });
+    expect(res.ok).toBe(false);
+  });
+});

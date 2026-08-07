@@ -222,11 +222,54 @@ export function lessonMatchesAcademicPeriod(
   return resolved.term === term && resolved.academicYearStart === academicYearStart;
 }
 
-/** UI renk sözlüğü — Geldi yeşil, İşlendi kırmızı, Telafi sarı, Kapalı siyah. */
+/**
+ * TEK renk kaynağı — takvim gün kutusu (dolgu), yoklama aksiyon butonları ve
+ * rozetler bu sözlükten türetilmelidir; hiçbir ekranda ayrıca hard-coded hex
+ * yazılmaz. Anahtarlar `LessonOpsFlag` (`src/lib/lesson-ops.ts`) ile birebir
+ * aynı: "attended"=Geldi, "processed"=İşlendi, "makeup"=Telafi. Ayrıca
+ * "closed" (kapalı gün) ve "planned"/"open" (ders var ama statü yok / hiç
+ * ders yok) durumları.
+ */
 export const ATTENDANCE_CALENDAR_COLORS = {
-  came: "#16a34a", // green-600 — Geldi
+  attended: "#16a34a", // green-600 — Geldi
   processed: "#dc2626", // red-600 — İşlendi
   makeup: "#ca8a04", // yellow-600 — Telafi
   closed: "#0a0a0a", // near-black — Kapalı
-  open: "#e5e7eb", // gray-200 — Açık, işaretsiz
+  planned: "#93c5fd", // blue-300 — planlı dersi var, statü henüz girilmemiş
+  open: "#e5e7eb", // gray-200 — Açık, ders yok/işaretsiz
 } as const;
+
+export type AttendanceCalendarColorKey = keyof typeof ATTENDANCE_CALENDAR_COLORS;
+
+/**
+ * Dolgu üzerindeki metnin erişilebilir kontrastı: kırmızı/yeşil/siyah/mavi
+ * dolgularda AÇIK (beyaz) metin, sarı (Telafi) dolguda KOYU metin — sarı
+ * zeminde beyaz metnin kontrast oranı WCAG AA eşiğinin altında kalır.
+ */
+export function attendanceCalendarTextColor(key: AttendanceCalendarColorKey): "#ffffff" | "#1c1503" {
+  return key === "makeup" ? "#1c1503" : "#ffffff";
+}
+
+/**
+ * Bir günün TAKVİM KUTUSU dolgusu için gösterilecek renk anahtarı segmentleri
+ * — TEK kaynak, UI'da ayrıca tahmin/hard-code EDİLMEZ. Öncelik sırası:
+ *   1) Kapalı gün → tek segment "closed" (statü hiç yazılamaz, en yüksek öncelik).
+ *   2) Hiç ders yoksa → tek segment "open".
+ *   3) Dersler varsa → HER DERSİN KENDİ effectiveLessonOpsStatus'u kendi
+ *      segmentinde gösterilir (statüsüz ders "planned" rengiyle), sırasıyla
+ *      lessonIds sırasında — böylece çoklu-dersli bir günde tek bir ders
+ *      diğerini GİZLEMEZ, veri kaybı olmaz. Tek ders varsa (veya tüm
+ *      dersler aynı statüdeyse) tek segment döner; UI bunu düz dolgu,
+ *      birden fazla FARKLI segment varsa eşit parçalı (çizgili) dolgu olarak
+ *      render eder.
+ */
+export function resolveDayFillSegments(
+  dayStatus: DayStatus,
+  lessons: Array<{ lessonId: string; opsStatus: "attended" | "processed" | "makeup" | null }>
+): AttendanceCalendarColorKey[] {
+  if (dayStatus === "closed") return ["closed"];
+  if (lessons.length === 0) return ["open"];
+  const perLesson = lessons.map((l): AttendanceCalendarColorKey => l.opsStatus ?? "planned");
+  const distinct = Array.from(new Set(perLesson));
+  return distinct.length === 1 ? [distinct[0]!] : perLesson;
+}

@@ -3703,6 +3703,12 @@ export type AttendanceCalendarLessonPaymentInfo = {
   source: string;
 };
 
+export type AttendanceCalendarLessonOpsInfo = {
+  lessonId: string;
+  /** effectiveLessonOpsStatus(lesson) — İşlendi > Geldi > Telafi öncelikli, TEK statü; hiçbiri set değilse null. */
+  opsStatus: "attended" | "processed" | "makeup" | null;
+};
+
 export async function getAttendanceCalendarMonthTool(
   ctx: ServiceContext,
   input: unknown
@@ -3717,6 +3723,14 @@ export async function getAttendanceCalendarMonthTool(
       reason: string;
       label: string;
       lessonIds: string[];
+      /**
+       * Kutu rengi (bkz. ATTENDANCE_CALENDAR_COLORS / resolveDayFillColor) —
+       * o günün derslerinden effectiveLessonOpsStatus ile türetilen gerçek
+       * Geldi/İşlendi/Telafi statüleri. Önceden bu bilgi takvime hiç
+       * taşınmıyordu (yalnızca lessonIds dönüyordu) — UI kutu rengini
+       * tahmin edemiyordu, sadece "planlı ders var" mavisini gösterebiliyordu.
+       */
+      lessons: AttendanceCalendarLessonOpsInfo[];
       payments: AttendanceCalendarLessonPaymentInfo[];
     }>;
   }>
@@ -3748,6 +3762,16 @@ export async function getAttendanceCalendarMonthTool(
   const days = statuses.map((s) => {
     const dayLessons = data.lessons.filter((l) => l.studentId === student.id && l.startAt.slice(0, 10) === s.date);
     const lessonIds = dayLessons.map((l) => l.id);
+    // Gerçek Geldi/İşlendi/Telafi statüsü — TEK kaynak lesson-ops.ts'deki
+    // effectiveLessonOpsStatus (aynı öncelik kuralı server tarafındaki
+    // switchLessonOpsFlag ile birebir aynı). Kapalı gün önceliği zaten
+    // yukarıda `s.status` ile çözülmüş durumda; bu liste yalnızca AÇIK
+    // günlerde anlamlıdır ama kapalı günlerde de (varsa, tutarlılık için)
+    // aynen döner — UI kapalı günde zaten statü render ETMEZ.
+    const lessons: AttendanceCalendarLessonOpsInfo[] = dayLessons.map((l) => ({
+      lessonId: l.id,
+      opsStatus: effectiveLessonOpsStatus(l),
+    }));
     // ÖNCELİK 4 (devam) — TEK kaynak: mevcut Payment modeli (source:"lesson_ops"),
     // ikinci/çelişkili bir kayıt yaratılmaz — yalnızca OKUNUR ve gösterilir.
     const payments: AttendanceCalendarLessonPaymentInfo[] = dayLessons
@@ -3762,7 +3786,7 @@ export async function getAttendanceCalendarMonthTool(
         status: p.status,
         source: p.source ?? "manual",
       }));
-    return { ...s, lessonIds, payments };
+    return { ...s, lessonIds, lessons, payments };
   });
 
   return ok({ year: v.data.year, month: v.data.month, term, days });

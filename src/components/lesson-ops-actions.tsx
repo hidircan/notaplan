@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +12,24 @@ export function LessonOpsActions({
   lessonProcessed,
   opsMakeupFlag,
   compact = false,
+  onStatusChange,
+  onSettled,
 }: {
   lessonId: string;
   studentAttended?: boolean;
   lessonProcessed?: boolean;
   opsMakeupFlag?: boolean;
   compact?: boolean;
+  /**
+   * Yoklama Takvimi gün kutusu dolgusu bu bileşenin "etkin" (effective) tek
+   * statüsünü aynen yansıtmalı — ayrı bir tahmin/ikinci renk mantığı YOK.
+   * Bu callback, `effective` her değiştiğinde (iyimser set, hata sonrası geri
+   * alma, onaylanan geçiş) TEK kaynaktan çağrılır ki takvim kutusu sayfa
+   * yenilenmeden, aynı anda güncellensin.
+   */
+  onStatusChange?: (lessonId: string, flag: Flag | null) => void;
+  /** İstek tamamlandığında (başarı VEYA hata) çağrılır — çağıran taraf, tutar/ödeme gibi sunucu-gerçeği verileri tazelemek isteyebilir. */
+  onSettled?: (lessonId: string) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<Flag | null>(null);
@@ -38,6 +50,11 @@ export function LessonOpsActions({
       : local.makeup
         ? "makeup"
         : null;
+
+  useEffect(() => {
+    onStatusChange?.(lessonId, effective);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effective, lessonId]);
 
   /**
    * ÖNCELİK 4 (devam) — Geldi/İşlendi/Telafi TEK, birbirini dışlayan statü.
@@ -90,6 +107,7 @@ export function LessonOpsActions({
     } finally {
       inFlight.current = false;
       setBusy(null);
+      onSettled?.(lessonId);
     }
   }
 
