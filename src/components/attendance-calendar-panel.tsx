@@ -33,13 +33,43 @@ export function currentAnchorYear(termType: string): number {
   return currentAcademicAnchorYear(termType === "yaz" ? "yaz" : "guz");
 }
 
+type LessonPaymentInfo = {
+  lessonId: string;
+  amount: number;
+  /** "Tutar kayıt tarihi" — bu tutarın sisteme kaydedildiği tarih-saat. */
+  recordedAt: string;
+  method?: string;
+  methodIsStudentDefault: boolean;
+  status: string;
+  source: string;
+};
+
 type DayInfo = {
   date: string;
   status: "open" | "closed";
   reason: string;
   label: string;
   lessonIds: string[];
+  payments: LessonPaymentInfo[];
 };
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  cash: "Nakit",
+  transfer: "Havale",
+  credit_card: "Kredi Kartı",
+};
+
+function formatMoneyTL(amount: number): string {
+  return `${amount.toLocaleString("tr-TR")} TL`;
+}
+
+function formatRecordedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
 
 type MonthResponse = {
   year: number;
@@ -115,10 +145,15 @@ export function AttendanceCalendarPanel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const studentDefaultTerm: AttendanceTerm = termType === "yaz" ? "yaz" : "guz";
   const urlTerm = searchParams.get("attTerm");
+  // ÖNCELİK 4 (devam) — veli (readOnly) görünümünde dönem seçimi KULLANICIYA
+  // AÇILMAZ: URL'den bile değiştirilemez, her zaman öğrencinin kayıtlı
+  // termType'ından otomatik çözülür. Admin/öğretmen görünümünde (readOnly
+  // false) URL'deki attTerm tercih edilir, yoksa öğrencinin termType'ı.
   const urlYear = searchParams.get("attYear");
   const [term, setTerm] = useState<AttendanceTerm>(
-    urlTerm === "guz" || urlTerm === "yaz" ? urlTerm : termType === "yaz" ? "yaz" : "guz"
+    readOnly ? studentDefaultTerm : urlTerm === "guz" || urlTerm === "yaz" ? urlTerm : studentDefaultTerm
   );
   const [anchorYear, setAnchorYear] = useState<number>(() => {
     const parsed = urlYear ? Number(urlYear) : NaN;
@@ -271,30 +306,38 @@ export function AttendanceCalendarPanel({
 
       {/* Dönem + akademik yıl gezinme */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-        <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5" role="group" aria-label="Dönem seçimi">
-          <button
-            type="button"
-            aria-pressed={term === "guz"}
-            onClick={() => changeTerm("guz")}
-            className={cn(
-              "rounded px-3 py-1.5 text-xs font-semibold transition",
-              term === "guz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
-            )}
-          >
-            Güz
-          </button>
-          <button
-            type="button"
-            aria-pressed={term === "yaz"}
-            onClick={() => changeTerm("yaz")}
-            className={cn(
-              "rounded px-3 py-1.5 text-xs font-semibold transition",
-              term === "yaz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
-            )}
-          >
-            Yaz
-          </button>
-        </div>
+        {readOnly ? (
+          // ÖNCELİK 4 (devam) — veli görünümünde dönem seçici YOK; sistem
+          // öğrencinin kayıtlı dönemini otomatik gösterir (salt bilgi etiketi).
+          <span className="rounded-md bg-[var(--color-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text)]">
+            {term === "guz" ? "Güz dönemi" : "Yaz dönemi"} (öğrencinin kayıtlı dönemi)
+          </span>
+        ) : (
+          <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5" role="group" aria-label="Dönem seçimi">
+            <button
+              type="button"
+              aria-pressed={term === "guz"}
+              onClick={() => changeTerm("guz")}
+              className={cn(
+                "rounded px-3 py-1.5 text-xs font-semibold transition",
+                term === "guz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
+              )}
+            >
+              Güz
+            </button>
+            <button
+              type="button"
+              aria-pressed={term === "yaz"}
+              onClick={() => changeTerm("yaz")}
+              className={cn(
+                "rounded px-3 py-1.5 text-xs font-semibold transition",
+                term === "yaz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
+              )}
+            >
+              Yaz
+            </button>
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <button
@@ -472,6 +515,20 @@ function DayDetail({
           ))}
         </div>
       )}
+      {day.payments.length > 0 ? (
+        <div className="mt-2 space-y-1.5 border-t border-[var(--color-border)] pt-2">
+          {day.payments.map((p) => (
+            <div key={p.lessonId} className="rounded-md bg-[var(--color-surface)] p-1.5 text-[11px]">
+              <p className="font-semibold text-[var(--color-text)]">{formatMoneyTL(p.amount)}</p>
+              <p className="text-[var(--color-text-muted)]">Tutar kayıt tarihi: {formatRecordedAt(p.recordedAt)}</p>
+              <p className="text-[var(--color-text-muted)]">
+                Ödeme şekli: {p.method ? PAYMENT_METHOD_LABEL[p.method] ?? p.method : "Belirtilmemiş"}
+                {p.methodIsStudentDefault ? " (öğrenci varsayılanı — tahmini)" : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

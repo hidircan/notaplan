@@ -90,6 +90,12 @@ type StoreApi = {
     flag: import("./lesson-ops").LessonOpsFlag,
     actorUserId: string
   ) => Promise<import("./lesson-ops").ApplyLessonOpsResult>;
+  /** ÖNCELİK 4 (devam) — onaylı statü DEĞİŞİMİ (bkz. lesson-ops.ts switchLessonOpsFlag). */
+  switchLessonOpsFlagLive: (
+    lessonId: string,
+    flag: import("./lesson-ops").LessonOpsFlag,
+    actorUserId: string
+  ) => Promise<import("./lesson-ops").ApplyLessonOpsResult>;
   correctLessonTimesLive: (
     lessonId: string,
     correction: LessonTimeCorrection
@@ -309,6 +315,14 @@ export async function applyLessonOpsFlagLive(
   actorUserId: string
 ): Promise<import("./lesson-ops").ApplyLessonOpsResult> {
   return withTenantScope(() => store.applyLessonOpsFlagLive(lessonId, flag, actorUserId));
+}
+
+export async function switchLessonOpsFlagLive(
+  lessonId: string,
+  flag: import("./lesson-ops").LessonOpsFlag,
+  actorUserId: string
+): Promise<import("./lesson-ops").ApplyLessonOpsResult> {
+  return withTenantScope(() => store.switchLessonOpsFlagLive(lessonId, flag, actorUserId));
 }
 
 export async function correctLessonTimesLive(

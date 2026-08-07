@@ -4,7 +4,7 @@ import { resolveDataDir } from "./config";
 import { createSeedData } from "./seed";
 import { tryTenantId } from "./tenant-context";
 import { DEFAULT_TENANT_ID } from "./auth/config";
-import { applyLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
+import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
 import type {
   AppData,
   Attendance,
@@ -695,6 +695,7 @@ export async function addPayment(input: {
     status: isOverdue ? "overdue" : "pending",
     dueDate: input.dueDate,
     description: input.description,
+    createdAt: new Date().toISOString(),
   };
   const next = { ...data, payments: [...data.payments, payment] };
   await writeData(next);
@@ -761,6 +762,7 @@ export async function upsertMonthlyPlanPayment(input: {
       dueDate,
       description: `Aylık plan — ${input.month} (${input.amount} TL)`,
       source: "monthly_plan",
+      createdAt: new Date().toISOString(),
     };
     paymentId = payment.id;
     payments = [...data.payments, payment];
@@ -778,6 +780,20 @@ export async function applyLessonOpsFlagLive(
 ): Promise<ReturnType<typeof applyLessonOpsFlag>> {
   const data = await readData();
   const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  if (result.ok && !result.alreadySet) {
+    await writeData(result.data);
+  }
+  return result;
+}
+
+/** ÖNCELİK 4 (devam) — onaylı statü DEĞİŞİMİ (bkz. lesson-ops.ts switchLessonOpsFlag). */
+export async function switchLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ReturnType<typeof switchLessonOpsFlag>> {
+  const data = await readData();
+  const result = switchLessonOpsFlag(data, lessonId, flag, actorUserId);
   if (result.ok && !result.alreadySet) {
     await writeData(result.data);
   }

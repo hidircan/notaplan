@@ -1,4 +1,4 @@
-import { applyLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
+import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag } from "./lesson-ops";
 /**
  * Serverless / demo memory store.
  * Process warm olduğu sürece veri kalır; cold start'ta seed yeniden yüklenir.
@@ -638,6 +638,7 @@ export async function addPayment(input: {
     status: isOverdue ? "overdue" : "pending",
     dueDate: input.dueDate,
     description: input.description,
+    createdAt: new Date().toISOString(),
   };
   return save({ ...data, payments: [...data.payments, payment] });
 }
@@ -673,6 +674,7 @@ export async function upsertMonthlyPlanPayment(input: {
       dueDate,
       description: `Aylık plan — ${input.month} (${input.amount} TL)`,
       source: "monthly_plan",
+      createdAt: new Date().toISOString(),
     };
     paymentId = payment.id;
     payments = [...data.payments, payment];
@@ -719,6 +721,19 @@ export async function applyLessonOpsFlagLive(
 ): Promise<ReturnType<typeof applyLessonOpsFlag>> {
   const data = await readData();
   const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  if (result.ok && !result.alreadySet) {
+    await writeData(result.data);
+  }
+  return result;
+}
+
+export async function switchLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ReturnType<typeof switchLessonOpsFlag>> {
+  const data = await readData();
+  const result = switchLessonOpsFlag(data, lessonId, flag, actorUserId);
   if (result.ok && !result.alreadySet) {
     await writeData(result.data);
   }

@@ -8,6 +8,7 @@ import {
   setMonthlyPlanAmountTool,
   setDayOverrideTool,
   getAttendanceCalendarMonthTool,
+  updateStudentProfileTool,
 } from "../services/tools";
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
@@ -256,5 +257,79 @@ describe("ÖNCELİK 4 — veli (PARENT) salt-okunur takvim erişimi", () => {
     const sameDay = after.data.days.find((d) => d.date === day.date)!;
     expect(sameDay.status).toBe("closed");
     expect(sameDay.reason).toBe("manual_closed");
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — Yoklama takviminde tutar/ödeme bilgisi", () => {
+  it("Geldi işaretlenen dersin günü, tutar + kayıt tarihi + ödeme şekli döner (tek kaynak, mevcut Payment)", async () => {
+    const lessonId = await createTestLesson();
+    const flagRes = await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    expect(flagRes.ok).toBe(true);
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments).toHaveLength(1);
+    expect(day.payments[0]!.lessonId).toBe(lessonId);
+    expect(day.payments[0]!.amount).toBe(payment.amount);
+    expect(day.payments[0]!.recordedAt).toBeTruthy();
+    expect(day.payments[0]!.source).toBe("lesson_ops");
+  });
+
+  it("ders için hiç tahsilat yoksa (henüz Geldi/İşlendi işaretlenmemiş) payments boş döner — sahte kayıt yok", async () => {
+    const lessonId = await createTestLesson();
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments).toHaveLength(0);
+  });
+
+  it("statü değişse bile (confirmSwitch) o günün tutar bilgisi mükerrerleşmez — hâlâ tek kayıt", async () => {
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "processed", confirmSwitch: true });
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments).toHaveLength(1);
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — öğrenci dönemine göre varsayılan takvim", () => {
+  it("admin öğrencinin termType'ını Yaz yapınca, takvim ay çözümlemesi 'yaz' döner (Güz varsayılanı değil)", async () => {
+    const before = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: 2026, month: 9 });
+    expect(before.ok).toBe(true);
+    if (before.ok) expect(before.data.term).toBe("guz"); // varsayılan öğrenci Güz
+
+    const updateRes = await updateStudentProfileTool(ctx(), { studentId: "s1", termType: "yaz" });
+    expect(updateRes.ok).toBe(true);
+
+    const after = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: 2026, month: 7 });
+    expect(after.ok).toBe(true);
+    if (after.ok) expect(after.data.term).toBe("yaz");
+  });
+
+  it("TEACHER/PARENT öğrencinin dönemini değiştiremez (RBAC)", async () => {
+    const res = await updateStudentProfileTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
+      studentId: "s1",
+      termType: "yaz",
+    });
+    expect(res.ok).toBe(false);
   });
 });

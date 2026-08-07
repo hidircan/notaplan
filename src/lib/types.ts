@@ -192,6 +192,7 @@ export type StudentProfilePatch = Partial<
     | "nationalIdCipher"
     | "nationalIdLast2"
     | "educationMethod"
+    | "termType"
   >
 >;
 
@@ -477,6 +478,12 @@ export interface Payment {
   lessonId?: string;
   /** "manual" (varsayılan) | "lesson_ops" (Geldi/İşlendi otomatik oluşturdu) */
   source?: PaymentSource;
+  /**
+   * ÖNCELİK 4 (devam) — bu kaydın SİSTEME kaydedildiği an ("Tutar kayıt
+   * tarihi"). Opsiyonel: alan eklenmeden önce oluşturulmuş legacy kayıtlarda
+   * yok — UI bu durumda dueDate'e düşer (bkz. attendance-calendar-panel.tsx).
+   */
+  createdAt?: string;
 }
 
 /**

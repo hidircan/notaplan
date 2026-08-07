@@ -40,6 +40,17 @@ export function weeklyClosedDaysForTerm(term: StudentTermType): number[] {
 }
 
 /**
+ * ÖNCELİK 4 (devam) — Program ekranı dönem-bazlı gün kapatma. `term`
+ * verilmezse LEGACY davranış korunur: yalnızca Pazartesi kapalı (mevcut
+ * `SCHOOL_CLOSED_WEEKDAY`/`isMonday` kuralı, dönem kavramı eklenmeden önceki
+ * tüm ders oluşturma/taşıma akışlarıyla birebir aynı sonucu üretir).
+ */
+export function isWeeklyClosedDayForTerm(date: Date, term?: StudentTermType): boolean {
+  if (!term) return date.getDay() === 1; // legacy: yalnızca Pazartesi
+  return weeklyClosedDaysForTerm(term).includes(date.getDay());
+}
+
+/**
  * Bir dönemin varsayılan takvim ay aralığı (yıl bağımsız, ay indeksleri
  * 1–12). Güz: Eylül(9)–Haziran(6, bir sonraki takvim yılına taşar).
  * Yaz: Temmuz(7)–Ağustos(8) + opsiyonel uzatma (Eylülün 2. haftasına kadar).

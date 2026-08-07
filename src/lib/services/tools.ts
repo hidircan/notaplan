@@ -42,11 +42,12 @@ import {
   updateStudentProfile,
   updateTeacherAvailability,
   updateTeacherFeeRule,
-  applyLessonOpsFlagLive,
+  switchLessonOpsFlagLive,
   upsertMonthlyPlanPayment,
 } from "../store";
 import { setClosedDay, listClosedDays } from "../closed-day-overrides";
-import { resolveDayStatus } from "../attendance-calendar";
+import { resolveDayStatus, isWeeklyClosedDayForTerm } from "../attendance-calendar";
+import { effectiveLessonOpsStatus } from "../lesson-ops";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import {
   suggestMakeupSlots,
@@ -240,7 +241,6 @@ import {
 } from "../documents";
 import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
 import { assertSchedulableDate } from "../lesson-scheduling";
-import { isMonday } from "../closed-days";
 import { resolveCollectionsIban } from "../collections-due";
 
 
@@ -1109,8 +1109,16 @@ export async function createLessonTool(
 
   const v = parseOrFail(lessonSchema, input);
   if (!v.ok) return v;
-  if (isMonday(new Date(v.data.startAt))) {
-    return fail("VALIDATION_ERROR", "Pazartesi okul kapalıdır — bu gün için ders planlanamaz.");
+  // ÖNCELİK 4 (devam) — dönem seçiliyse (Program ekranından geliyorsa) o
+  // dönemin haftalık kapalı gün kuralı uygulanır (Güz: Pazartesi, Yaz:
+  // Cts/Paz); term verilmemişse LEGACY davranış (yalnızca Pazartesi) korunur.
+  if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), v.data.term)) {
+    return fail(
+      "VALIDATION_ERROR",
+      v.data.term
+        ? `${v.data.term === "yaz" ? "Cumartesi/Pazar" : "Pazartesi"} bu dönemde okul kapalıdır — bu gün için ders planlanamaz.`
+        : "Pazartesi okul kapalıdır — bu gün için ders planlanamaz."
+    );
   }
 
   try {
@@ -1143,8 +1151,18 @@ export async function updateLessonScheduleTool(
 
   const v = parseOrFail(updateLessonScheduleSchema, input);
   if (!v.ok) return v;
-  if (v.data.startAt && isMonday(new Date(v.data.startAt))) {
-    return fail("VALIDATION_ERROR", "Pazartesi okul kapalıdır — ders bu güne taşınamaz.");
+  if (v.data.startAt) {
+    // ÖNCELİK 4 (devam) — taşınan dersin KENDİ dönem etiketi esas alınır
+    // (varsa); yoksa legacy (yalnızca Pazartesi) davranış korunur.
+    const existing = (await readData()).lessons.find((l) => l.id === v.data.lessonId);
+    if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), existing?.term)) {
+      return fail(
+        "VALIDATION_ERROR",
+        existing?.term
+          ? `${existing.term === "yaz" ? "Cumartesi/Pazar" : "Pazartesi"} bu dönemde okul kapalıdır — ders bu güne taşınamaz.`
+          : "Pazartesi okul kapalıdır — ders bu güne taşınamaz."
+      );
+    }
   }
 
   try {
@@ -3209,11 +3227,30 @@ export async function resolveCollectionsIbanTool(
 }
 
 
-/** Geldi / İşlendi / Telafi — TEACHER own lesson, admin all in tenant */
+/**
+ * Geldi / İşlendi / Telafi — TEACHER own lesson, admin all in tenant.
+ *
+ * ÖNCELİK 4 (devam) — TEK, birbirini dışlayan statü davranışı: ilk tıklama
+ * (henüz hiçbir statü etkin değilken) API'ye ANINDA kaydeder. Zaten farklı
+ * bir statü etkinse ve `confirmSwitch:true` GÖNDERİLMEMİŞSE hiçbir yazma
+ * yapmadan `needsConfirmation:true` + mevcut/istenen statüyü döner — client
+ * bunu onay/iptal popup'ı açmak için kullanır; yalnızca kullanıcı onaylayıp
+ * `confirmSwitch:true` ile tekrar çağırınca gerçek geçiş (`switchLessonOpsFlagLive`)
+ * uygulanır. Aynı statüye tekrar tıklama her zaman no-op/idempotent kalır.
+ */
 export async function setLessonOpsFlagTool(
   ctx: ServiceContext,
   input: unknown
-): Promise<ServiceResult<{ lessonId: string; flag: string; alreadySet: boolean; message: string }>> {
+): Promise<
+  ServiceResult<{
+    lessonId: string;
+    flag: string;
+    alreadySet: boolean;
+    message: string;
+    needsConfirmation?: boolean;
+    currentStatus?: string | null;
+  }>
+> {
   const auth = requireRole(ctx, ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
@@ -3221,6 +3258,8 @@ export async function setLessonOpsFlagTool(
     z.object({
       lessonId: z.string().min(1),
       flag: z.enum(["attended", "processed", "makeup"]),
+      /** Kullanıcı, farklı bir statüden geçişi onay popup'ında ONAYLADIYSA true. */
+      confirmSwitch: z.boolean().optional(),
     }),
     input
   );
@@ -3246,11 +3285,26 @@ export async function setLessonOpsFlagTool(
     );
   }
 
+  const current = effectiveLessonOpsStatus(lesson);
+  if (current !== null && current !== v.data.flag && !v.data.confirmSwitch) {
+    return ok({
+      lessonId: v.data.lessonId,
+      flag: v.data.flag,
+      alreadySet: false,
+      needsConfirmation: true,
+      currentStatus: current,
+      message: `Bu ders zaten "${current}" olarak işaretli. "${v.data.flag}" olarak değiştirmek için onaylayın.`,
+    });
+  }
+
   try {
-    const result = await applyLessonOpsFlagLive(v.data.lessonId, v.data.flag, ctx.userId);
+    const result = await switchLessonOpsFlagLive(v.data.lessonId, v.data.flag, ctx.userId);
     if (!result.ok) return fail("VALIDATION_ERROR", result.message);
     if (!result.alreadySet) {
-      audit(ctx, `lesson.ops.${v.data.flag}`, "Lesson", v.data.lessonId, { flag: v.data.flag });
+      audit(ctx, `lesson.ops.${v.data.flag}`, "Lesson", v.data.lessonId, {
+        flag: v.data.flag,
+        switchedFrom: current !== v.data.flag ? current : undefined,
+      });
     }
     return ok({
       lessonId: v.data.lessonId,
@@ -3270,6 +3324,18 @@ export async function setLessonOpsFlagTool(
  * salt okunur, `assertStudentAccess` ile ownership kesin kontrol edilir
  * (rol listesine girmesi TEK BAŞINA erişim vermez, bkz. aşağı).
  */
+export type AttendanceCalendarLessonPaymentInfo = {
+  lessonId: string;
+  amount: number;
+  /** ÖNCELİK 4 (devam) — "Tutar kayıt tarihi": bu Payment satırının SİSTEME kaydedildiği an. */
+  recordedAt: string;
+  /** Nakit/Havale/Kredi Kartı — Payment.method varsa o, yoksa öğrencinin varsayılan ödeme yöntemi (tahmini olarak işaretlenir). */
+  method?: string;
+  methodIsStudentDefault: boolean;
+  status: string;
+  source: string;
+};
+
 export async function getAttendanceCalendarMonthTool(
   ctx: ServiceContext,
   input: unknown
@@ -3278,7 +3344,14 @@ export async function getAttendanceCalendarMonthTool(
     year: number;
     month: number;
     term: string;
-    days: Array<{ date: string; status: string; reason: string; label: string; lessonIds: string[] }>;
+    days: Array<{
+      date: string;
+      status: string;
+      reason: string;
+      label: string;
+      lessonIds: string[];
+      payments: AttendanceCalendarLessonPaymentInfo[];
+    }>;
   }>
 > {
   const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN", "AI_AGENT", "PARENT", "STUDENT"]);
@@ -3306,10 +3379,23 @@ export async function getAttendanceCalendarMonthTool(
   const statuses = resolveMonthStatuses(v.data.year, v.data.month, term, overrides);
 
   const days = statuses.map((s) => {
-    const lessonIds = data.lessons
-      .filter((l) => l.studentId === student.id && l.startAt.slice(0, 10) === s.date)
-      .map((l) => l.id);
-    return { ...s, lessonIds };
+    const dayLessons = data.lessons.filter((l) => l.studentId === student.id && l.startAt.slice(0, 10) === s.date);
+    const lessonIds = dayLessons.map((l) => l.id);
+    // ÖNCELİK 4 (devam) — TEK kaynak: mevcut Payment modeli (source:"lesson_ops"),
+    // ikinci/çelişkili bir kayıt yaratılmaz — yalnızca OKUNUR ve gösterilir.
+    const payments: AttendanceCalendarLessonPaymentInfo[] = dayLessons
+      .map((l) => data.payments.find((p) => p.lessonId === l.id))
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map((p) => ({
+        lessonId: p.lessonId!,
+        amount: p.amount,
+        recordedAt: p.createdAt ?? p.dueDate,
+        method: p.method ?? student.paymentMethod,
+        methodIsStudentDefault: !p.method && !!student.paymentMethod,
+        status: p.status,
+        source: p.source ?? "manual",
+      }));
+    return { ...s, lessonIds, payments };
   });
 
   return ok({ year: v.data.year, month: v.data.month, term, days });

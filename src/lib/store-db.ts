@@ -1,4 +1,4 @@
-import { applyLessonOpsFlag, type LessonOpsFlag, type ApplyLessonOpsResult } from "./lesson-ops";
+import { applyLessonOpsFlag, switchLessonOpsFlag, type LessonOpsFlag, type ApplyLessonOpsResult } from "./lesson-ops";
 import { prisma } from "./db";
 import type { Prisma } from "@prisma/client";
 import { logger } from "./logger";
@@ -253,6 +253,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       method: payment.method ?? undefined,
       lessonId: payment.lessonId ?? undefined,
       source: (payment.source as import("./types").PaymentSource | undefined) ?? "manual",
+      createdAt: (payment as { createdAt?: Date }).createdAt?.toISOString() ?? undefined,
     })),
     teacherFeeRules: school.teacherFeeRules.map((rule) => ({
       id: rule.id,
@@ -1368,16 +1369,14 @@ export async function endLessonLive(lessonId: string): Promise<LessonLiveUpdateR
 }
 
 
-export async function applyLessonOpsFlagLive(
+/** `applyLessonOpsFlagLive`/`switchLessonOpsFlagLive` ortak DB senkron mantığı. */
+async function persistLessonOpsResult(
   lessonId: string,
   flag: LessonOpsFlag,
-  actorUserId: string
+  result: ApplyLessonOpsResult
 ): Promise<ApplyLessonOpsResult> {
-  logger.info("applyLessonOpsFlagLive", lessonId, flag);
-  const tid = requireTenantId();
-  const data = await readData();
-  const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
   if (!result.ok || result.alreadySet) return result;
+  const tid = requireTenantId();
 
   const L = result.lesson;
   await prisma.lesson.updateMany({
@@ -1480,6 +1479,29 @@ export async function applyLessonOpsFlagLive(
   const next = await readData();
   const nextLesson = next.lessons.find((l) => l.id === lessonId)!;
   return { ok: true, alreadySet: false, data: next, lesson: nextLesson, message: result.message };
+}
+
+export async function applyLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ApplyLessonOpsResult> {
+  logger.info("applyLessonOpsFlagLive", lessonId, flag);
+  const data = await readData();
+  const result = applyLessonOpsFlag(data, lessonId, flag, actorUserId);
+  return persistLessonOpsResult(lessonId, flag, result);
+}
+
+/** ÖNCELİK 4 (devam) — onaylı statü DEĞİŞİMİ (bkz. lesson-ops.ts switchLessonOpsFlag). */
+export async function switchLessonOpsFlagLive(
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string
+): Promise<ApplyLessonOpsResult> {
+  logger.info("switchLessonOpsFlagLive", lessonId, flag);
+  const data = await readData();
+  const result = switchLessonOpsFlag(data, lessonId, flag, actorUserId);
+  return persistLessonOpsResult(lessonId, flag, result);
 }
 
 export async function correctLessonTimesLive(

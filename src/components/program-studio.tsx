@@ -24,7 +24,7 @@ import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actio
 import { INSTRUMENTS, type Instrument, type Lesson, type Room, type Student, type Teacher } from "@/lib/types";
 import { dayName } from "@/lib/utils";
 import { DEFAULT_LESSON_DURATION_MINUTES, LESSON_DURATION_OPTIONS } from "@/lib/lesson-duration";
-import { CALENDAR_START_HOUR, isMonday, turkeyFixedPublicHolidays, toYmd } from "@/lib/closed-days";
+import { CALENDAR_START_HOUR, turkeyFixedPublicHolidays, toYmd } from "@/lib/closed-days";
 import { resolveLessonAcademicPeriod, lessonMatchesAcademicPeriod } from "@/lib/attendance-calendar";
 
 type ProgramStudioProps = {
@@ -437,11 +437,16 @@ export function ProgramStudio({
         })
       : weekLessons;
 
-  // Pazartesi kapalı — hiçbir koşulda takvimde gün sütunu olarak görünmez.
-  // Mevcut Pazartesi dersleri SİLİNMEZ (weekLessons'ta kalır, veri kaybı yok);
-  // yalnızca haftalık grid'de gösterilmezler. Aşağıdaki uyarı bunları listeler.
-  const visibleDays = days.filter((d) => !isMonday(parseISO(d)));
-  const mondayLessons = scopedWeekLessons.filter((l) => isMonday(parseISO(l.startAt)));
+  // ÖNCELİK 4 (devam) — döneme göre kapalı gün seti: Güz'de Pazartesi (eski
+  // davranış, dönem seçili değilken de aynen korunur), Yaz'da Cumartesi+Pazar.
+  // Kapalı günler hiçbir koşulda takvimde gün sütunu olarak görünmez — slot/
+  // ders oluşturma/DnD/öneri o gün için mümkün değildir (sütun yoksa hedef de
+  // yok). Mevcut dersler SİLİNMEZ (weekLessons'ta kalır, veri kaybı yok);
+  // yalnızca haftalık grid'de gösterilmezler — aşağıdaki uyarı bunları listeler.
+  const closedWeekdaysForGrid = selectedTerm === "yaz" ? [0, 6] : [1];
+  const isClosedGridDay = (d: Date) => closedWeekdaysForGrid.includes(d.getDay());
+  const visibleDays = days.filter((d) => !isClosedGridDay(parseISO(d)));
+  const mondayLessons = scopedWeekLessons.filter((l) => isClosedGridDay(parseISO(l.startAt)));
   const gridWindow = computeGridWindow(workingHours, scopedWeekLessons);
   const slots = slotStarts(gridWindow.startMin, gridWindow.endMin);
   const windowStartMin = slots[0] ?? 0;
@@ -1361,12 +1366,12 @@ export function ProgramStudio({
       {mondayLessons.length > 0 ? (
         <div className="mb-3 rounded-[var(--radius-md)] border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]">
           <p className="font-medium">
-            Okul artık Pazartesi kapalı — bu haftada {mondayLessons.length} ders hâlâ Pazartesi&apos;ye
-            planlanmış ve takvimde gösterilmiyor (veri silinmedi).
+            {selectedTerm === "yaz" ? "Okul Yaz döneminde Cumartesi/Pazar kapalı" : "Okul Güz döneminde Pazartesi kapalı"} —
+            bu haftada {mondayLessons.length} ders hâlâ kapalı bir güne planlanmış ve takvimde gösterilmiyor (veri silinmedi).
           </p>
           <p className="mt-1 text-[var(--color-text-muted)]">
             Bu dersleri başka bir güne taşımak için öğrenci/öğretmen üzerinden ders detayını açın; yeni
-            Pazartesi planlaması artık engellenir.
+            kapalı gün planlaması artık engellenir.
           </p>
         </div>
       ) : null}

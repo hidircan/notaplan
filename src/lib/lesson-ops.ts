@@ -86,6 +86,7 @@ function createLessonPaymentIfMissing(data: AppData, lesson: Lesson, now: Date):
     description: `Ders ücreti — ${formatMoney(amount)} (${new Date(lesson.startAt).toLocaleDateString("tr-TR")})`,
     lessonId: lesson.id,
     source: "lesson_ops",
+    createdAt: now.toISOString(),
   };
   return { ...data, payments: [...data.payments, payment] };
 }
@@ -263,4 +264,67 @@ export function applyLessonOpsFlag(
     lesson: nextLesson,
     message: "Telafi işaretlendi.",
   };
+}
+
+/** Bir dersin o an "etkin" tek statüsü — öncelik: İşlendi > Geldi > Telafi. */
+export function effectiveLessonOpsStatus(
+  lesson: Pick<Lesson, "studentAttended" | "lessonProcessed" | "opsMakeupFlag">
+): LessonOpsFlag | null {
+  if (lesson.lessonProcessed) return "processed";
+  if (lesson.studentAttended) return "attended";
+  if (lesson.opsMakeupFlag) return "makeup";
+  return null;
+}
+
+/**
+ * ÖNCELİK 4 (devam) — Geldi/İşlendi/Telafi'yi TEK, birbirini dışlayan bir
+ * statü olarak davranmasını sağlar. Halihazırda farklı bir statü etkinse
+ * (`effectiveLessonOpsStatus` ile), önce O statünün bayrağını (ve varsa
+ * diğerlerini) TEMİZLER, sonra istenen bayrağı `applyLessonOpsFlag` ile —
+ * DEĞİŞMEDEN, aynı mali entegrasyon davranışıyla — set eder. Bilinçli
+ * tasarım kararı: daha önce oluşmuş bir Payment (`source:"lesson_ops"`)
+ * asla burada iptal/void EDİLMEZ — yalnızca ders iptali (`applyLessonCancel`)
+ * ödemeyi void yapar. Statü değişince eski ödeme öylece kalır (çift kayıt
+ * oluşturulmaz — `createLessonPaymentIfMissing` lessonId üzerinden zaten
+ * idempotent); bu, mevcut tahsilat/void/audit akışını bozmadan en güvenli
+ * davranıştır.
+ */
+export function switchLessonOpsFlag(
+  data: AppData,
+  lessonId: string,
+  flag: LessonOpsFlag,
+  actorUserId: string,
+  now: Date = new Date()
+): ApplyLessonOpsResult {
+  const lesson = data.lessons.find((l) => l.id === lessonId);
+  if (!lesson) return { ok: false, message: "Ders bulunamadı." };
+
+  const current = effectiveLessonOpsStatus(lesson);
+  if (current === flag) {
+    // Zaten bu statüde — applyLessonOpsFlag kendi "alreadySet" mesajını üretir.
+    return applyLessonOpsFlag(data, lessonId, flag, actorUserId, now);
+  }
+  if (current === null) {
+    // Hiçbir statü etkin değil — ilk tıklama, doğrudan set.
+    return applyLessonOpsFlag(data, lessonId, flag, actorUserId, now);
+  }
+
+  // Farklı bir statüden geçiş — önce diğer bayrakları temizle (mali kayıt DOKUNULMAZ).
+  const cleared: Lesson = {
+    ...lesson,
+    studentAttended: false,
+    studentAttendedAt: undefined,
+    studentAttendedBy: undefined,
+    lessonProcessed: false,
+    lessonProcessedAt: undefined,
+    lessonProcessedBy: undefined,
+    opsMakeupFlag: false,
+    opsMakeupFlagAt: undefined,
+    opsMakeupFlagBy: undefined,
+  };
+  const clearedData: AppData = {
+    ...data,
+    lessons: data.lessons.map((l) => (l.id === lessonId ? cleared : l)),
+  };
+  return applyLessonOpsFlag(clearedData, lessonId, flag, actorUserId, now);
 }

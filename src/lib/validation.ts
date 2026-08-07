@@ -68,6 +68,8 @@ export const updateStudentProfileSchema = z.object({
   level: optionalTrimmed,
   targetExam: optionalTrimmed,
   specialNotes: optionalTrimmed,
+  /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
+  termType: z.enum(["guz", "yaz"]).optional(),
 });
 
 export const teacherSchema = z.object({
@@ -130,18 +132,14 @@ export const suggestLessonSlotsSchema = z.object({
   maxSlots: z.coerce.number().int().positive().max(50).optional(),
 });
 
-export const lessonSeriesParamsSchema = z.object({
+/** Nesne tabanı — `.extend()` gerektiren `createLessonSeriesSchema` bundan türer. */
+export const lessonSeriesParamsBaseSchema = z.object({
   studentId: z.string().min(1),
   teacherId: z.string().min(1),
   roomId: z.string().min(1),
   branchId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
-  weekday: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(6)
-    .refine((d) => d !== 1, { message: "Pazartesi okul kapalıdır — bu gün için ders serisi oluşturulamaz." }),
+  weekday: z.coerce.number().int().min(0).max(6),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
   durationMinutes: z.coerce.number().int().min(15).max(240),
   startsOn: z.string().min(1),
@@ -151,9 +149,33 @@ export const lessonSeriesParamsSchema = z.object({
   academicYearStart: z.coerce.number().int().min(2000).max(2100).optional(),
 });
 
-export const createLessonSeriesSchema = lessonSeriesParamsSchema.extend({
-  skipConflicts: z.coerce.boolean().optional(),
-});
+/**
+ * ÖNCELİK 4 (devam) — dönem seçiliyse o dönemin haftalık kapalı gün kuralı
+ * (Güz: Pazartesi, Yaz: Cts/Paz); term verilmemişse LEGACY davranış
+ * (yalnızca Pazartesi) korunur — object-level çünkü karar `term`'e bağlı.
+ */
+function refineWeekdayAgainstTerm<T extends z.ZodType<{ weekday: number; term?: "guz" | "yaz" }>>(schema: T) {
+  return schema.superRefine((v, ctx) => {
+    const closed = v.term ? (v.term === "yaz" ? [0, 6] : [1]) : [1];
+    if (closed.includes(v.weekday)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["weekday"],
+        message: v.term
+          ? `${v.term === "yaz" ? "Cumartesi/Pazar" : "Pazartesi"} bu dönemde okul kapalıdır — bu gün için ders serisi oluşturulamaz.`
+          : "Pazartesi okul kapalıdır — bu gün için ders serisi oluşturulamaz.",
+      });
+    }
+  });
+}
+
+export const lessonSeriesParamsSchema = refineWeekdayAgainstTerm(lessonSeriesParamsBaseSchema);
+
+export const createLessonSeriesSchema = refineWeekdayAgainstTerm(
+  lessonSeriesParamsBaseSchema.extend({
+    skipConflicts: z.coerce.boolean().optional(),
+  })
+);
 
 export const cancelSeriesFromLessonSchema = z.object({
   lessonId: z.string().min(1),

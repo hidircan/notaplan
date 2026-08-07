@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CreditCard,
   RefreshCcw,
-  Users,
   GraduationCap,
   Sparkles,
   Wallet,
@@ -349,25 +348,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <Card className="mt-6 border-[var(--color-primary)]/20 bg-[var(--color-primary-soft)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-white p-2 shadow-sm">
-              <Users className="h-5 w-5 text-[var(--color-primary)]" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">Satış demo senaryosu</p>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                1) Yoklamada devamsızlık işaretle → 2) Telafi hakkı oluşsun → 3) Otomatik slot öner → 4)
-                Onayla ve programa yaz. Bu akış müzik okulu müdürünün günlük işini destekler.
-              </p>
-            </div>
-          </div>
-          <Link href="/panel/yoklama">
-            <Button>Demo akışını başlat</Button>
-          </Link>
-        </div>
-      </Card>
     </div>
   );
 }

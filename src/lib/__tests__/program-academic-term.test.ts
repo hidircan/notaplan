@@ -230,3 +230,148 @@ describe("ÖNCELİK 4 (devam) — Program ekranı akademik dönem/yıl etiketi",
     expect(res.ok).toBe(false);
   });
 });
+
+describe("ÖNCELİK 4 (devam) — Program ekranı: döneme göre gün grid'i (backend doğrulaması)", () => {
+  it("Güz: Pazartesi ders serisi reddedilir, hafta sonu kabul edilir", async () => {
+    const monday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 1, // Pazartesi
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-15",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(monday.ok).toBe(false);
+
+    const saturday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 6, // Cumartesi
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-05",
+      endsOn: "2026-09-19",
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(saturday.ok).toBe(true);
+  });
+
+  it("Yaz: Cumartesi/Pazar ders serisi reddedilir, Pazartesi kabul edilir", async () => {
+    const saturday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 6,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2027-07-03",
+      endsOn: "2027-07-17",
+      term: "yaz",
+      academicYearStart: 2027,
+    });
+    expect(saturday.ok).toBe(false);
+
+    const sunday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 0,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2027-07-04",
+      endsOn: "2027-07-18",
+      term: "yaz",
+      academicYearStart: 2027,
+    });
+    expect(sunday.ok).toBe(false);
+
+    const monday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 1,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2027-07-05",
+      endsOn: "2027-07-19",
+      term: "yaz",
+      academicYearStart: 2027,
+    });
+    expect(monday.ok).toBe(true);
+  });
+
+  it("term verilmezse legacy davranış korunur — yalnızca Pazartesi kapalı, hafta sonu açık", async () => {
+    const monday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 1,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-15",
+      // term verilmedi
+    });
+    expect(monday.ok).toBe(false);
+
+    const saturday = await createLessonSeriesTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      branchId: "erzene",
+      instrument: "Piyano",
+      weekday: 6,
+      startTime: "11:00",
+      durationMinutes: 40,
+      startsOn: "2026-09-05",
+      endsOn: "2026-09-19",
+    });
+    expect(saturday.ok).toBe(true);
+  });
+
+  it("tek ders oluşturma da (createLessonTool) aynı dönem-gün kuralını API katmanında uygular", async () => {
+    // Cumartesi (weekday 6) — Güz'de açık, Yaz'da kapalı olmalı. Öğretmenin
+    // gerçekten müsait olduğu bir Cumartesi/saat kombinasyonu aranır.
+    const saturdaySlot = await findOpenSlot(6, 11);
+    if (!saturdaySlot) throw new Error("no open Saturday slot found");
+    const guzRes = await createLessonTool(ctx(), {
+      studentId: "s1",
+      teacherId: "t1",
+      roomId: "r1",
+      instrument: "Piyano",
+      startAt: saturdaySlot,
+      term: "guz",
+      academicYearStart: 2026,
+    });
+    expect(guzRes.ok).toBe(true);
+
+    const yazRes = await createLessonTool(ctx(), {
+      studentId: "s2",
+      teacherId: "t1",
+      roomId: "r1",
+      instrument: "Piyano",
+      startAt: saturdaySlot,
+      term: "yaz",
+      academicYearStart: 2026,
+    });
+    expect(yazRes.ok).toBe(false);
+  });
+});
