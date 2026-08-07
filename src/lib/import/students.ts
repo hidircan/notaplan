@@ -89,8 +89,8 @@ Kerem Doğan,Fatma Doğan,0555 444 4444,0555 444 4445,Evka 3,Gitar,Nilüfer Acar
 const PHONE_RE = /^[0-9()+\-\s]{7,}$/;
 const LESSON_DURATIONS = [30, 40, 50] as const;
 
-function isInstrument(value: string): value is Instrument {
-  return (INSTRUMENTS as string[]).includes(value);
+function isInstrument(value: string, activeInstrumentNames: string[]): boolean {
+  return activeInstrumentNames.some((n) => n.toLocaleLowerCase("tr") === value.toLocaleLowerCase("tr"));
 }
 
 function parseSocialMediaConsent(value: string): SocialMediaConsentStatus | undefined | "invalid" {
@@ -101,7 +101,18 @@ function parseSocialMediaConsent(value: string): SocialMediaConsentStatus | unde
   return "invalid";
 }
 
-export function validateStudentRows(data: AppData, records: CsvRecord[]): ImportPreview<StudentImportRow> {
+/**
+ * `activeInstrumentNames` opsiyoneldir; verilmezse sabit `INSTRUMENTS`
+ * kullanılır. Gerçek çağıran (tools.ts) tenant-scoped
+ * `resolveActiveInstrumentNames(ctx.tenantId)` vermelidir — ÖNCELİK 4
+ * (devam) enstrüman kataloğuyla tutarlı, yalnızca istemci enum'una
+ * güvenilmez.
+ */
+export function validateStudentRows(
+  data: AppData,
+  records: CsvRecord[],
+  activeInstrumentNames: string[] = [...INSTRUMENTS]
+): ImportPreview<StudentImportRow> {
   const errors: ImportRowError[] = [];
   const valid: StudentImportRow[] = [];
   const readRows: ImportReadRow[] = [];
@@ -176,7 +187,7 @@ export function validateStudentRows(data: AppData, records: CsvRecord[]): Import
 
     if (!instrumentValue) {
       errors.push({ row, field: "enstruman", message: "Enstrüman boş olamaz." });
-    } else if (!isInstrument(instrumentValue)) {
+    } else if (!isInstrument(instrumentValue, activeInstrumentNames)) {
       errors.push({
         row,
         field: "enstruman",
@@ -268,7 +279,7 @@ export function validateStudentRows(data: AppData, records: CsvRecord[]): Import
       parentName &&
       parentPhone &&
       branchId &&
-      isInstrument(instrumentValue) &&
+      isInstrument(instrumentValue, activeInstrumentNames) &&
       teacherId &&
       packageName &&
       lessonDurationMinutes !== null &&
@@ -286,7 +297,7 @@ export function validateStudentRows(data: AppData, records: CsvRecord[]): Import
         parentName,
         parentPhone,
         branchId,
-        instrument: instrumentValue,
+        instrument: instrumentValue as Instrument,
         teacherId,
         packageName,
         weeklyLessonCount,

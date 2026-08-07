@@ -5,6 +5,7 @@ import { validateTeacherRows, TEACHER_CSV_SAMPLE } from "../import/teachers";
 import { validateRoomRows, ROOM_CSV_SAMPLE } from "../import/rooms";
 import { validateStudentRows, STUDENT_CSV_SAMPLE } from "../import/students";
 import { createSeedData } from "../seed";
+import { INSTRUMENTS } from "../types";
 
 describe("parseCsv", () => {
   it("düz virgüllü satırları ayrıştırır", () => {
@@ -140,13 +141,25 @@ describe("validateBranchRows", () => {
 describe("validateTeacherRows", () => {
   const data = createSeedData();
 
-  it("geçerli örnek CSV doğru sayıları verir", () => {
+  it("geçerli örnek CSV (tek + çoklu enstrümanlı en az 4 satır) hiçbir hata vermez — Bas Gitar/Ukulele dinamik katalogla doğrulanır", () => {
     const { records } = rowsToRecords(parseCsv(TEACHER_CSV_SAMPLE));
-    const result = validateTeacherRows(data, records);
-    expect(result.totalRows).toBe(1);
-    expect(result.validCount).toBe(1);
+    // Şablonda Bas Gitar/Ukulele kullanıldığı için katalog listesiyle doğrulanır (aynı desen tools.ts'teki gibi).
+    const activeInstrumentNames = [...INSTRUMENTS, "Bas Gitar", "Ukulele"];
+    const result = validateTeacherRows(data, records, activeInstrumentNames);
+    expect(result.totalRows).toBeGreaterThanOrEqual(4);
     expect(result.errorCount).toBe(0);
+    expect(result.validCount).toBe(result.totalRows);
     expect(result.valid[0].branchId).toBe("erzene");
+    // 1) tek enstrüman (yeni çoklu-kolon biçiminde tek değer olarak da geçerli)
+    expect(result.valid[0].instrumentLevels).toEqual([{ instrument: "Piyano", level: "İleri" }]);
+    expect(result.valid[0].instrument).toBe("Piyano");
+    // 2) iki enstrüman
+    const twoInstrumentRow = result.valid.find((r) => r.instrumentLevels?.length === 2);
+    expect(twoInstrumentRow).toBeDefined();
+    // 3) üç enstrüman (Bas Gitar/Ukulele dahil)
+    const threeInstrumentRow = result.valid.find((r) => r.instrumentLevels?.length === 3);
+    expect(threeInstrumentRow).toBeDefined();
+    expect(threeInstrumentRow?.instrumentLevels?.map((s) => s.instrument)).toEqual(["Gitar", "Bas Gitar", "Ukulele"]);
   });
 
   it("geçersiz enstrümanı satır numarasıyla reddeder", () => {
@@ -157,6 +170,56 @@ describe("validateTeacherRows", () => {
     expect(result.errors[0]).toMatchObject({ row: 2, field: "enstruman" });
   });
 
+  it("legacy tek-enstrüman biçimi (yalnızca 'enstruman' kolonu) hâlâ çalışır", () => {
+    const csv = "ad,eposta,telefon,sube,enstruman\nAli,ali@x.com,05551112233,Erzene,Piyano\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(data, records);
+    expect(result.errorCount).toBe(0);
+    expect(result.valid[0].instrument).toBe("Piyano");
+    expect(result.valid[0].instrumentLevels).toBeUndefined();
+  });
+
+  it("çoklu enstrüman/seviye sayısı uyuşmazsa satır hatası verir", () => {
+    const csv =
+      "ad,eposta,telefon,sube,enstrumanlar,enstruman_seviyeleri\n" +
+      "Ali,ali@x.com,05551112233,Erzene,Piyano|Gitar,İleri\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(data, records);
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.field === "enstrumanlar" && e.message.includes("sayısı"))).toBe(true);
+  });
+
+  it("çoklu enstrümanda geçersiz seviye satır hatası verir", () => {
+    const csv =
+      "ad,eposta,telefon,sube,enstrumanlar,enstruman_seviyeleri\n" +
+      "Ali,ali@x.com,05551112233,Erzene,Piyano,Uzman\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(data, records);
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.field === "enstrumanlar" && e.message.includes("seviye"))).toBe(true);
+  });
+
+  it("aynı enstrüman satırda iki kez geçemez", () => {
+    const csv =
+      "ad,eposta,telefon,sube,enstrumanlar,enstruman_seviyeleri\n" +
+      "Ali,ali@x.com,05551112233,Erzene,Piyano|Piyano,İleri|Orta\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateTeacherRows(data, records);
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.message.includes("birden fazla"))).toBe(true);
+  });
+
+  it("pasif/bilinmeyen (kataloğa eklenmemiş) enstrüman reddedilir — yalnızca istemci enum'una güvenilmez", () => {
+    const csv =
+      "ad,eposta,telefon,sube,enstrumanlar,enstruman_seviyeleri\n" +
+      "Ali,ali@x.com,05551112233,Erzene,Bas Gitar,İleri\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    // activeInstrumentNames verilmez — varsayılan yalnızca sabit INSTRUMENTS; "Bas Gitar" o listede yok.
+    const result = validateTeacherRows(data, records);
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.field === "enstrumanlar")).toBe(true);
+  });
+
   it("bulunamayan şubeyi reddeder", () => {
     const csv = "ad,eposta,telefon,sube,enstruman\nAli,ali@x.com,0555,Olmayan Şube,Piyano\n";
     const { records } = rowsToRecords(parseCsv(csv));
@@ -165,12 +228,12 @@ describe("validateTeacherRows", () => {
     expect(result.errors[0].field).toBe("sube");
   });
 
-  it("geçersiz e-posta biçimini reddeder", () => {
+  it("geçersiz e-posta biçimini reddeder (eski 'eposta' kolonu geriye dönük okunur)", () => {
     const csv = "ad,eposta,telefon,sube,enstruman\nAli,gecersiz-eposta,0555,Erzene,Piyano\n";
     const { records } = rowsToRecords(parseCsv(csv));
     const result = validateTeacherRows(data, records);
     expect(result.errorCount).toBe(1);
-    expect(result.errors[0].field).toBe("eposta");
+    expect(result.errors[0].field).toBe("email");
   });
 
   it("şube adı NFD (ayrıştırılmış Unicode) yazılmış olsa bile NFC şube kaydıyla eşleşir", () => {

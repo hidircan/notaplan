@@ -134,6 +134,14 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       active: teacher.active,
       archivedAt: (teacher as { archivedAt?: Date | null }).archivedAt?.toISOString() ?? undefined,
       color: teacher.color,
+      // ÖNCELİK 4 (devam) — öğretmen CSV çoklu enstrüman revizyonu: bu 5 alan
+      // db modunda daha önce hiç okunmuyordu (Prisma şemasında yoktu).
+      highSchool: (teacher as { highSchool?: string | null }).highSchool ?? undefined,
+      university: (teacher as { university?: string | null }).university ?? undefined,
+      graduationYear: (teacher as { graduationYear?: number | null }).graduationYear ?? undefined,
+      contractStartDate:
+        (teacher as { contractStartDate?: Date | null }).contractStartDate?.toISOString() ?? undefined,
+      contractEndDate: (teacher as { contractEndDate?: Date | null }).contractEndDate?.toISOString() ?? undefined,
     })),
     students: school.students.map((student) => ({
       id: student.id,
@@ -1155,10 +1163,29 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
       const existing = await tx.teacher.findFirst({
         where: { tenantId: tid, email: row.email },
       });
+      // ÖNCELİK 4 (devam) — çoklu enstrüman: instrumentLevels verilmişse
+      // instruments listesi bundan türetilir (benzersiz), yoksa legacy
+      // tek-enstrüman davranışı ([row.instrument]) korunur.
+      const instruments = row.instrumentLevels?.length
+        ? Array.from(new Set(row.instrumentLevels.map((r) => r.instrument)))
+        : [row.instrument];
+
       if (existing) {
         await tx.teacher.update({
           where: { id: existing.id },
-          data: { name: row.name, phone: row.phone, branchId: row.branchId, instruments: [row.instrument] },
+          data: {
+            name: row.name,
+            phone: row.phone,
+            branchId: row.branchId,
+            instruments,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            instrumentLevels: (row.instrumentLevels ?? undefined) as any,
+            highSchool: row.highSchool,
+            university: row.university,
+            graduationYear: row.graduationYear,
+            contractStartDate: row.contractStartDate ? new Date(row.contractStartDate) : undefined,
+            contractEndDate: row.contractEndDate ? new Date(row.contractEndDate) : undefined,
+          },
         });
         updated++;
       } else {
@@ -1171,7 +1198,9 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
             email: row.email,
             phone: row.phone,
             branchId: row.branchId,
-            instruments: [row.instrument],
+            instruments,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            instrumentLevels: (row.instrumentLevels ?? undefined) as any,
             availability: [
               { dayOfWeek: 1, start: "10:00", end: "18:00" },
               { dayOfWeek: 2, start: "10:00", end: "18:00" },
@@ -1182,6 +1211,11 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
             maxDailyLessons: 8,
             active: true,
             color: "#7c3aed",
+            highSchool: row.highSchool,
+            university: row.university,
+            graduationYear: row.graduationYear,
+            contractStartDate: row.contractStartDate ? new Date(row.contractStartDate) : undefined,
+            contractEndDate: row.contractEndDate ? new Date(row.contractEndDate) : undefined,
           },
         });
         created++;

@@ -584,13 +584,22 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
   let updated = 0;
   for (const row of rows) {
     const idx = teachers.findIndex((t) => t.email.trim().toLowerCase() === row.email.trim().toLowerCase());
+    const instruments = row.instrumentLevels?.length
+      ? Array.from(new Set(row.instrumentLevels.map((r) => r.instrument)))
+      : [row.instrument];
     if (idx >= 0) {
       teachers[idx] = {
         ...teachers[idx],
         name: row.name,
         phone: row.phone,
         branchId: row.branchId,
-        instruments: [row.instrument],
+        instruments,
+        instrumentLevels: row.instrumentLevels ?? teachers[idx].instrumentLevels,
+        highSchool: row.highSchool ?? teachers[idx].highSchool,
+        university: row.university ?? teachers[idx].university,
+        graduationYear: row.graduationYear ?? teachers[idx].graduationYear,
+        contractStartDate: row.contractStartDate ?? teachers[idx].contractStartDate,
+        contractEndDate: row.contractEndDate ?? teachers[idx].contractEndDate,
       };
       updated++;
     } else {
@@ -600,7 +609,8 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
         email: row.email,
         phone: row.phone,
         branchId: row.branchId,
-        instruments: [row.instrument],
+        instruments,
+        instrumentLevels: row.instrumentLevels,
         availability: [
           { dayOfWeek: 1, start: "10:00", end: "18:00" },
           { dayOfWeek: 2, start: "10:00", end: "18:00" },
@@ -611,6 +621,11 @@ export async function importTeachers(rows: TeacherImportRow[]): Promise<ImportCo
         maxDailyLessons: 8,
         active: true,
         color: TEACHER_COLORS[teachers.length % TEACHER_COLORS.length],
+        highSchool: row.highSchool,
+        university: row.university,
+        graduationYear: row.graduationYear,
+        contractStartDate: row.contractStartDate,
+        contractEndDate: row.contractEndDate,
       });
       created++;
     }

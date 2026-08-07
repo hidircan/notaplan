@@ -60,6 +60,7 @@ import {
   createInstrumentCatalogEntry,
   updateInstrumentCatalogEntry,
   listInstrumentCatalog,
+  resolveActiveInstrumentNames,
 } from "../instrument-catalog";
 import { effectiveLessonOpsStatus } from "../lesson-ops";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
@@ -1162,7 +1163,8 @@ export async function previewTeacherImportTool(
   const v = parseOrFail(csvInputSchema, input);
   if (!v.ok) return v;
   const data = await readData();
-  return ok(validateTeacherRows(data, csvRecords(v.data.csvText)));
+  const activeInstrumentNames = await resolveActiveInstrumentNames(ctx.tenantId);
+  return ok(validateTeacherRows(data, csvRecords(v.data.csvText), activeInstrumentNames));
 }
 
 export async function commitTeacherImportTool(
@@ -1174,7 +1176,8 @@ export async function commitTeacherImportTool(
   const v = parseOrFail(csvInputSchema, input);
   if (!v.ok) return v;
   const data = await readData();
-  const preview = validateTeacherRows(data, csvRecords(v.data.csvText));
+  const activeInstrumentNames = await resolveActiveInstrumentNames(ctx.tenantId);
+  const preview = validateTeacherRows(data, csvRecords(v.data.csvText), activeInstrumentNames);
   if (preview.errorCount > 0) {
     return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
   }
@@ -1228,7 +1231,8 @@ export async function previewStudentImportTool(
   const v = parseOrFail(csvInputSchema, input);
   if (!v.ok) return v;
   const data = await readData();
-  return ok(validateStudentRows(data, csvRecords(v.data.csvText)));
+  const activeInstrumentNames = await resolveActiveInstrumentNames(ctx.tenantId);
+  return ok(validateStudentRows(data, csvRecords(v.data.csvText), activeInstrumentNames));
 }
 
 export async function commitStudentImportTool(
@@ -1240,7 +1244,8 @@ export async function commitStudentImportTool(
   const v = parseOrFail(csvInputSchema, input);
   if (!v.ok) return v;
   const data = await readData();
-  const preview = validateStudentRows(data, csvRecords(v.data.csvText));
+  const activeInstrumentNames = await resolveActiveInstrumentNames(ctx.tenantId);
+  const preview = validateStudentRows(data, csvRecords(v.data.csvText), activeInstrumentNames);
   if (preview.errorCount > 0) {
     return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
   }

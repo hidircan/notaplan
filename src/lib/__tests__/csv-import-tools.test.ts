@@ -15,6 +15,8 @@ import { resolveBranchId, resolveTeacherIdByEmail } from "../import/branch-looku
 import type { ServiceContext } from "../services/context";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
+const INSTRUMENT_CATALOG_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "instrument-catalog.json");
+const SOCIAL_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "social-media-consents.json");
 
 function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
   return {
@@ -28,6 +30,12 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
 
 beforeEach(async () => {
   await fs.rm(DATA_FILE, { force: true });
+  // fileParallelism:false altında tüm test dosyaları AYNI diskteki JSON
+  // depolarını paylaşır — enstrüman kataloğu/sosyal medya izni gibi
+  // bağımsız modüller de temizlenmezse önceki dosyalardan sızıntı olur
+  // (ör. Bas Gitar/Ukulele otomatik seed'i, katalog zaten dolu görünürse hiç tetiklenmez).
+  await fs.rm(INSTRUMENT_CATALOG_FILE, { force: true });
+  await fs.rm(SOCIAL_FILE, { force: true });
 });
 
 const TEACHER_CSV_VALID = "ad,eposta,telefon,sube,enstruman\nSelin Kara,selin@okul.com,0555 111 1111,Erzene,Piyano\n";
@@ -191,5 +199,42 @@ describe("ÖNCELİK 4 (devam) — öğrenci CSV importunda T.C. kimlik + sosyal 
     expect(commit.ok).toBe(false);
     const after = await readData();
     expect(after.students.length).toBe(before.students.length);
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — öğretmen CSV çoklu enstrüman (tools katmanı)", () => {
+  it("Bas Gitar/Ukulele dahil çoklu enstrümanlı öğretmen commit ile başarıyla eklenir (kataloğun tenant-scoped seed'i sayesinde)", async () => {
+    const csv =
+      "ad_soyad,email,telefon,sube,enstrumanlar,enstruman_seviyeleri,lise,universite,mezuniyet,sozlesme_baslangic,sozlesme_bitis\n" +
+      "Çoklu Öğretmen,coklu@okul.com,0555 999 1111,Erzene,Gitar|Bas Gitar|Ukulele,İleri|Orta|Başlangıç,İzmir Lisesi,İTÜ,2016,2026-09-01,2027-08-31\n";
+
+    const preview = await previewTeacherImportTool(ctx(), { csvText: csv });
+    expect(preview.ok).toBe(true);
+    if (preview.ok) expect(preview.data.errorCount).toBe(0);
+
+    const commit = await commitTeacherImportTool(ctx(), { csvText: csv });
+    expect(commit.ok).toBe(true);
+    if (!commit.ok) return;
+    expect(commit.data.created).toBe(1);
+
+    const data = await readData();
+    const teacher = data.teachers.find((t) => t.email === "coklu@okul.com");
+    expect(teacher).toBeDefined();
+    expect(teacher?.instruments).toEqual(expect.arrayContaining(["Gitar", "Bas Gitar", "Ukulele"]));
+    expect(teacher?.instrumentLevels).toHaveLength(3);
+    expect(teacher?.highSchool).toBe("İzmir Lisesi");
+    expect(teacher?.university).toBe("İTÜ");
+    expect(teacher?.graduationYear).toBe(2016);
+  });
+
+  it("enstrüman/seviye sayısı uyuşmayan satır tüm dosyayı reddeder (atomik) — hiçbir öğretmen eklenmez", async () => {
+    const before = await readData();
+    const csv =
+      "ad_soyad,email,telefon,sube,enstrumanlar,enstruman_seviyeleri\n" +
+      "Sayı Uyuşmaz,uyusmaz@okul.com,0555 999 2222,Erzene,Piyano|Gitar,İleri\n";
+    const commit = await commitTeacherImportTool(ctx(), { csvText: csv });
+    expect(commit.ok).toBe(false);
+    const after = await readData();
+    expect(after.teachers.length).toBe(before.teachers.length);
   });
 });

@@ -156,6 +156,16 @@ model Teacher {
   /// veya legacy kayıt; set edilmişse arşivlenme anı. `active=false` ile
   /// birlikte kullanılır — bkz. src/lib/services/tools.ts archiveTeacherTool.
   archivedAt      DateTime?
+  /// ÖNCELİK 4 (devam) — öğretmen CSV çoklu enstrüman revizyonu: bu 5 alan
+  /// TS tipinde (Teacher) zaten vardı ama hiçbir zaman DB'de karşılığı yoktu
+  /// (db modunda hep sessizce kayboluyordu) — CSV'nin `lise/universite/
+  /// mezuniyet/sozlesme_baslangic/sozlesme_bitis` kolonlarını db modunda da
+  /// kalıcı kılmak için burada eklendi.
+  highSchool          String?
+  university          String?
+  graduationYear      Int?
+  contractStartDate   DateTime?
+  contractEndDate     DateTime?
   color           String
   students        Student[]
   lessons         Lesson[]

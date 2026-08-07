@@ -40,7 +40,11 @@ export default function VeriAktarPage() {
 
         <CsvImportSection
           title="2. Öğretmenler"
-          description="Şube sütununda kısa ad veya tam ad kullanın. E-posta zorunludur — hem tekrar aktarımda hem öğrenci eşlemesinde kullanılır."
+          description={
+            "E-posta zorunludur. Çoklu enstrüman: enstrumanlar/enstruman_seviyeleri kolonlarını \"|\" ile ayırın " +
+            "(ör. \"Keman|Piyano\" / \"Orta|Başlangıç\") — sayı/sıra eşleşmeli, tekrar yasak, seviyeler " +
+            "Başlangıç/Orta/İleri. Tek enstrümanda eski \"enstruman\" kolonu da çalışır."
+          }
           columns={TEACHER_CSV_COLUMNS}
           sampleCsv={TEACHER_CSV_SAMPLE}
           sampleFileName="ogretmenler_ornek.csv"
