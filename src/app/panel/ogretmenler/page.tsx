@@ -9,6 +9,7 @@ import { getInstitutionContext, readScopedData } from "@/lib/institution/context
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { computeTeacherPerformanceScore } from "@/lib/insights/teacher-performance";
 import { TeacherInstrumentsField } from "@/components/teacher-instruments-field";
+import { TeacherAvailabilityField } from "@/components/teacher-availability-field";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { TeacherArchiveAction } from "@/components/teacher-archive-action";
 import { listInstrumentCatalogTool } from "@/lib/services";
@@ -258,9 +259,13 @@ export default async function OgretmenlerPage({
                 ))}
               </Select>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Varsayılan müsaitlik: Pzt–Cum 10:00–18:00 (sonra düzenlenebilir).
-            </p>
+            <div>
+              <Label>Haftalık müsaitlik</Label>
+              <TeacherAvailabilityField name="availabilityJson" />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Daha sonra öğretmen detay ekranından da düzenlenebilir.
+              </p>
+            </div>
             <Button type="submit" className="w-full">
               Öğretmen ekle
             </Button>

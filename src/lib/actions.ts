@@ -626,6 +626,19 @@ export async function actionAddTeacher(formData: FormData) {
           // geçersiz JSON — legacy tek-enstrüman davranışına düş
         }
       }
+      // Oluşturma anında müsaitlik — "TeacherAvailabilityField" client
+      // bileşeninin gizli JSON input'undan gelir; verilmezse (veya geçersizse)
+      // createTeacherTool'daki varsayılan müsaitliğe düşülür.
+      let availability: { dayOfWeek: number; start: string; end: string }[] | undefined;
+      const rawAvailability = String(formData.get("availabilityJson") || "");
+      if (rawAvailability) {
+        try {
+          const parsed = JSON.parse(rawAvailability);
+          if (Array.isArray(parsed)) availability = parsed;
+        } catch {
+          // geçersiz JSON — varsayılan müsaitliğe düş
+        }
+      }
       assertOk(
         await createTeacherTool(ctx, {
           name: String(formData.get("name") || ""),
@@ -634,6 +647,7 @@ export async function actionAddTeacher(formData: FormData) {
           branchId: String(formData.get("branchId") || ""),
           instrument: String(formData.get("instrument") || "Piyano"),
           instrumentLevels,
+          availability,
         })
       );
     });

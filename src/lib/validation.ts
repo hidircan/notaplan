@@ -99,6 +99,14 @@ export const teacherInstrumentSkillSchema = z.object({
   level: z.enum(INSTRUMENT_LEVEL_ENUM),
 });
 
+const teacherAvailabilityWindowSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+    end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+  })
+  .refine((w) => w.start < w.end, { message: "Bitiş saati başlangıçtan sonra olmalı" });
+
 export const teacherSchema = z
   .object({
     name: z.string().min(1),
@@ -112,6 +120,12 @@ export const teacherSchema = z
      * uyumluluk için zorunlu değil.
      */
     instrumentLevels: z.array(teacherInstrumentSkillSchema).optional(),
+    /**
+     * Oluşturma anında haftalık müsaitlik. Verilmezse mevcut varsayılan
+     * (Pzt–Cum 10:00–18:00/16:00) korunur — geriye dönük uyumlu, zorunlu
+     * değil. Boş dizi de geçerlidir (hiç müsaitlik yok).
+     */
+    availability: z.array(teacherAvailabilityWindowSchema).optional(),
   })
   .refine(
     (v) => {

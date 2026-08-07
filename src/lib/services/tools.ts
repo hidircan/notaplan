@@ -907,7 +907,9 @@ export async function createTeacherTool(
       branchId: v.data.branchId as BranchId,
       instruments,
       instrumentLevels: v.data.instrumentLevels as Teacher["instrumentLevels"],
-      availability: [
+      // Oluşturma anında müsaitlik belirtilmişse (v.data.availability) onu
+      // kullan; belirtilmemişse geriye dönük uyumlu varsayılana düş.
+      availability: v.data.availability ?? [
         { dayOfWeek: 1, start: "10:00", end: "18:00" },
         { dayOfWeek: 2, start: "10:00", end: "18:00" },
         { dayOfWeek: 3, start: "10:00", end: "18:00" },
