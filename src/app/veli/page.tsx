@@ -25,6 +25,7 @@ import { listNotificationsForUser } from "@/lib/notifications";
 import { NotificationList } from "@/components/notification-list";
 import { listAnnouncementsForUserTool } from "@/lib/services";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -290,6 +291,21 @@ export default async function VeliPortalPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section id="yoklama-takvimi">
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <CalendarDays className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Yoklama Takvimi</h2>
+          </div>
+          <Card className="!p-3">
+            <AttendanceCalendarPanel
+              studentId={student.id}
+              termType={student.termType ?? "guz"}
+              canEdit={false}
+              readOnly
+            />
+          </Card>
         </section>
 
         <section>

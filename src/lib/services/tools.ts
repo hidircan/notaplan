@@ -3263,8 +3263,10 @@ export async function setLessonOpsFlagTool(
 
 /**
  * ÖNCELİK 4 — Yoklama Takvimi: bir tarih için gün durumu (statü) + o günün
- * dersleri. Admin tüm öğrencileri, öğretmen yalnızca kendi öğrencilerini
- * görebilir.
+ * dersleri. Admin tüm öğrencileri, öğretmen yalnızca kendi öğrencilerini,
+ * PARENT/STUDENT yalnızca (session'a bağlı) KENDİ öğrencisini görebilir —
+ * salt okunur, `assertStudentAccess` ile ownership kesin kontrol edilir
+ * (rol listesine girmesi TEK BAŞINA erişim vermez, bkz. aşağı).
  */
 export async function getAttendanceCalendarMonthTool(
   ctx: ServiceContext,
@@ -3277,7 +3279,7 @@ export async function getAttendanceCalendarMonthTool(
     days: Array<{ date: string; status: string; reason: string; label: string; lessonIds: string[] }>;
   }>
 > {
-  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN", "AI_AGENT"]);
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN", "AI_AGENT", "PARENT", "STUDENT"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
   const v = parseOrFail(

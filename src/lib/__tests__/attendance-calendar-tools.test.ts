@@ -177,4 +177,84 @@ describe("ÖNCELİK 4 — takvim görünürlüğü (RBAC)", () => {
     });
     expect(res.ok).toBe(false);
   });
+
+  it("2025 dışında bir akademik yıl da okunabilir (ör. 2019 ve 2032)", async () => {
+    const past = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: 2019, month: 3 });
+    const future = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: 2032, month: 3 });
+    expect(past.ok).toBe(true);
+    expect(future.ok).toBe(true);
+  });
+});
+
+describe("ÖNCELİK 4 — veli (PARENT) salt-okunur takvim erişimi", () => {
+  it("veli KENDİ öğrencisinin takvimini görüntüleyebilir", async () => {
+    const res = await getAttendanceCalendarMonthTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      year: 2026,
+      month: 9,
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it("yetkisiz veli BAŞKA bir öğrencinin takvimini göremez (backend'de kesin engel)", async () => {
+    const res = await getAttendanceCalendarMonthTool(ctx({ role: "PARENT", studentId: "s2" }), {
+      studentId: "s1",
+      year: 2026,
+      month: 9,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("veli gün istisnası (override) tanımlayamaz — ayrı bir salt-okunur endpoint dışında yazma yolu yok", async () => {
+    const res = await setDayOverrideTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      date: "2026-09-10",
+      isOpen: false,
+      name: "x",
+    });
+    expect(res.ok).toBe(false);
+  });
+
+  it("veli aylık Tutar'ı değiştiremez", async () => {
+    const res = await setMonthlyPlanAmountTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 5000,
+    });
+    expect(res.ok).toBe(false);
+  });
+
+  it("veli Geldi/İşlendi/Telafi işaretleyemez (yoklama oluşturamaz/değiştiremez)", async () => {
+    const lessonId = await createTestLesson();
+    const res = await setLessonOpsFlagTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      lessonId,
+      flag: "attended",
+    });
+    expect(res.ok).toBe(false);
+  });
+
+  it("admin bir günü kapatınca, aynı öğrencinin velisi de takvimde bu değişikliği görür (aynı kaynak)", async () => {
+    const before = await getAttendanceCalendarMonthTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      year: 2026,
+      month: 9,
+    });
+    expect(before.ok).toBe(true);
+    if (!before.ok) return;
+    const day = before.data.days.find((d) => d.status === "open")!;
+
+    const overrideRes = await setDayOverrideTool(ctx(), { date: day.date, isOpen: false, name: "Özel kapalı" });
+    expect(overrideRes.ok).toBe(true);
+
+    const after = await getAttendanceCalendarMonthTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      year: 2026,
+      month: 9,
+    });
+    expect(after.ok).toBe(true);
+    if (!after.ok) return;
+    const sameDay = after.data.days.find((d) => d.date === day.date)!;
+    expect(sameDay.status).toBe("closed");
+    expect(sameDay.reason).toBe("manual_closed");
+  });
 });

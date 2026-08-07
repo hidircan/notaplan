@@ -1,14 +1,23 @@
 "use client";
 
 /**
- * ÖNCELİK 4 — Yoklama Takvimi. Öğrenci detayında dönem takvimini (Güz:
- * Eylül–Haziran, Yaz: Temmuz–Ağustos + uzatma) ay ay gösterir. Bir güne
- * tıklayınca o günün dersleri + Geldi/İşlendi/Telafi aksiyonları açılır.
- * Kapalı günler siyah render edilir; admin aynı ekrandan zorla aç/kapat
- * yapabilir. Her ay başlığında yalnızca düzenlenebilir bir "Tutar" alanı var.
+ * ÖNCELİK 4 — Yoklama Takvimi. Öğrenci detayında (admin/öğretmen düzenleyebilir)
+ * VE veli portalında (salt okunur, `readOnly`) aynı veri kaynağını (
+ * `/api/v1/attendance-calendar/month`) kullanan dönem takvimi. Güz: Eylül–
+ * Haziran, Yaz: Temmuz–Ağustos + uzatma. Akademik yıl (`attYear`) ve dönem
+ * (`attTerm`) URL query string'inde tutulur — sayfa yenilenince korunur.
+ *
+ * Bir güne tıklayınca o günün dersleri + (yalnızca `readOnly=false` iken)
+ * Geldi/İşlendi/Telafi aksiyonları açılır. Kapalı günler siyah render edilir;
+ * yalnızca `canEdit` (admin) aynı ekrandan zorla aç/kapat + Tutar
+ * güncelleyebilir. Veli görünümünde ne override ne Tutar ne de yoklama
+ * değiştirme aksiyonu render edilmez — backend zaten (assertStudentAccess +
+ * admin-only tool RBAC) bunu kesin olarak da engeller, bu yalnızca UI
+ * katmanındaki ikinci bir savunma.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LessonOpsActions } from "./lesson-ops-actions";
 
@@ -42,7 +51,10 @@ const MONTH_LABELS = [
   "Aralık",
 ];
 
-function termMonthList(termType: string, anchorYear: number): { year: number; month: number }[] {
+export type AttendanceTerm = "guz" | "yaz";
+
+/** Dışa açık — saf, DOM'suz test edilebilir (bkz. attendance-calendar-nav.test.ts). */
+export function termMonthList(termType: string, anchorYear: number): { year: number; month: number }[] {
   if (termType === "yaz") {
     return [
       { year: anchorYear, month: 7 },
@@ -56,6 +68,12 @@ function termMonthList(termType: string, anchorYear: number): { year: number; mo
   return months;
 }
 
+/** Bugünün tarihine göre "içinde bulunulan" akademik yıl-çapası. */
+export function currentAnchorYear(termType: string): number {
+  const now = new Date();
+  return termType === "yaz" ? now.getFullYear() : now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
 /**
  * NOT (bilinen kısıtlama): `/attendance-calendar/month` yalnızca lessonId
  * listesi döner (Geldi/İşlendi/Telafi bayrakları değil) — bu yüzden kutu
@@ -63,6 +81,8 @@ function termMonthList(termType: string, anchorYear: number): { year: number; mo
  * tıklanınca gerçek Geldi/İşlendi/Telafi durumu `LessonOpsActions` ile
  * görülüp değiştirilebilir. Tam renk-kodlu ızgara için API'nin lesson
  * flag'lerini de döndürecek şekilde genişletilmesi gerekir (sonraki iterasyon).
+ * Dersi olan günler artık ayrıca kalın siyah çerçeve + ders sayısı rozeti
+ * ile de işaretleniyor — renk körlüğünde bile tek başına ayırt edilebilir.
  */
 function dayColor(day: DayInfo): string {
   if (day.status === "closed") return "#0a0a0a";
@@ -74,43 +94,92 @@ export function AttendanceCalendarPanel({
   studentId,
   termType,
   canEdit,
+  readOnly = false,
 }: {
   studentId: string;
+  /** Öğrencinin kayıtlı dönemi — ilk açılışta seçili dönem olarak kullanılır, kullanıcı değiştirebilir. */
   termType: string;
+  /** Admin: gün override + aylık Tutar düzenleyebilir. */
   canEdit: boolean;
+  /** Veli/salt-okunur görünüm: override, Tutar, Geldi/İşlendi/Telafi aksiyonları HİÇ render edilmez. */
+  readOnly?: boolean;
 }) {
-  const anchorYear = useMemo(() => {
-    const now = new Date();
-    return termType === "yaz" ? now.getFullYear() : now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-  }, [termType]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const months = useMemo(() => termMonthList(termType, anchorYear), [termType, anchorYear]);
+  const urlTerm = searchParams.get("attTerm");
+  const urlYear = searchParams.get("attYear");
+  const [term, setTerm] = useState<AttendanceTerm>(
+    urlTerm === "guz" || urlTerm === "yaz" ? urlTerm : termType === "yaz" ? "yaz" : "guz"
+  );
+  const [anchorYear, setAnchorYear] = useState<number>(() => {
+    const parsed = urlYear ? Number(urlYear) : NaN;
+    return Number.isFinite(parsed) ? parsed : currentAnchorYear(term);
+  });
+
+  const syncUrl = useCallback(
+    (nextTerm: AttendanceTerm, nextYear: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("attTerm", nextTerm);
+      params.set("attYear", String(nextYear));
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  function changeTerm(nextTerm: AttendanceTerm) {
+    const nextYear = currentAnchorYear(nextTerm);
+    setTerm(nextTerm);
+    setAnchorYear(nextYear);
+    syncUrl(nextTerm, nextYear);
+  }
+
+  function changeYear(nextYear: number) {
+    setAnchorYear(nextYear);
+    syncUrl(term, nextYear);
+  }
+
+  function goToday() {
+    changeYear(currentAnchorYear(term));
+  }
+
+  const months = useMemo(() => termMonthList(term, anchorYear), [term, anchorYear]);
   const [byMonth, setByMonth] = useState<Record<string, MonthResponse>>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [savingMonth, setSavingMonth] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadMonths = useCallback(async () => {
+    setLoading(true);
+    const results: Record<string, MonthResponse> = {};
+    for (const m of months) {
+      try {
+        const res = await fetch(
+          `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${m.year}&month=${m.month}`
+        );
+        const json = (await res.json()) as { ok: boolean; data?: MonthResponse };
+        if (json.ok && json.data) results[`${m.year}-${m.month}`] = json.data;
+      } catch {
+        // sessizce atla — bir ayın hatası tüm takvimi bozmasın
+      }
+    }
+    setByMonth(results);
+    setLoading(false);
+  }, [studentId, months]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const results: Record<string, MonthResponse> = {};
-      for (const m of months) {
-        try {
-          const res = await fetch(
-            `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${m.year}&month=${m.month}`
-          );
-          const json = (await res.json()) as { ok: boolean; data?: MonthResponse };
-          if (json.ok && json.data) results[`${m.year}-${m.month}`] = json.data;
-        } catch {
-          // sessizce atla — bir ayın hatası tüm takvimi bozmasın
-        }
-      }
-      if (!cancelled) setByMonth(results);
+      await loadMonths();
+      if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, months]);
 
   function onDayClick(day: DayInfo) {
@@ -119,7 +188,7 @@ export function AttendanceCalendarPanel({
   }
 
   async function onToggleOverride(day: DayInfo) {
-    if (!canEdit) return;
+    if (!canEdit || readOnly) return;
     setError(null);
     try {
       const res = await fetch("/api/v1/attendance-calendar/day-override", {
@@ -136,7 +205,6 @@ export function AttendanceCalendarPanel({
         setError(json.error?.message ?? "İşlem başarısız.");
         return;
       }
-      // İlgili ayı yeniden çek
       const [y, m] = day.date.split("-");
       const res2 = await fetch(
         `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${y}&month=${Number(m)}`
@@ -151,7 +219,7 @@ export function AttendanceCalendarPanel({
   }
 
   async function onSaveAmount(key: string) {
-    if (!canEdit) return;
+    if (!canEdit || readOnly) return;
     const raw = amounts[key];
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount < 0) {
@@ -177,6 +245,8 @@ export function AttendanceCalendarPanel({
     }
   }
 
+  const isCurrentAnchor = anchorYear === currentAnchorYear(term);
+
   return (
     <div className="space-y-4">
       {/* Sabit renk lejantı */}
@@ -186,12 +256,79 @@ export function AttendanceCalendarPanel({
         <LegendDot color="#ca8a04" label="Telafi" />
         <LegendDot color="#0a0a0a" label="Kapalı" />
         <LegendDot color="#e5e7eb" label="Açık / işaretsiz" />
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm border-2 border-black bg-[#93c5fd]" />
+          Planlı dersi olan gün
+        </span>
+      </div>
+
+      {/* Dönem + akademik yıl gezinme */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+        <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5" role="group" aria-label="Dönem seçimi">
+          <button
+            type="button"
+            aria-pressed={term === "guz"}
+            onClick={() => changeTerm("guz")}
+            className={cn(
+              "rounded px-3 py-1.5 text-xs font-semibold transition",
+              term === "guz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
+            )}
+          >
+            Güz
+          </button>
+          <button
+            type="button"
+            aria-pressed={term === "yaz"}
+            onClick={() => changeTerm("yaz")}
+            className={cn(
+              "rounded px-3 py-1.5 text-xs font-semibold transition",
+              term === "yaz" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
+            )}
+          >
+            Yaz
+          </button>
+        </div>
+
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Önceki akademik yıl"
+            onClick={() => changeYear(anchorYear - 1)}
+            className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs font-semibold hover:bg-[var(--color-bg)]"
+          >
+            ← {term === "guz" ? `${anchorYear - 1}–${anchorYear}` : anchorYear - 1}
+          </button>
+          <span className="rounded-md bg-[var(--color-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text)]">
+            {term === "guz" ? `${anchorYear}–${anchorYear + 1} Güz` : `${anchorYear} Yaz`}
+          </span>
+          <button
+            type="button"
+            aria-label="Sonraki akademik yıl"
+            onClick={() => changeYear(anchorYear + 1)}
+            className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs font-semibold hover:bg-[var(--color-bg)]"
+          >
+            {term === "guz" ? `${anchorYear + 1}–${anchorYear + 2}` : anchorYear + 1} →
+          </button>
+          {!isCurrentAnchor ? (
+            <button
+              type="button"
+              onClick={goToday}
+              className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              Bugün
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
         <p className="rounded-md bg-[#f8ecec] px-3 py-2 text-xs font-medium text-[#6b2424]" role="alert">
           {error}
         </p>
+      ) : null}
+
+      {loading && Object.keys(byMonth).length === 0 ? (
+        <p className="text-xs text-[var(--color-text-muted)]">Takvim yükleniyor…</p>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -204,7 +341,7 @@ export function AttendanceCalendarPanel({
                 <h3 className="text-sm font-semibold text-[var(--color-text)]">
                   {MONTH_LABELS[m.month - 1]} {m.year}
                 </h3>
-                {canEdit ? (
+                {canEdit && !readOnly ? (
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -228,22 +365,32 @@ export function AttendanceCalendarPanel({
               </div>
 
               {!data ? (
-                <p className="text-xs text-[var(--color-text-muted)]">Yükleniyor…</p>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {months.some((mm) => `${mm.year}-${mm.month}` === key) && !loading ? "Bu dönem için ders yok / veri bulunamadı." : "Yükleniyor…"}
+                </p>
               ) : (
                 <div className="grid grid-cols-7 gap-1">
                   {data.days.map((day) => (
                     <button
                       key={day.date}
                       type="button"
-                      title={`${day.date} — ${day.label}`}
+                      title={`${day.date} — ${day.label}${day.lessonIds.length ? ` · ${day.lessonIds.length} ders` : ""}`}
                       onClick={() => onDayClick(day)}
                       className={cn(
-                        "aspect-square rounded text-[10px] font-semibold text-white transition",
+                        "relative aspect-square rounded text-[10px] font-semibold text-white transition",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)]",
+                        "hover:brightness-95 active:brightness-90",
+                        day.lessonIds.length > 0 && "border-2 border-black",
                         selectedDay === day.date && "ring-2 ring-[var(--color-primary)]"
                       )}
                       style={{ backgroundColor: dayColor(day) }}
                     >
                       {Number(day.date.slice(8, 10))}
+                      {day.lessonIds.length > 1 ? (
+                        <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[8px] font-bold text-white">
+                          {day.lessonIds.length}
+                        </span>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -253,6 +400,7 @@ export function AttendanceCalendarPanel({
                 <DayDetail
                   day={data.days.find((d) => d.date === selectedDay)!}
                   canEdit={canEdit}
+                  readOnly={readOnly}
                   onToggleOverride={onToggleOverride}
                 />
               ) : null}
@@ -276,10 +424,12 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 function DayDetail({
   day,
   canEdit,
+  readOnly,
   onToggleOverride,
 }: {
   day: DayInfo;
   canEdit: boolean;
+  readOnly: boolean;
   onToggleOverride: (day: DayInfo) => void | Promise<void>;
 }) {
   return (
@@ -288,7 +438,7 @@ function DayDetail({
         <p className="text-xs font-medium text-[var(--color-text)]">
           {day.date} · {day.label}
         </p>
-        {canEdit ? (
+        {canEdit && !readOnly ? (
           <button
             type="button"
             onClick={() => void onToggleOverride(day)}
@@ -304,6 +454,10 @@ function DayDetail({
         </p>
       ) : day.lessonIds.length === 0 ? (
         <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Bu gün ders yok.</p>
+      ) : readOnly ? (
+        <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+          Bu gün {day.lessonIds.length} ders planlı. Durum güncellemeleri okul yönetimi tarafından yapılır.
+        </p>
       ) : (
         <div className="mt-2 space-y-2">
           {day.lessonIds.map((lessonId) => (
