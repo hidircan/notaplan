@@ -25,6 +25,7 @@ import { computeOverallScore } from "@/lib/assessment/score";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
+import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentArchiveToggle } from "@/components/student-archive-toggle";
 import { NationalIdReveal } from "@/components/national-id-reveal";
 import { maskNationalId } from "@/lib/pii/tc-identity";
@@ -39,6 +40,7 @@ const SECTIONS = [
   { href: "#veli", icon: Users, label: "Veli ve İletişim" },
   { href: "#program", icon: CalendarDays, label: "Dersler ve Program" },
   { href: "#yoklama", icon: ClipboardCheck, label: "Yoklama" },
+  { href: "#yoklama-takvimi", icon: CalendarDays, label: "Yoklama Takvimi" },
   { href: "#telafi", icon: RefreshCcw, label: "Telafiler" },
   { href: "#odeme", icon: CreditCard, label: "Ödemeler" },
   { href: "#gelisim", icon: GraduationCap, label: "Eğitim / Gelişim" },
@@ -272,6 +274,15 @@ export default async function StudentDetailPage({
               ))}
           </div>
         )}
+      </section>
+
+      <section id="yoklama-takvimi" className="mb-8 scroll-mt-4">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Yoklama Takvimi</h2>
+        <AttendanceCalendarPanel
+          studentId={studentId}
+          termType={student.termType ?? "guz"}
+          canEdit={session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN"}
+        />
       </section>
 
       <section id="telafi" className="mb-8 scroll-mt-4">

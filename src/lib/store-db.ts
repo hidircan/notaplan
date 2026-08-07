@@ -1771,3 +1771,54 @@ export async function addPayment(input: {
   });
   return readData();
 }
+
+export async function upsertMonthlyPlanPayment(input: {
+  studentId: string;
+  month: string;
+  amount: number;
+}): Promise<{ data: AppData; paymentId: string }> {
+  logger.info("upsertMonthlyPlanPayment", input.studentId, input.month, input.amount);
+  const tid = requireTenantId();
+  const student = await prisma.student.findFirst({
+    where: { id: input.studentId, tenantId: tid },
+  });
+  if (!student) throw new Error("Öğrenci bulunamadı");
+  const rangeStart = new Date(`${input.month}-01T00:00:00.000Z`);
+  const rangeEnd = new Date(rangeStart);
+  rangeEnd.setUTCMonth(rangeEnd.getUTCMonth() + 1);
+  const existing = await prisma.payment.findFirst({
+    where: {
+      tenantId: tid,
+      studentId: input.studentId,
+      source: "monthly_plan",
+      dueDate: { gte: rangeStart, lt: rangeEnd },
+    },
+  });
+  const description = `Aylık plan — ${input.month} (${input.amount} TL)`;
+  let paymentId: string;
+  if (existing) {
+    paymentId = existing.id;
+    await prisma.payment.update({
+      where: { id: existing.id },
+      data: { amount: input.amount, description },
+    });
+  } else {
+    paymentId = `pay_${Date.now().toString(36)}`;
+    await prisma.payment.create({
+      data: {
+        id: paymentId,
+        tenantId: tid,
+        studentId: input.studentId,
+        schoolId: student.schoolId,
+        amount: input.amount,
+        paidAmount: 0,
+        status: "pending",
+        dueDate: new Date(`${input.month}-01T12:00:00.000Z`),
+        description,
+        source: "monthly_plan",
+      },
+    });
+  }
+  const data = await readData();
+  return { data, paymentId };
+}

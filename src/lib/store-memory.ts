@@ -638,6 +638,45 @@ export async function addPayment(input: {
   return save({ ...data, payments: [...data.payments, payment] });
 }
 
+export async function upsertMonthlyPlanPayment(input: {
+  studentId: string;
+  month: string;
+  amount: number;
+}): Promise<{ data: AppData; paymentId: string }> {
+  const data = load();
+  const student = data.students.find((s) => s.id === input.studentId);
+  if (!student) throw new Error("Öğrenci bulunamadı");
+  const dueDate = new Date(`${input.month}-01T12:00:00.000Z`).toISOString();
+  const existing = data.payments.find(
+    (p) => p.studentId === input.studentId && p.source === "monthly_plan" && p.dueDate.slice(0, 7) === input.month
+  );
+  let payments: Payment[];
+  let paymentId: string;
+  if (existing) {
+    paymentId = existing.id;
+    payments = data.payments.map((p) =>
+      p.id === existing.id
+        ? { ...p, amount: input.amount, description: `Aylık plan — ${input.month} (${input.amount} TL)` }
+        : p
+    );
+  } else {
+    const payment: Payment = {
+      id: uid("pay"),
+      studentId: input.studentId,
+      amount: input.amount,
+      paidAmount: 0,
+      status: "pending",
+      dueDate,
+      description: `Aylık plan — ${input.month} (${input.amount} TL)`,
+      source: "monthly_plan",
+    };
+    paymentId = payment.id;
+    payments = [...data.payments, payment];
+  }
+  const next = save({ ...data, payments });
+  return { data: next, paymentId };
+}
+
 export function getDashboardStats(data: AppData) {
   const pendingMakeup = data.makeupRequests.filter(
     (m) => m.status === "pending" || m.status === "suggested" || m.status === "awaiting_info"

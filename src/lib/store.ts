@@ -64,6 +64,16 @@ type StoreApi = {
     amount: number;
     dueDate: string;
   }) => Promise<AppData>;
+  /**
+   * ÖNCELİK 4 — Yoklama Takvimi aylık planlanan tutar. studentId+month
+   * (yyyy-MM) başına TEK kayıt — idempotent upsert, asla "paid" yapmaz,
+   * source:"monthly_plan" ile lesson_ops'tan ayrışır.
+   */
+  upsertMonthlyPlanPayment: (input: {
+    studentId: string;
+    month: string; // yyyy-MM
+    amount: number;
+  }) => Promise<{ data: AppData; paymentId: string }>;
   updateLessonSchedule: (input: {
     lessonId: string;
     startAt?: string;
@@ -258,6 +268,14 @@ export async function addPayment(input: {
   dueDate: string;
 }): Promise<AppData> {
   return withTenantScope(() => store.addPayment(input));
+}
+
+export async function upsertMonthlyPlanPayment(input: {
+  studentId: string;
+  month: string;
+  amount: number;
+}): Promise<{ data: AppData; paymentId: string }> {
+  return withTenantScope(() => store.upsertMonthlyPlanPayment(input));
 }
 
 export async function updateLessonSchedule(input: {

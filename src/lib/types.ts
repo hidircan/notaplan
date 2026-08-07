@@ -161,7 +161,12 @@ export interface Student {
   firstLessonAt?: string;
   /** Soft-archive; hard delete yok */
   archivedAt?: string;
+  /** ÖNCELİK 4 — Yoklama Takvimi dönemi. Boşsa "guz" varsayılır. */
+  termType?: StudentTermType;
 }
+
+/** ÖNCELİK 4 — Yoklama Takvimi'nin gösterdiği ay aralığını belirler. */
+export type StudentTermType = "guz" | "yaz";
 
 /** EPIC 4 — öğrenci eğitim profili alanları, tek bir yerden güncellenir. */
 export type StudentProfilePatch = Partial<
@@ -359,6 +364,14 @@ export interface Lesson {
   opsMakeupFlag?: boolean;
   opsMakeupFlagAt?: string;
   opsMakeupFlagBy?: string;
+  /**
+   * ÖNCELİK 4 — Yoklama Takvimi'nin 4. statüsü ("Kapalı", siyah). Telafi
+   * gibi hiçbir mali sonuç doğurmaz. Yalnız Yoklama Takvimi ekranından set
+   * edilir — Program/Yoklama'nın mevcut 3 butonlu hızlı aksiyonuna eklenmez.
+   */
+  opsClosedFlag?: boolean;
+  opsClosedFlagAt?: string;
+  opsClosedFlagBy?: string;
 }
 
 export type LessonSeriesStatus = "active" | "ended" | "cancelled";
@@ -437,7 +450,7 @@ export interface MakeupSlot {
   reasons: string[];
 }
 
-export type PaymentSource = "manual" | "lesson_ops";
+export type PaymentSource = "manual" | "lesson_ops" | "monthly_plan";
 
 export interface Payment {
   id: string;
@@ -748,8 +761,11 @@ export interface ClosedDay {
   date: string; // yyyy-MM-dd
   name: string;
   kind: ClosedDayKind;
+  /** false (varsayılan) = bu tarihi KAPALI yapar; true = zorla AÇIK yapar. */
+  isOpen: boolean;
   createdBy: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type TrialLessonStatus =

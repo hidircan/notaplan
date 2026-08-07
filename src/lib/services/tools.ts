@@ -43,7 +43,10 @@ import {
   updateTeacherAvailability,
   updateTeacherFeeRule,
   applyLessonOpsFlagLive,
+  upsertMonthlyPlanPayment,
 } from "../store";
+import { setClosedDay, listClosedDays } from "../closed-day-overrides";
+import { resolveDayStatus } from "../attendance-calendar";
 import { computeTeacherEarningsForPeriod, type TeacherEarningsResult } from "../teacher-payout";
 import {
   suggestMakeupSlots,
@@ -3228,6 +3231,19 @@ export async function setLessonOpsFlagTool(
     return fail("FORBIDDEN", "Yalnızca kendi dersinizde işlem yapabilirsiniz.");
   }
 
+  // ÖNCELİK 4 — Yoklama Takvimi: kapalı günde hiçbir yoklama/mali aksiyon
+  // yapılamaz (manuel istisna > resmî tatil > dönem haftalık kuralı sırası).
+  const student = data.students.find((s) => s.id === lesson.studentId);
+  const term = student?.termType ?? "guz";
+  const overrides = await listClosedDays(ctx.tenantId);
+  const dayStatus = resolveDayStatus(new Date(lesson.startAt), term, overrides);
+  if (dayStatus.status === "closed") {
+    return fail(
+      "VALIDATION_ERROR",
+      `Bu gün kapalı (${dayStatus.label}) — yoklama/tahsilat işlemi yapılamaz.`
+    );
+  }
+
   try {
     const result = await applyLessonOpsFlagLive(v.data.lessonId, v.data.flag, ctx.userId);
     if (!result.ok) return fail("VALIDATION_ERROR", result.message);
@@ -3242,6 +3258,137 @@ export async function setLessonOpsFlagTool(
     });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setLessonOpsFlag failed");
+  }
+}
+
+/**
+ * ÖNCELİK 4 — Yoklama Takvimi: bir tarih için gün durumu (statü) + o günün
+ * dersleri. Admin tüm öğrencileri, öğretmen yalnızca kendi öğrencilerini
+ * görebilir.
+ */
+export async function getAttendanceCalendarMonthTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<
+  ServiceResult<{
+    year: number;
+    month: number;
+    term: string;
+    days: Array<{ date: string; status: string; reason: string; label: string; lessonIds: string[] }>;
+  }>
+> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "TEACHER", "SUPER_ADMIN", "AI_AGENT"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({
+      studentId: z.string().min(1),
+      year: z.number().int(),
+      month: z.number().int().min(1).max(12),
+    }),
+    input
+  );
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+
+  const term = student.termType ?? "guz";
+  const overrides = await listClosedDays(ctx.tenantId);
+  const { resolveMonthStatuses } = await import("../attendance-calendar");
+  const statuses = resolveMonthStatuses(v.data.year, v.data.month, term, overrides);
+
+  const days = statuses.map((s) => {
+    const lessonIds = data.lessons
+      .filter((l) => l.studentId === student.id && l.startAt.slice(0, 10) === s.date)
+      .map((l) => l.id);
+    return { ...s, lessonIds };
+  });
+
+  return ok({ year: v.data.year, month: v.data.month, term, days });
+}
+
+/** ÖNCELİK 4 — admin özel kapalı/zorla-açık gün istisnası (audit'li). */
+export async function setDayOverrideTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ date: string; isOpen: boolean }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      name: z.string().default(""),
+      isOpen: z.boolean(),
+      kind: z.enum(["public_holiday", "custom"]).default("custom"),
+    }),
+    input
+  );
+  if (!v.ok) return v;
+
+  try {
+    const row = await setClosedDay({
+      tenantId: ctx.tenantId,
+      date: v.data.date,
+      name: v.data.name || (v.data.isOpen ? "Zorla açık" : "Kapalı (yönetici)"),
+      kind: v.data.kind,
+      isOpen: v.data.isOpen,
+      createdBy: ctx.userId,
+    });
+    audit(ctx, "attendance_calendar.day_override.set", "ClosedDay", row.id, {
+      date: v.data.date,
+      isOpen: v.data.isOpen,
+    });
+    return ok({ date: row.date, isOpen: row.isOpen });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setDayOverride failed");
+  }
+}
+
+/**
+ * ÖNCELİK 4 — öğrenci+ay başına aylık planlanan tutar (Tutar). Yalnızca
+ * planlanan borcu günceller — asla "paid"/collected kaydı yaratmaz.
+ * source:"monthly_plan" ile lesson_ops'tan kesin ayrışır (mükerrer sayım yok).
+ */
+export async function setMonthlyPlanAmountTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ paymentId: string; studentId: string; month: string; amount: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({
+      studentId: z.string().min(1),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      amount: z.number().min(0),
+    }),
+    input
+  );
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
+
+  try {
+    const { paymentId } = await upsertMonthlyPlanPayment({
+      studentId: v.data.studentId,
+      month: v.data.month,
+      amount: v.data.amount,
+    });
+    audit(ctx, "attendance_calendar.monthly_plan.set", "Payment", paymentId, {
+      studentId: v.data.studentId,
+      month: v.data.month,
+      amount: v.data.amount,
+    });
+    return ok({ paymentId, studentId: v.data.studentId, month: v.data.month, amount: v.data.amount });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setMonthlyPlanAmount failed");
   }
 }
 

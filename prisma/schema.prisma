@@ -209,6 +209,9 @@ model Student {
   paymentDueDay          Int?
   firstLessonAt          DateTime?
   archivedAt             DateTime?
+  /// ÖNCELİK 4 — "guz" (Eylül-Haziran) | "yaz" (Temmuz-Ağustos). Boşsa "guz"
+  /// varsayılır (mevcut kayıtların çoğu normal dönem öğrencisi).
+  termType               String?
   lessons           Lesson[]
   lessonSeries      LessonSeries[]
   attendances       Attendance[]
@@ -282,6 +285,12 @@ model Lesson {
   opsMakeupFlag       Boolean  @default(false)
   opsMakeupFlagAt     DateTime?
   opsMakeupFlagBy     String?
+  /// ÖNCELİK 4 — Yoklama Takvimi'nin 4. statüsü ("Kapalı", siyah). Telafi
+  /// gibi hiçbir mali sonuç doğurmaz; yalnız yeni takvim ekranından set
+  /// edilir, mevcut Program/Yoklama'nın 3 butonlu hızlı aksiyonuna eklenmez.
+  opsClosedFlag       Boolean  @default(false)
+  opsClosedFlagAt     DateTime?
+  opsClosedFlagBy     String?
   attendances     Attendance[]
 
   @@index([tenantId])
@@ -818,6 +827,10 @@ model SocialMediaConsent {
 }
 
 /// PRODUCT_BACKLOG §4.2
+/// PRODUCT_BACKLOG §4.2 + ÖNCELİK 4 — yönetici özel kapalı gün VEYA (isOpen:true
+/// ile) normalde kapalı bir günü (dönem haftalık kuralı/resmi tatil) zorla AÇIK
+/// yapan tek satırlık istisna. Tarih başına tek kayıt (upsert) — tekrar set
+/// etmek yeni satır değil güncelleme yapar. Kurum çapında (öğrenciye özel değil).
 model ClosedDay {
   id        String   @id
   tenantId  String
@@ -825,8 +838,12 @@ model ClosedDay {
   date      String
   name      String
   kind      String
+  /// false (varsayılan) = bu tarihi KAPALI yapar; true = normalde kapalı
+  /// olabilecek bu tarihi (dönem kuralı/resmi tatil) zorla AÇIK yapar.
+  isOpen    Boolean  @default(false)
   createdBy String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenantId, date])
   @@index([tenantId])
