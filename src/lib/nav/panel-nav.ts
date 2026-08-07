@@ -45,7 +45,7 @@ export const PANEL_MAIN_NAV: PanelNavItem[] = [
   { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
   { href: "/panel/ogrenciler", label: "Öğrenciler", icon: GraduationCap },
   { href: "/panel/ogretmenler", label: "Öğretmenler", icon: Users },
-  { href: "/panel/ogretmenler?view=hakedis", label: "Öğretmen Hakedişleri", icon: Wallet },
+  { href: "/panel/hakedisler", label: "Öğretmen Hakedişleri", icon: Wallet },
   { href: "/panel/bildirimler", label: "WhatsApp", icon: MessageCircle },
   { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
 ];
