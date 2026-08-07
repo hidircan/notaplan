@@ -1,4 +1,86 @@
 
+## Session — Yoklama, Tahsilat ve Öğretmen Hakedişi Entegrasyonu
+    (ÖNCELİK 3, 2026-08-07)
+
+Kullanıcı 5 öncelikli (3-7) büyük bir iş listesi verdi; kapsam netleştirme
+sorusuyla yalnızca ÖNCELİK 3'ü bu oturumda tam, test edilmiş biçimde
+bitirmek üzere onay alındı (4-7 sonraki oturumlara bırakıldı — kullanıcının
+kendi seçimi). Aynı repo, çalışma ağacı temizdi.
+
+**Kritik tasarım kararı (kullanıcıya soruldu):** öğrencide ders başına
+ücret alanı yoktu (yalnızca aylık paket ücreti). Kullanıcı "aylık ücret
+üzerinden tutar belirlenecek" dedi — `computeLessonChargeAmount()`
+monthlyFee / (weeklyLessonCount × 52/12 ortalama hafta) formülüyle
+uygulandı.
+
+**1. Payment modeli genişletildi:** `lessonId`/`source` (manual|lesson_ops)
+alanları + yeni `PaymentStatus` değeri `"voided"`. Yeni
+`isOutstandingPaymentStatus()` yardımcı fonksiyonu — "voided" hiçbir yerde
+borç/bekleyen tahsilat sayılmasın diye 4 ayrı dashboard/liste hesaplamasına
+(getDashboardStats × 3 backend, panel özet, Ödemeler sayfası) tek noktadan
+uygulandı.
+
+**2. Otomatik tahsilat (çift kayıt önleme):** `createLessonPaymentIfMissing`
+— dersin lessonId'si için ZATEN bir Payment varsa hiçbir şey yapmaz.
+`applyLessonOpsFlag`'in "attended"/"processed" dallarına (yalnız ilk kez
+set edilince, `alreadySet:false`) wire edildi — Geldi+İşlendi aynı derste
+birlikte işaretlense bile TEK tahsilat oluşur. Telafi varsayılan olarak
+mali sonuç doğurmaz (`collectionsSettings.telafiChargesOnFlag`, varsayılan
+false, mevcut Tahsilat Otomasyonu formuna eklendi — yeni ayar ekranı
+açılmadı). Gerçek telafi dersi gerçekleştiğinde KENDİ Geldi/İşlendi'si
+aynı mekanizmadan (kendi lessonId'siyle) geçtiği için özel kod gerekmedi.
+DB backend'inin `applyLessonOpsFlagLive`'ı (Postgres'ten yeniden okuduğu
+için pure sonucu doğrudan kullanmıyor) ayrı bir prisma.payment.create ile
+senkronize edildi.
+
+**3. İptal → voiding:** `applyLessonCancel` artık ödenmemiş
+(`paidAmount===0`, henüz paid/voided değil) `source:"lesson_ops"`
+tahsilatları "voided" yapar. Zaten ödenmiş bir tahsilat asla otomatik geri
+alınmaz. Seri iptali (`cancelSeriesFromLesson`/`cancelEntireSeries`)
+yalnızca GELECEKteki henüz gerçekleşmemiş dersleri iptal ediyor —
+otomatik tahsilat yalnızca GERÇEKLEŞMİŞ (Geldi/İşlendi işaretli) derslerde
+oluşuyor, bu yüzden iki yol hiç kesişmiyor, ek kod gerekmedi. Öğretmen
+hakedişi tarafı zaten `isLessonProcessedForPayout` + per-lessonId `seen`
+Set ile tek seferlik — dokunulmadı.
+
+**Çapraz bağlantılar:** Ödemeler tablosu + öğrenci ödeme profili +
+öğrenci detay ekranı artık "Kaynak ders →" linkini gösteriyor (Program'a,
+`?studentId=` ile). `TeacherEarningsLine` `studentId` kazandı, hakediş
+dökümü artık öğrenci adına ve derse tıklanabilir link içeriyor.
+
+**4. Hakediş ekranı bug'ı (kök neden bulundu, düzeltildi):**
+`PANEL_MAIN_NAV`'da "Öğretmenler" ve "Öğretmen Hakedişleri" AYNI temel
+path'e (`/panel/ogretmenler`) gidiyordu — ikincisi hiç okunmayan bir
+`?view=hakedis` query param'ıydı. `isNavActive` query string'i attığı
+için İKİSİ DE aynı anda aktif görünüyordu, ve "hakediş ekranı" aslında
+hiç açılmıyordu (aynı öğretmen listesiydi). Yeni, gerçek
+`/panel/hakedisler` ekranı (öğretmen bazında dönem özeti, ay
+ileri/geri, öğretmen/durum filtreleri) + nav linkinin buraya
+yönlendirilmesiyle her ikisi de düzeldi.
+
+**Doğrulama:** typecheck/lint/`prisma validate`/build temiz, tam test
+suite'i (arka planda çalışıyordu, tam sonuç için bkz. final rapor).
+15 yeni özel finans testi (idempotency, telafi hariç tutma, iptal-voiding,
+RBAC) + 18 mevcut lesson-ops testi + 41 teacher-payout testi hepsi yeşil.
+Dev server + gerçek admin/öğretmen oturumuyla: `/panel/hakedisler`,
+`/panel/odemeler` (İptal edildi filtresi dahil), nav'ın artık karşılıklı
+dışlayıcı şekilde vurgulandığı (render edilmiş HTML'den doğrulandı)
+teyit edildi.
+
+**Bilinen/bilinçli sınırlamalar:** (a) öğrenci ders başı ücreti hâlâ
+aylık paket ücretinden türetiliyor — ayrı bir "ders başı ücret" alanı
+eklenmedi (kullanıcı onayı: mevcut aylık ücret esas alınacak); (b) vade
+tarihi mevcut §2.1 vade penceresi kuralını (kredi kartı 1-5, nakit/havale
+1-20) yeniden kullanıyor, derse özel ayrı bir vade mantığı yok; (c) Test
+altyapısı yokluğu nedeniyle tam uçtan-uca UI akışı (gerçek bir dersi
+Yoklama ekranından Geldi işaretleyip Ödemeler'de görmek) curl ile kolayca
+tetiklenemedi — bunun yerine aynı kod yolunu tetikleyen 15 otomatik test
++ ekran-render doğrulamaları ile kanıtlandı.
+
+**Dokunulmadan bırakılanlar:** Öncelik 4-7 (yıllık takvim, fotoğraf,
+Evrak modülü baştan tasarım + filtre standardı, kurum logosu) — bilinçli
+olarak bu oturumun kapsamı dışında.
+
 ## Session — Öğrenci Filtre Menüsü + Öğretmen Değerlendirmesi + Ders
     Programı Görsel Yenilemesi (2026-08-06)
 

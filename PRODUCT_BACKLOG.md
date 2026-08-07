@@ -276,12 +276,28 @@ Her paket için minimum:
 | 0 Backlog belgesi | ✅ | `5646aa1` |
 | 1 Hassas veri + yetki | ✅ | PII AES-GCM, maskeleme, `pii:full`, reveal audit |
 | 2 Öğrenci/öğretmen model alanları | 🟡 kısmi | Types + schema + archive API; öğrenci/öğretmen detay ekranları eklendi (bkz. §11); form UX sonraki |
-| 3 Tahsilat kuralları | 🟡 kısmi | Vade + IBAN çözümleme pure + tool |
+| 3 Tahsilat kuralları | 🟡 kısmi | Vade + IBAN çözümleme pure + tool; Geldi/İşlendi → otomatik öğrenci tahsilatı + öğretmen hakedişi entegrasyonu (bkz. §13) |
 | 4 Program/yoklama/deneme | 🟡 kısmi | Pazartesi/kapalı gün helpers artık gerçekten uygulanıyor (bkz. §11) + deneme model/UI; Geldi/İşlendi/Telafi Program+Yoklama+öğretmen ekranlarının hepsinde canlı |
 | 5 Evraklar Faz 1 | ✅ | Şablon, referans, oluştur/yazdır API+UI + tam Evraklar Merkezi (liste/filtre/KPI/detay), bkz. §11 |
 | 6 Evraklar Faz 2 | 🟡 kısmi | İmzalı sürüm yükleme/görüntüleme eklendi; sürüm geçmişi/arama sonraki |
 
 Durum güncellemeleri `WORK_PROGRESS.md` ve bu tablo ile senkron tutulur.
+
+## 13. Yoklama, Tahsilat ve Öğretmen Hakedişi Entegrasyonu (ÖNCELİK 3, 2026-08-07)
+
+Ayrıntılar için `WORK_PROGRESS.md`'deki aynı başlıklı bölüme bakın. Özet:
+Geldi/İşlendi işaretlenince, o dersin KENDİ lessonId'si için — henüz yoksa —
+otomatik bir öğrenci tahsilatı oluşuyor (çift kayıt engelli); Telafi tek
+başına varsayılan olarak mali sonuç doğurmuyor (sistem ayarından
+açılabilir); ders iptalinde ödenmemiş otomatik tahsilat "voided" oluyor;
+tahsilat/hakediş satırlarında kaynak derse tek tıkla ulaşılabiliyor;
+öğretmen hakediş ekranının açılmama ve sidebar'da iki menü öğesinin
+birlikte aktif görünmesi hatası kök nedeniyle düzeltildi (yeni
+`/panel/hakedisler` tenant-çapında ekranı + ölü query-param linkin
+kaldırılması). Diğer öncelikler (4-7: yıllık takvim, fotoğraf yükleme,
+Evrak modülü + filtre standardı, kurum logosu) bilinçli olarak bu
+oturumun kapsamı dışında bırakıldı — operatör onayıyla, "önce Öncelik 3'ü
+tamamla" kararı.
 
 ## 12. Öğrenci Filtre Menüsü + Öğretmen Değerlendirmesi + Ders Programı
     Görsel Yenilemesi (2026-08-06)
