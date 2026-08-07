@@ -57,3 +57,39 @@ export function resolveTeacherIdByEmail(
   }
   return { ok: true, teacherId: matches[0].id };
 }
+
+/**
+ * ÖNCELİK 4 (devam) — öğrenci CSV'sinde öğretmen artık e-posta ile değil,
+ * AD ile eşleşir (yalnızca aynı tenant içindeki AKTİF öğretmenler arasında).
+ * Aynı adda birden fazla (veya hiç) aktif öğretmen varsa asla tahmin
+ * EDİLMEZ — satır açık bir hatayla reddedilir. Güvenilir/benzersiz eşleşme
+ * için şablon yardımında "Ad Soyad (öğretmen kodu: tch_xxx)" biçiminde bir
+ * id de kabul edilir — parantez içindeki id tam eşleşirse öncelik alır.
+ */
+export function resolveTeacherIdByName(
+  data: AppData,
+  value: string
+): { ok: true; teacherId: string } | { ok: false; message: string } {
+  const raw = value.trim();
+  if (!raw) return { ok: false, message: "Öğretmen adı boş olamaz." };
+
+  // "Ad Soyad (tch_abc123)" biçimindeki güvenilir/benzersiz id referansı.
+  const idMatch = raw.match(/\(([^()]+)\)\s*$/);
+  if (idMatch) {
+    const byId = data.teachers.find((t) => t.id === idMatch[1]!.trim() && t.active);
+    if (byId) return { ok: true, teacherId: byId.id };
+  }
+
+  const v = normalizeKey(raw.replace(/\([^()]*\)\s*$/, ""));
+  const matches = data.teachers.filter((t) => t.active && normalizeKey(t.name) === v);
+  if (matches.length === 0) {
+    return { ok: false, message: `"${value}" adında aktif bir öğretmen bulunamadı.` };
+  }
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      message: `"${value}" adında birden fazla aktif öğretmen var — satırı öğretmen kodu ile netleştirin (ör. "${matches[0]!.name} (${matches[0]!.id})").`,
+    };
+  }
+  return { ok: true, teacherId: matches[0]!.id };
+}

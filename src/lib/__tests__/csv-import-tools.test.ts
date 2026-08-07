@@ -7,6 +7,7 @@ import {
   commitTeacherImportTool,
   previewStudentImportTool,
   commitStudentImportTool,
+  getSocialMediaConsentTool,
 } from "../services/tools";
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
@@ -89,9 +90,10 @@ describe("commitStudentImportTool · öğretmen içe aktarıldıktan sonra öğr
     const teacherCommit = await commitTeacherImportTool(ctx(), { csvText: TEACHER_CSV_VALID });
     expect(teacherCommit.ok).toBe(true);
 
+    // ÖNCELİK 4 (devam) — öğrenci CSV'sinde öğretmen artık AD ile eşleşir (e-posta değil).
     const studentCsv =
-      "ad,eposta,telefon,veli_adi,veli_telefon,sube,enstruman,ogretmen_eposta,paket_adi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
-      "Deniz Ak,,0555 333 3333,Ayşe Ak,0555 333 3334,Erzene,Piyano,selin@okul.com,Paket,1,3000,\n";
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
+      "Deniz Ak,Ayşe Ak,0555 333 3334,0555 333 3333,Erzene,Piyano,Selin Kara,Paket,30,1,3000,\n";
 
     const preview = await previewStudentImportTool(ctx(), { csvText: studentCsv });
     expect(preview.ok).toBe(true);
@@ -108,6 +110,25 @@ describe("commitStudentImportTool · öğretmen içe aktarıldıktan sonra öğr
     const teacher = data.teachers.find((t) => t.email === "selin@okul.com");
     expect(created?.teacherId).toBe(teacher?.id);
   });
+
+  it("aynı isimde birden fazla aktif öğretmen varsa öğrenci satırı belirsiz eşleşme hatasıyla reddedilir", async () => {
+    const teacherCsv =
+      "ad,eposta,telefon,sube,enstruman\n" +
+      "Ada Yıldız,ada1@okul.com,0555 444 4441,Erzene,Piyano\n" +
+      "Ada Yıldız,ada2@okul.com,0555 444 4442,Erzene,Gitar\n";
+    const teacherCommit = await commitTeacherImportTool(ctx(), { csvText: teacherCsv });
+    expect(teacherCommit.ok).toBe(true);
+
+    const studentCsv =
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
+      "Efe Kaya,Veli Kaya,0555 555 5551,0555 555 5552,Erzene,Piyano,Ada Yıldız,Paket,30,1,3000,\n";
+    const preview = await previewStudentImportTool(ctx(), { csvText: studentCsv });
+    expect(preview.ok).toBe(true);
+    if (preview.ok) {
+      expect(preview.data.errorCount).toBeGreaterThan(0);
+      expect(preview.data.errors.some((e) => e.field === "ogretmen" && e.message.includes("kod"))).toBe(true);
+    }
+  });
 });
 
 describe("tenant dışı / bulunamayan ilişki reddi", () => {
@@ -121,5 +142,54 @@ describe("tenant dışı / bulunamayan ilişki reddi", () => {
     const data = await readData();
     const result = resolveTeacherIdByEmail(data, "disaridan@baskaokul.com");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("ÖNCELİK 4 (devam) — öğrenci CSV importunda T.C. kimlik + sosyal medya izni", () => {
+  it("T.C. kimlik no şifreli saklanır; commit sonucunda/export edilebilir hiçbir yerde düz metin yok", async () => {
+    const studentCsv =
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret,tc_kimlik_no\n" +
+      "Kimlikli Öğrenci,Veli Adı,0555 666 6661,0555 666 6662,Erzene,Piyano,Nilüfer Acar,Paket,30,1,3000,10000000146\n";
+
+    const commit = await commitStudentImportTool(ctx(), { csvText: studentCsv });
+    expect(commit.ok).toBe(true);
+    if (!commit.ok) return;
+
+    const created = commit.data.data.students.find((s) => s.phone === "0555 666 6662");
+    expect(created).toBeDefined();
+    expect(created?.nationalIdCipher).toBeTruthy();
+    expect(created?.nationalIdCipher).not.toContain("10000000146");
+    expect(created?.nationalIdLast2).toBe("46");
+    // JSON.stringify tüm sonucu — ham T.C. hiçbir yerde (audit meta dahil) yok.
+    expect(JSON.stringify(commit)).not.toContain("10000000146");
+  });
+
+  it("sosyal medya izni (Evet/Hayır) import sonrası mevcut SocialMediaConsent modeline yazılır", async () => {
+    const studentCsv =
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret,sosyal_medya_izni\n" +
+      "İzinli Öğrenci,Veli Adı,0555 777 7771,0555 777 7772,Erzene,Piyano,Nilüfer Acar,Paket,30,1,3000,Evet\n";
+
+    const commit = await commitStudentImportTool(ctx(), { csvText: studentCsv });
+    expect(commit.ok).toBe(true);
+    if (!commit.ok) return;
+
+    const created = commit.data.data.students.find((s) => s.phone === "0555 777 7772");
+    expect(created).toBeDefined();
+    if (!created) return;
+
+    const consent = await getSocialMediaConsentTool(ctx(), { studentId: created.id });
+    expect(consent.ok).toBe(true);
+    if (consent.ok) expect(consent.data.consent?.status).toBe("granted");
+  });
+
+  it("geçersiz ders süresi olan bir satır tüm dosyayı reddeder (atomik) — hiçbir öğrenci eklenmez", async () => {
+    const before = await readData();
+    const studentCsv =
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret\n" +
+      "Geçersiz Süre,Veli,0555 888 8881,0555 888 8882,Erzene,Piyano,Nilüfer Acar,Paket,25,1,3000\n";
+    const commit = await commitStudentImportTool(ctx(), { csvText: studentCsv });
+    expect(commit.ok).toBe(false);
+    const after = await readData();
+    expect(after.students.length).toBe(before.students.length);
   });
 });

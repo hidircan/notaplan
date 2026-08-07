@@ -1246,7 +1246,30 @@ export async function commitStudentImportTool(
   }
   if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
   try {
-    return ok(await importStudents(preview.valid));
+    const result = await importStudents(preview.valid);
+    // ÖNCELİK 4 (devam) — sosyal medya izni Student modelinin dışında,
+    // mevcut SocialMediaConsent modeliyle tutulur; import satırında
+    // belirtilmişse (Evet/Hayır) commit sonrası, oluşturulan/güncellenen
+    // öğrenciyle telefon numarasından eşleştirilerek yazılır.
+    for (const row of preview.valid) {
+      if (!row.socialMediaConsentStatus) continue;
+      const student = result.data.students.find((s) => s.phone.trim() === row.phone.trim());
+      if (!student) continue;
+      await setSocialMediaConsent({
+        tenantId: ctx.tenantId,
+        studentId: student.id,
+        status: row.socialMediaConsentStatus,
+        representativeName: row.parentName,
+        relationship: "Veli",
+        scopes: row.socialMediaConsentStatus === "granted" ? ["photo", "video", "name"] : ["name"],
+        actorUserId: ctx.userId,
+      });
+    }
+    audit(ctx, "student.csv_import", "Student", "bulk", {
+      created: result.created,
+      updated: result.updated,
+    });
+    return ok(result);
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importStudents failed");
   }

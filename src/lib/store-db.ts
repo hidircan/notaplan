@@ -1263,6 +1263,14 @@ export async function importStudents(rows: StudentImportRow[]): Promise<ImportCo
             weeklyLessonCount: row.weeklyLessonCount,
             monthlyFee: row.monthlyFee,
             notes: row.notes || existing.notes,
+            lessonDurationMinutes: row.lessonDurationMinutes ?? existing.lessonDurationMinutes,
+            birthDate: row.birthDate ? new Date(row.birthDate) : existing.birthDate,
+            birthPlace: row.birthPlace ?? existing.birthPlace,
+            schoolOrOccupation: row.schoolOrOccupation ?? existing.schoolOrOccupation,
+            address: row.address ?? existing.address,
+            nationalIdCipher: row.nationalIdCipher ?? existing.nationalIdCipher,
+            nationalIdLast2: row.nationalIdLast2 ?? existing.nationalIdLast2,
+            enrollmentStartDate: row.enrollmentStartDate ? new Date(row.enrollmentStartDate) : existing.enrollmentStartDate,
           },
         });
         updated++;
@@ -1286,6 +1294,14 @@ export async function importStudents(rows: StudentImportRow[]): Promise<ImportCo
             active: true,
             notes: row.notes,
             createdAt: new Date(),
+            lessonDurationMinutes: row.lessonDurationMinutes,
+            birthDate: row.birthDate ? new Date(row.birthDate) : undefined,
+            birthPlace: row.birthPlace,
+            schoolOrOccupation: row.schoolOrOccupation,
+            address: row.address,
+            nationalIdCipher: row.nationalIdCipher,
+            nationalIdLast2: row.nationalIdLast2,
+            enrollmentStartDate: row.enrollmentStartDate ? new Date(row.enrollmentStartDate) : undefined,
           },
         });
         created++;

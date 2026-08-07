@@ -720,6 +720,14 @@ export async function importStudents(rows: StudentImportRow[]): Promise<ImportCo
         weeklyLessonCount: row.weeklyLessonCount,
         monthlyFee: row.monthlyFee,
         notes: row.notes || students[idx].notes,
+        lessonDurationMinutes: row.lessonDurationMinutes ?? students[idx].lessonDurationMinutes,
+        birthDate: row.birthDate ?? students[idx].birthDate,
+        birthPlace: row.birthPlace ?? students[idx].birthPlace,
+        schoolOrOccupation: row.schoolOrOccupation ?? students[idx].schoolOrOccupation,
+        address: row.address ?? students[idx].address,
+        nationalIdCipher: row.nationalIdCipher ?? students[idx].nationalIdCipher,
+        nationalIdLast2: row.nationalIdLast2 ?? students[idx].nationalIdLast2,
+        enrollmentStartDate: row.enrollmentStartDate ?? students[idx].enrollmentStartDate,
       };
       updated++;
     } else {
@@ -739,6 +747,14 @@ export async function importStudents(rows: StudentImportRow[]): Promise<ImportCo
         active: true,
         notes: row.notes,
         createdAt: new Date().toISOString(),
+        lessonDurationMinutes: row.lessonDurationMinutes,
+        birthDate: row.birthDate,
+        birthPlace: row.birthPlace,
+        schoolOrOccupation: row.schoolOrOccupation,
+        address: row.address,
+        nationalIdCipher: row.nationalIdCipher,
+        nationalIdLast2: row.nationalIdLast2,
+        enrollmentStartDate: row.enrollmentStartDate,
       });
       created++;
     }

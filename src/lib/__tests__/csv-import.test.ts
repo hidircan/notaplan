@@ -228,43 +228,173 @@ describe("validateRoomRows", () => {
   });
 });
 
-describe("validateStudentRows", () => {
+describe("validateStudentRows (ÖNCELİK 4 devam — CSV şablon revizyonu)", () => {
   const data = createSeedData();
-  const t1Email = data.teachers.find((t) => t.id === "t1")!.email;
+  const t1Name = data.teachers.find((t) => t.id === "t1")!.name;
 
-  it("örnek CSV yapısı geçerli sütunlarla ayrıştırılır (şablon seed'e bağımlı değildir)", () => {
+  const COLS = [
+    "ad_soyad",
+    "veli_ad_soyad",
+    "veli_telefon",
+    "ogrenci_telefon",
+    "sube",
+    "enstruman",
+    "ogretmen",
+    "paket",
+    "ders_suresi",
+    "haftalik_ders_sayisi",
+    "aylik_ucret",
+    "tc_kimlik_no",
+    "dogum_tarihi",
+    "dogum_yeri",
+    "okul_meslek",
+    "ev_adresi",
+    "sosyal_medya_izni",
+    "kayit_tarihi",
+    "notlar",
+  ] as const;
+  const HEADER = COLS.join(",");
+  /** Sütun sayısını elle saymak yerine bir nesneden güvenli biçimde satır kurar. */
+  function buildRow(fields: Partial<Record<(typeof COLS)[number], string>>): string {
+    return COLS.map((c) => fields[c] ?? "").join(",");
+  }
+
+  it("örnek CSV yapısında öğrenci/öğretmen e-postası kolonları YOK; yeni alanlar VAR", () => {
     const { header } = rowsToRecords(parseCsv(STUDENT_CSV_SAMPLE));
-    expect(header).toContain("ogretmen_eposta");
-    expect(header).toContain("eposta");
+    expect(header).not.toContain("eposta");
+    expect(header).not.toContain("ogretmen_eposta");
+    expect(header).toContain("ogretmen");
+    expect(header).toContain("tc_kimlik_no");
+    expect(header).toContain("dogum_tarihi");
+    expect(header).toContain("dogum_yeri");
+    expect(header).toContain("okul_meslek");
+    expect(header).toContain("ev_adresi");
+    expect(header).toContain("sosyal_medya_izni");
+    expect(header).toContain("kayit_tarihi");
+    expect(header).toContain("ders_suresi");
   });
 
-  it("geçerli satır doğru sayıları verir (email boş olabilir)", () => {
+  it("örnek şablonun en az 3 satırı, hiçbir hata olmadan geçerlidir", () => {
+    const { records } = rowsToRecords(parseCsv(STUDENT_CSV_SAMPLE));
+    const result = validateStudentRows(data, records);
+    expect(result.totalRows).toBeGreaterThanOrEqual(3);
+    expect(result.errorCount).toBe(0);
+    expect(result.validCount).toBe(result.totalRows);
+  });
+
+  const baseFields = {
+    ad_soyad: "Deniz",
+    veli_ad_soyad: "Veli",
+    veli_telefon: "05551112233",
+    ogrenci_telefon: "05551112244",
+    sube: "Erzene",
+    enstruman: "Piyano",
+    ogretmen: t1Name,
+    paket: "Paket",
+    ders_suresi: "30",
+    haftalik_ders_sayisi: "1",
+    aylik_ucret: "3000",
+  } as const;
+
+  it("geçerli satır (öğretmen AD ile) doğru sayıları verir; e-posta artık gerekmez", () => {
     const csv =
-      "ad,eposta,telefon,veli_adi,veli_telefon,sube,enstruman,ogretmen_eposta,paket_adi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
-      `Deniz Ak,,0555 222 2222,Ayşe Ak,0555 222 2223,Erzene,Piyano,${t1Email},Bireysel Aylık — 4 ders,1,3000,\n`;
+      HEADER +
+      "\n" +
+      buildRow({
+        ...baseFields,
+        ad_soyad: "Deniz Ak",
+        veli_ad_soyad: "Ayşe Ak",
+        veli_telefon: "0555 222 2223",
+        ogrenci_telefon: "0555 222 2222",
+        paket: "Bireysel Aylık — 4 ders",
+        dogum_tarihi: "2015-03-22",
+        dogum_yeri: "İzmir",
+        okul_meslek: "Erzene İlkokulu 4-A",
+        ev_adresi: "Bornova Mah. No:12",
+        sosyal_medya_izni: "Evet",
+        kayit_tarihi: "2026-09-01",
+      }) +
+      "\n";
     const { records } = rowsToRecords(parseCsv(csv));
     const result = validateStudentRows(data, records);
     expect(result.totalRows).toBe(1);
     expect(result.errorCount).toBe(0);
     expect(result.validCount).toBe(1);
     expect(result.valid[0].teacherId).toBe("t1");
+    expect(result.valid[0].lessonDurationMinutes).toBe(30);
+    expect(result.valid[0].socialMediaConsentStatus).toBe("granted");
+    expect(result.valid[0].birthDate).toBe("2015-03-22");
   });
 
-  it("belirsiz/bulunamayan öğretmen eşleşmesini satır numarasıyla reddeder", () => {
-    const csv =
-      "ad,eposta,telefon,veli_adi,veli_telefon,sube,enstruman,ogretmen_eposta,paket_adi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
-      "Deniz,,0555,Veli,0556,Erzene,Piyano,olmayan@ogretmen.com,Paket,1,3000,\n";
+  it("belirsiz/bulunamayan öğretmen AD eşleşmesini satır numarasıyla reddeder", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, ogretmen: "Olmayan Öğretmen" }) + "\n";
     const { records } = rowsToRecords(parseCsv(csv));
     const result = validateStudentRows(data, records);
-    expect(result.errorCount).toBe(1);
-    expect(result.errors[0]).toMatchObject({ row: 2, field: "ogretmen_eposta" });
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.field === "ogretmen")).toBe(true);
+  });
+
+  it("eski ogretmen_eposta kolonu doldurulmuş ama yeni ogretmen kolonu boşsa açık bir hata verir (sessizce yok saymaz)", () => {
+    const csv =
+      "ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,ogretmen_eposta,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret\n" +
+      "Deniz,Veli,05551112233,05551112244,Erzene,Piyano,,selin@okul.com,Paket,30,1,3000\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errors.some((e) => e.field === "ogretmen" && e.message.includes("ogretmen_eposta"))).toBe(true);
+  });
+
+  it("ders_suresi yalnızca 30/40/50 kabul eder", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, ders_suresi: "45" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errors.some((e) => e.field === "ders_suresi")).toBe(true);
+  });
+
+  it("dogum_tarihi/kayit_tarihi yanlış biçimde hata üretir", () => {
+    const csv =
+      HEADER + "\n" + buildRow({ ...baseFields, dogum_tarihi: "22.03.2015", kayit_tarihi: "01/09/2026" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errors.some((e) => e.field === "dogum_tarihi")).toBe(true);
+    expect(result.errors.some((e) => e.field === "kayit_tarihi")).toBe(true);
+  });
+
+  it("sosyal_medya_izni yalnızca Evet/Hayır kabul eder", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, sosyal_medya_izni: "Belki" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errors.some((e) => e.field === "sosyal_medya_izni")).toBe(true);
+  });
+
+  it("geçersiz T.C. kimlik no reddedilir; hata mesajında ham değer görünmez", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, tc_kimlik_no: "12345" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    const err = result.errors.find((e) => e.field === "tc_kimlik_no");
+    expect(err).toBeDefined();
+    expect(err?.message).not.toContain("12345");
+  });
+
+  it("geçerli T.C. kimlik no şifrelenir; satırda ham değer/valid çıktıda düz metin yok", () => {
+    // Algoritmik olarak geçerli bir örnek T.C. kimlik no (test amaçlı).
+    const validTcNo = "10000000146";
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, tc_kimlik_no: validTcNo }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errorCount).toBe(0);
+    expect(result.valid[0].nationalIdCipher).toBeTruthy();
+    expect(result.valid[0].nationalIdCipher).not.toContain(validTcNo);
+    expect(result.valid[0].nationalIdLast2).toBe("46");
   });
 
   it("hatalı tek satır bile tüm dosyayı geçersiz kılar (validCount sıfır kalmaz ama commit katmanı hiçbirini yazmaz)", () => {
     const csv =
-      "ad,eposta,telefon,veli_adi,veli_telefon,sube,enstruman,ogretmen_eposta,paket_adi,haftalik_ders_sayisi,aylik_ucret,notlar\n" +
-      `Deniz,,0555,Veli,0556,Erzene,Piyano,${t1Email},Paket,1,3000,\n` +
-      `Ali,,0556,Veli2,0557,Erzene,Bateri-yanlis,${t1Email},Paket,1,3000,\n`;
+      HEADER +
+      "\n" +
+      buildRow(baseFields) +
+      "\n" +
+      buildRow({ ...baseFields, ad_soyad: "Ali", veli_telefon: "05551112255", ogrenci_telefon: "05551112266", enstruman: "Bateri-yanlis" }) +
+      "\n";
     const { records } = rowsToRecords(parseCsv(csv));
     const result = validateStudentRows(data, records);
     expect(result.totalRows).toBe(2);

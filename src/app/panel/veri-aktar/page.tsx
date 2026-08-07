@@ -64,7 +64,14 @@ export default function VeriAktarPage() {
 
         <CsvImportSection
           title="4. Öğrenciler"
-          description="Öğretmen sütununda öğretmenin e-postasını kullanın. E-posta alanı öğrenci için opsiyoneldir, telefon zorunludur."
+          description={
+            "Öğretmen sütununda ARTIK e-posta değil, öğretmenin AD SOYADI kullanılır — aynı adda birden fazla aktif " +
+            "öğretmen varsa satır \"Ad Soyad (öğretmen kodu)\" biçimiyle netleştirilmelidir (hata mesajı doğru kodu gösterir). " +
+            "ders_suresi yalnızca 30, 40 veya 50 olabilir. dogum_tarihi ve kayit_tarihi \"yyyy-aa-gg\" biçiminde olmalı " +
+            "(ör. 2015-03-22). sosyal_medya_izni yalnızca \"Evet\" veya \"Hayır\" kabul eder. tc_kimlik_no opsiyoneldir; " +
+            "girilirse şifrelenip saklanır, hiçbir hata/log/export ekranında düz metin görünmez. Öğrenci ve öğretmen " +
+            "e-postası sütunları artık şablonda YOK."
+          }
           columns={STUDENT_CSV_COLUMNS}
           sampleCsv={STUDENT_CSV_SAMPLE}
           sampleFileName="ogrenciler_ornek.csv"
