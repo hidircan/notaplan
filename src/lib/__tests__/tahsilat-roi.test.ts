@@ -133,6 +133,116 @@ describe("tahsilat vaka takibi", () => {
     expect(await listFollowUpCases("demo-tenant")).toHaveLength(0);
     expect(await listFollowUpCases("other-tenant")).toHaveLength(1);
   });
+
+  it("'lost' (sonuçsuz) durumuna geçen vaka activeCases'ten düşer ama resolvedThisMonth'a girmez", async () => {
+    const c = await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "sent",
+      messageDraft: "hatırlatma",
+      attributedAmount: 0,
+    });
+    await upsertFollowUpCase({
+      id: c.id,
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "lost",
+      messageDraft: "hatırlatma",
+      attributedAmount: 0,
+    });
+
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.activeCases).toBe(0);
+    expect(roi.resolvedThisMonth).toBe(0);
+    expect(roi.attributedThisMonth).toBe(0);
+  });
+
+  it("'lost' durumuna geçen vaka için resolvedAt set edilmezse ROI'de bu ay sayılmaz", async () => {
+    // upsertFollowUpCase'e resolvedAt vermeden doğrudan çağrı (API route'un
+    // normalde otomatik doldurduğu alan) — ROI hesaplaması yalnızca
+    // resolvedAt bu ay içindeyse sayar, eksik veri sessizce yanlış sayılmaz.
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "lost",
+      messageDraft: "",
+      attributedAmount: 0,
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.lostThisMonth).toBe(0);
+    expect(roi.closedThisMonth).toBe(0);
+  });
+});
+
+describe("getCollectionRoi — genişletilmiş metrikler (lostThisMonth/closedThisMonth/successRate)", () => {
+  it("hiç kapanan vaka yoksa successRate null döner (0/0 belirsizliği)", async () => {
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.closedThisMonth).toBe(0);
+    expect(roi.successRate).toBeNull();
+  });
+
+  it("bir kazanılan bir kaybedilen vaka: closedThisMonth=2, successRate=0.5", async () => {
+    const now = new Date().toISOString();
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "paid",
+      messageDraft: "",
+      attributedAmount: 3000,
+      resolvedAt: now,
+    });
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p2",
+      studentId: "s2",
+      status: "lost",
+      messageDraft: "",
+      attributedAmount: 0,
+      resolvedAt: now,
+    });
+
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.resolvedThisMonth).toBe(1);
+    expect(roi.lostThisMonth).toBe(1);
+    expect(roi.closedThisMonth).toBe(2);
+    expect(roi.successRate).toBe(0.5);
+  });
+
+  it("yalnızca kazanılan vakalar varsa successRate 1 olur", async () => {
+    const now = new Date().toISOString();
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "paid",
+      messageDraft: "",
+      attributedAmount: 1000,
+      resolvedAt: now,
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.successRate).toBe(1);
+  });
+
+  it("geçen ay kapanan vakalar bu ayın closedThisMonth'una girmez", async () => {
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    await upsertFollowUpCase({
+      tenantId: "demo-tenant",
+      paymentId: "p1",
+      studentId: "s1",
+      status: "lost",
+      messageDraft: "",
+      attributedAmount: 0,
+      resolvedAt: lastMonth.toISOString(),
+    });
+    const roi = await getCollectionRoi("demo-tenant");
+    expect(roi.closedThisMonth).toBe(0);
+    expect(roi.lostThisMonth).toBe(0);
+  });
 });
 
 describe("tahsilat vaka takibi · Lara & Ali demo senaryoları", () => {

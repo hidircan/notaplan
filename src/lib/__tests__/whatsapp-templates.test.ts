@@ -20,6 +20,7 @@ function buildFixture(): AppData {
       workingHours: { start: "00:00", end: "23:59" },
       workingDays: [0, 1, 2, 3, 4, 5, 6],
       currency: "TRY",
+      feeRoundingMode: "exact_minutes",
       branches: [
         { id: "erzene", name: "Erzene", shortName: "Erzene", address: "", phone: "", city: "İzmir" },
       ],
@@ -63,6 +64,8 @@ function buildFixture(): AppData {
     attendances: [],
     makeupRequests: [],
     payments: [],
+    teacherFeeRules: [],
+    teacherPayouts: [],
   };
 }
 

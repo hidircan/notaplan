@@ -244,6 +244,15 @@ export type CollectionRoi = {
   lostThisMonth: number;
   closedThisMonth: number;
   successRate: number | null;
+  /** EPIC 1 — bu ay "sent" durumuna geçen (wa.me linki hazırlanan) vaka sayısı. */
+  sentThisMonth: number;
+  /**
+   * EPIC 1 — bu ay "sent" ötesine geçen (replied/paid/lost) vaka sayısı;
+   * velinin bir şekilde yanıt verdiğinin/sonuçlandığının vekil ölçüsü.
+   * updatedAt'a dayanır çünkü ayrı bir repliedAt alanı yok — kaba ama
+   * dürüst bir yaklaşım (wa.me'de gerçek "okundu" sinyali yoktur).
+   */
+  respondedThisMonth: number;
 };
 
 /** Bu ayki tahsilat performansi. */
@@ -259,6 +268,14 @@ export async function getCollectionRoi(tenantId: string): Promise<CollectionRoi>
     (c) => c.status === "lost" && c.resolvedAt && new Date(c.resolvedAt) >= monthStart
   );
   const closedThisMonth = resolved.length + lost.length;
+  const sentThisMonth = cases.filter(
+    (c) => c.sentAt && new Date(c.sentAt) >= monthStart
+  ).length;
+  const respondedThisMonth = cases.filter(
+    (c) =>
+      (c.status === "replied" || c.status === "paid" || c.status === "lost") &&
+      new Date(c.updatedAt) >= monthStart
+  ).length;
   return {
     activeCases: cases.filter((c) => c.status !== "paid" && c.status !== "lost").length,
     resolvedThisMonth: resolved.length,
@@ -266,6 +283,8 @@ export async function getCollectionRoi(tenantId: string): Promise<CollectionRoi>
     lostThisMonth: lost.length,
     closedThisMonth,
     successRate: closedThisMonth > 0 ? resolved.length / closedThisMonth : null,
+    sentThisMonth,
+    respondedThisMonth,
   };
 }
 
@@ -276,6 +295,8 @@ export function mergeCollectionRoi(parts: CollectionRoi[]): CollectionRoi {
   const attributedThisMonth = parts.reduce((s, p) => s + p.attributedThisMonth, 0);
   const lostThisMonth = parts.reduce((s, p) => s + p.lostThisMonth, 0);
   const closedThisMonth = parts.reduce((s, p) => s + p.closedThisMonth, 0);
+  const sentThisMonth = parts.reduce((s, p) => s + p.sentThisMonth, 0);
+  const respondedThisMonth = parts.reduce((s, p) => s + p.respondedThisMonth, 0);
   return {
     activeCases,
     resolvedThisMonth,
@@ -283,5 +304,7 @@ export function mergeCollectionRoi(parts: CollectionRoi[]): CollectionRoi {
     lostThisMonth,
     closedThisMonth,
     successRate: closedThisMonth > 0 ? resolvedThisMonth / closedThisMonth : null,
+    sentThisMonth,
+    respondedThisMonth,
   };
 }

@@ -2,24 +2,59 @@ import { withApiHandler } from "@/lib/api/handler";
 import { createPaymentTool } from "@/lib/services";
 import { readData } from "@/lib/store";
 import { markPaymentCasesPaid } from "@/lib/tahsilat/cases";
+import { resolveWriteScope } from "@/lib/institution/write-scope";
+import { runWithTenantAsync } from "@/lib/tenant-context";
+import { auditLog } from "@/lib/auth/audit";
+import { uid } from "@/lib/utils";
+import { jsonFail } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
 
 /** POST /api/v1/payments/:paymentId/pay — closes linked AI follow-up cases for ROI. */
 export const POST = withApiHandler(
-  async ({ ctx, params }) => {
-    const result = await createPaymentTool(ctx, { paymentId: params.paymentId });
+  async ({ ctx, params, body }) => {
+    const method =
+      body && typeof body === "object" && "method" in body && typeof (body as { method?: unknown }).method === "string"
+        ? (body as { method: string }).method
+        : undefined;
+    const writeScope = await resolveWriteScope(ctx);
+    if (writeScope.mode !== "single") {
+      auditLog({
+        action: "payments.pay",
+        requestId: uid("audit"),
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+        role: ctx.role,
+        outcome: "denied",
+        meta: { scopeMode: writeScope.mode },
+      });
+      return jsonFail("FORBIDDEN", writeScope.reason);
+    }
+
+    const scopedCtx = { ...ctx, tenantId: writeScope.tenantId };
+    const result = await runWithTenantAsync(writeScope.tenantId, () =>
+      createPaymentTool(scopedCtx, { paymentId: params.paymentId, ...(method ? { method } : {}) })
+    );
     if (result.ok) {
-      const data = await readData();
+      const data = await runWithTenantAsync(writeScope.tenantId, () => readData());
       const payment = data.payments.find((item) => item.id === params.paymentId);
       if (payment) {
         await markPaymentCasesPaid({
-          tenantId: ctx.tenantId,
+          tenantId: writeScope.tenantId,
           paymentId: payment.id,
           amount: Number(payment.amount),
         });
       }
     }
+    auditLog({
+      action: "payments.pay",
+      requestId: uid("audit"),
+      userId: ctx.userId,
+      tenantId: writeScope.tenantId,
+      role: ctx.role,
+      outcome: result.ok ? "success" : "error",
+      meta: { scopeMode: "single" },
+    });
     return result;
   },
   { permission: "payments:write" }
