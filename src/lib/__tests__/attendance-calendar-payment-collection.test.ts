@@ -10,6 +10,7 @@ import {
   cancelLessonTool,
 } from "../services/tools";
 import { readData } from "../store";
+import { writeData } from "../store-json";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
 import { findOpenLessonSlot } from "./helpers/lesson-slot";
@@ -159,5 +160,92 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
 
     const parentRes = await createPaymentTool(ctx({ role: "PARENT", studentId: "s1" }), { paymentId: payment.id });
     expect(parentRes.ok).toBe(false);
+  });
+});
+
+/**
+ * Yoklama Takvimi tahsilat akışında ödeme yöntemi seçimi — takvim panelinin
+ * "Tahsil Et" akışı Ödemeler ekranıyla AYNI `createPaymentTool`/`markPaymentPaid`
+ * yolunu kullanır; burada yalnızca `method` girdisinin doğru yazıldığını ve
+ * girilmediğinde mevcut güvenli varsayılan zincirinin (payment.method ??
+ * student.paymentMethod ?? "Havale") bozulmadığını doğruluyoruz.
+ */
+describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
+  async function setStudentPaymentMethod(studentId: string, method: string) {
+    const data = await readData();
+    const students = data.students.map((s) => (s.id === studentId ? { ...s, paymentMethod: method as never } : s));
+    await writeData({ ...data, students });
+  }
+
+  it("öğrencinin kayıtlı paymentMethod değeri, takvimin döndürdüğü ödeme bilgisinde varsayılan olarak görünür", async () => {
+    await setStudentPaymentMethod("s1", "cash");
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments[0]!.method).toBe("cash");
+    expect(day.payments[0]!.methodIsStudentDefault).toBe(true);
+  });
+
+  it("kullanıcının seçtiği ödeme yöntemi tahsilat kaydına yazılır", async () => {
+    await setStudentPaymentMethod("s1", "cash");
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    const data = await readData();
+    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+
+    const res = await createPaymentTool(ctx(), { paymentId: payment.id, method: "credit_card" });
+    expect(res.ok).toBe(true);
+
+    const after = await readData();
+    const finalPayment = after.payments.find((p) => p.id === payment.id)!;
+    expect(finalPayment.status).toBe("paid");
+    expect(finalPayment.method).toBe("credit_card");
+  });
+
+  it("kullanıcı yöntem seçmeden kaydederse öğrencinin varsayılanı kullanılır", async () => {
+    await setStudentPaymentMethod("s1", "transfer");
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    const data = await readData();
+    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+
+    const res = await createPaymentTool(ctx(), { paymentId: payment.id });
+    expect(res.ok).toBe(true);
+
+    const after = await readData();
+    const finalPayment = after.payments.find((p) => p.id === payment.id)!;
+    expect(finalPayment.method).toBe("transfer");
+  });
+
+  it("öğrencinin varsayılan yöntemi yoksa mevcut güvenli davranış (fallback) korunur", async () => {
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    const data = await readData();
+    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    expect(data.students.find((s) => s.id === "s1")?.paymentMethod).toBeUndefined();
+
+    const res = await createPaymentTool(ctx(), { paymentId: payment.id });
+    expect(res.ok).toBe(true);
+
+    const after = await readData();
+    const finalPayment = after.payments.find((p) => p.id === payment.id)!;
+    expect(finalPayment.method).toBe("Havale");
+  });
+
+  it("geçersiz bir ödeme yöntemi değeri reddedilir", async () => {
+    const lessonId = await createTestLesson();
+    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    const data = await readData();
+    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+
+    const res = await createPaymentTool(ctx(), { paymentId: payment.id, method: "bitcoin" });
+    expect(res.ok).toBe(false);
   });
 });

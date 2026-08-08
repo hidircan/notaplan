@@ -747,11 +747,17 @@ export async function createPaymentTool(
   const auth = requireRole(ctx, ["SCHOOL_ADMIN", "AI_AGENT", "SUPER_ADMIN"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
-  const v = parseOrFail(z.object({ paymentId: z.string().min(1) }), input);
+  const v = parseOrFail(
+    z.object({
+      paymentId: z.string().min(1),
+      method: z.enum(["credit_card", "cash", "transfer"]).optional(),
+    }),
+    input
+  );
   if (!v.ok) return v;
 
   try {
-    await markPaymentPaid(v.data.paymentId);
+    await markPaymentPaid(v.data.paymentId, v.data.method);
     audit(ctx, "payment.mark_paid", "Payment", v.data.paymentId);
     return ok({ paymentId: v.data.paymentId, status: "paid" });
   } catch (e) {

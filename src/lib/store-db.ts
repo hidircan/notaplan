@@ -1053,7 +1053,7 @@ export async function updateTeacherInstruments(
   return data.teachers.find((t) => t.id === teacherId) ?? null;
 }
 
-export async function markPaymentPaid(paymentId: string): Promise<AppData> {
+export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
   logger.info("markPaymentPaid", paymentId);
   const tid = requireTenantId();
   const payment = await prisma.payment.findFirst({
@@ -1061,12 +1061,18 @@ export async function markPaymentPaid(paymentId: string): Promise<AppData> {
   });
   if (!payment) throw new Error("Ödeme bulunamadı");
 
+  const student = payment.studentId
+    ? await prisma.student.findFirst({ where: { id: payment.studentId, tenantId: tid } })
+    : null;
+  const resolvedMethod = method || payment.method || student?.paymentMethod || undefined;
+
   await prisma.payment.updateMany({
     where: { id: paymentId, tenantId: tid },
     data: {
       status: "paid",
       paidAmount: payment.amount,
       paidAt: new Date(),
+      ...(resolvedMethod ? { method: resolvedMethod } : {}),
     },
   });
 

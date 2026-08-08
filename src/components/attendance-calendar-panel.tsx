@@ -692,6 +692,7 @@ function DayDetail({
                       <AttendanceCalendarCollectPaymentButton
                         paymentId={p.paymentId}
                         lessonId={p.lessonId}
+                        defaultMethod={p.method}
                         onSettled={onLessonOpsSettled}
                       />
                     ) : (

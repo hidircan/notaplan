@@ -334,19 +334,19 @@ export async function updateTeacherInstruments(
   return updated;
 }
 
-export async function markPaymentPaid(paymentId: string): Promise<AppData> {
+export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
   const data = load();
-  const payments: Payment[] = data.payments.map((p) =>
-    p.id === paymentId
-      ? {
-          ...p,
-          status: "paid",
-          paidAmount: p.amount,
-          paidAt: new Date().toISOString(),
-          method: p.method || "Havale",
-        }
-      : p
-  );
+  const payments: Payment[] = data.payments.map((p) => {
+    if (p.id !== paymentId) return p;
+    const student = data.students.find((s) => s.id === p.studentId);
+    return {
+      ...p,
+      status: "paid",
+      paidAmount: p.amount,
+      paidAt: new Date().toISOString(),
+      method: method || p.method || student?.paymentMethod || "Havale",
+    };
+  });
   return save({ ...data, payments });
 }
 

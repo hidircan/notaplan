@@ -61,7 +61,7 @@ type StoreApi = {
     packageId: string,
     patch: import("./packages").PackagePatch
   ) => Promise<import("./packages").PackageMutationResult>;
-  markPaymentPaid: (paymentId: string) => Promise<AppData>;
+  markPaymentPaid: (paymentId: string, method?: string) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
   /** ÖNCELİK 4 (devam) — oda düzenleme. */
   updateRoom: (
@@ -300,8 +300,8 @@ export async function updatePackage(
   return withTenantScope(() => store.updatePackage(packageId, patch));
 }
 
-export async function markPaymentPaid(paymentId: string): Promise<AppData> {
-  return withTenantScope(() => store.markPaymentPaid(paymentId));
+export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
+  return withTenantScope(() => store.markPaymentPaid(paymentId, method));
 }
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
