@@ -10,6 +10,7 @@ import { TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, type TaskStatus } from
 import { actionCreateTaskForm } from "@/lib/actions";
 import { cn, formatDate } from "@/lib/utils";
 import { resolveSafeReturnTo } from "@/lib/safe-return-to";
+import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,7 @@ export default async function IsTakipPage({
   const sp = await searchParams;
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
+  const staff = await listAssignableStaff(session.tenantId, data.teachers);
 
   const kpiRes = await getTaskKpiSummaryTool(session);
   const kpi = kpiRes.ok
@@ -201,9 +203,9 @@ export default async function IsTakipPage({
             <Label>Sorumlu</Label>
             <Select name="assigneeId" defaultValue={sp.assigneeId ?? ""}>
               <option value="">Tümü</option>
-              {data.teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
                 </option>
               ))}
             </Select>
@@ -252,7 +254,7 @@ export default async function IsTakipPage({
             tasks.map((t) => {
               const overdue = t.dueDate && t.dueDate.slice(0, 10) < todayYmd && t.status !== "COMPLETED" && t.status !== "CANCELLED" && t.status !== "ARCHIVED";
               const dueToday = t.dueDate && t.dueDate.slice(0, 10) === todayYmd;
-              const assignee = data.teachers.find((tt) => tt.id === t.assigneeId);
+              const assigneeName = resolveStaffLabel(staff, t.assigneeId);
               return (
                 <Link key={t.id} href={`/panel/is-takip/${t.id}`}>
                   <Card className="!p-4 transition hover:border-[var(--color-primary)]">
@@ -261,7 +263,7 @@ export default async function IsTakipPage({
                         <p className="font-semibold text-[var(--color-text)]">{t.title}</p>
                         <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                           {t.category} · Öncelik: {t.priority}
-                          {assignee ? ` · Sorumlu: ${assignee.name}` : ""}
+                          {assigneeName ? ` · Sorumlu: ${assigneeName}` : ""}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -335,13 +337,11 @@ export default async function IsTakipPage({
                 <Label>Sorumlu (opsiyonel)</Label>
                 <Select name="assigneeId" defaultValue="">
                   <option value="">Atanmadı</option>
-                  {data.teachers
-                    .filter((t) => t.active)
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label} {s.role !== "TEACHER" ? "(yönetici)" : ""}
+                    </option>
+                  ))}
                 </Select>
               </div>
               <div>

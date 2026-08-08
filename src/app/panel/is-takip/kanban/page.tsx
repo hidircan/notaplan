@@ -6,6 +6,7 @@ import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { PageHeader } from "@/components/ui";
 import { listTasksTool } from "@/lib/services";
 import { TaskKanbanBoard } from "@/components/task-kanban-board";
+import { listAssignableStaff } from "@/lib/staff-directory";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,8 @@ export default async function IsTakipKanbanPage() {
   const listRes = await listTasksTool(session, {});
   // Arşiv Kanban tahtasında gösterilmez — ayrı bir görünüm/filtredir.
   const tasks = listRes.ok ? listRes.data.tasks.filter((t) => t.status !== "ARCHIVED") : [];
-  const assigneeLabels = Object.fromEntries(data.teachers.map((t) => [t.id, t.name]));
+  const staff = await listAssignableStaff(session.tenantId, data.teachers);
+  const assigneeLabels = Object.fromEntries(staff.map((s) => [s.id, s.label]));
 
   return (
     <div>

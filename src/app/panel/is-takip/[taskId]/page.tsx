@@ -6,6 +6,7 @@ import { EmptyState, PageHeader } from "@/components/ui";
 import { BackButton } from "@/components/back-button";
 import { getTaskDetailTool } from "@/lib/services";
 import { TaskDetailPanel } from "@/components/task-detail-panel";
+import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function IsTakipDetailPage({
 
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
+  const staff = await listAssignableStaff(session.tenantId, data.teachers);
 
   const detailRes = await getTaskDetailTool(session, { taskId });
 
@@ -49,7 +51,7 @@ export default async function IsTakipDetailPage({
           comments={detailRes.data.comments}
           activity={detailRes.data.activity}
           isAdmin
-          assigneeLabel={data.teachers.find((t) => t.id === detailRes.data.task.assigneeId)?.name}
+          assigneeLabel={resolveStaffLabel(staff, detailRes.data.task.assigneeId)}
           currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
         />
       )}
