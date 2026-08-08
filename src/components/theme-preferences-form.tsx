@@ -120,6 +120,11 @@ export function ThemePreferencesForm({
                 Aa Bb Cc
               </span>
               <span className="mt-1 block text-sm font-medium text-[var(--color-text)]">{FONT_LABELS[value]}</span>
+              {value === "playfair_display" ? (
+                <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)]">
+                  Yalnızca başlıklarda kullanılır
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

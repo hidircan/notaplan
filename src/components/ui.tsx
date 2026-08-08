@@ -5,10 +5,8 @@ import type { ReactNode } from "react";
 export function Badge({ status, children }: { status?: string; children?: ReactNode }) {
   return (
     <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-        status ? statusColor(status) : "bg-stone-100 text-stone-700"
-      )}
+      className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", status && statusColor(status))}
+      style={!status ? { background: "var(--color-surface-muted)", color: "var(--color-text-muted)" } : undefined}
     >
       {children ?? (status ? statusLabel(status) : null)}
     </span>
@@ -84,9 +82,9 @@ export function PageHeader({
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-text)] sm:text-3xl">{title}</h1>
+        <h1 className="text-3xl font-bold tracking-[-0.03em] text-[color:var(--text-primary)] sm:text-4xl">{title}</h1>
         {description ? (
-          <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-muted)]">{description}</p>
+          <p className="mt-1 max-w-2xl text-sm text-[color:var(--text-secondary)]">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

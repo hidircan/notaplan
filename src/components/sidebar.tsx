@@ -47,7 +47,10 @@ function NavSection({
   return (
     <div className="space-y-0.5">
       {title && !collapsed ? (
-        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+        <p
+          className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider"
+          style={{ color: "var(--color-text-muted)" }}
+        >
           {title}
         </p>
       ) : null}
@@ -62,14 +65,20 @@ function NavSection({
             aria-label={item.label}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-              collapsed && "justify-center px-2",
-              active
-                ? "bg-[#A56A00]/15 font-semibold text-[#5c3d00]"
-                : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+              active ? "font-semibold" : "font-normal hover:opacity-80",
+              collapsed && "justify-center px-2"
             )}
+            style={
+              active
+                ? { background: "var(--color-primary-soft)", color: "var(--color-primary-soft-text)" }
+                : { color: "var(--color-text-muted)" }
+            }
             aria-current={active ? "page" : undefined}
           >
-            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#A56A00]" : "text-stone-500")} />
+            <Icon
+              className="h-4 w-4 shrink-0"
+              style={{ color: active ? "var(--color-primary)" : "var(--color-text-muted)" }}
+            />
             {!collapsed ? item.label : null}
           </Link>
         );
@@ -130,44 +139,66 @@ export function Sidebar({
     });
   }
 
+  const portalLinkClass = cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:opacity-80");
+
   return (
     <aside
-      className={cn(
-        "flex shrink-0 flex-col border-r border-stone-200 bg-[#f7f4ef] text-stone-800 transition-[width]",
-        collapsed ? "w-[72px]" : "w-64"
-      )}
+      className={cn("relative flex shrink-0 flex-col border-r transition-[width]", collapsed ? "w-[72px]" : "w-64")}
+      style={{
+        background: "var(--color-bg)",
+        borderColor: "var(--color-border)",
+        color: "var(--color-text)",
+      }}
       aria-label="Ana menü"
     >
-      <div className="border-b border-stone-200 px-3 py-5">
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+        title={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+        className="absolute top-6 -right-3 z-10 hidden h-6 w-6 items-center justify-center rounded-full border shadow-sm transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 md:inline-flex"
+        style={{
+          background: "var(--color-surface)",
+          borderColor: "var(--color-border)",
+          color: "var(--color-text-muted)",
+          ["--tw-ring-color" as string]: "var(--color-focus-ring)",
+        }}
+      >
+        {collapsed ? <ChevronsRight className="h-3.5 w-3.5" /> : <ChevronsLeft className="h-3.5 w-3.5" />}
+      </button>
+
+      <div className="border-b px-3 py-5" style={{ borderColor: "var(--color-border)" }}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
+            {/* Marka rozeti kasıtlı olarak sabit beyaz kalır — logo asseti kendi açık zemini üzerinde
+                tasarlanmıştır (bkz. logoMarkTransparentPath koyu zeminler için ayrı bir varyanttır),
+                bu yüzden tema token'larına bağlanmaz. */}
             <Image src={BRAND.logoMarkPath} alt={BRAND.name} width={40} height={32} className="h-8 w-auto" priority />
           </div>
           {!collapsed ? (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-wide text-stone-900">{BRAND.name}</p>
-              <p className="text-[11px] text-stone-500">Kurum yönetimi</p>
+              <p className="truncate text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>
+                {BRAND.name}
+              </p>
+              <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+                Kurum yönetimi
+              </p>
             </div>
           ) : null}
         </div>
         {!collapsed ? (
-          <div className="mt-3 rounded-lg border border-stone-200 bg-white px-3 py-2">
-            <p className="truncate text-xs font-medium text-[#5c3d00]">{schoolNameSafe}</p>
-            <p className="text-[10px] text-stone-500">
+          <div
+            className="mt-3 rounded-lg border px-3 py-2"
+            style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
+          >
+            <p className="truncate text-xs font-medium" style={{ color: "var(--color-primary-soft-text)" }}>
+              {schoolNameSafe}
+            </p>
+            <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
               {roleLabel || "Oturum"} · {userLabel || "—"}
             </p>
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-          title={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-          className="mt-3 hidden w-full items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white py-1.5 text-[11px] font-medium text-stone-600 hover:bg-stone-50 md:inline-flex"
-        >
-          {collapsed ? <ChevronsRight className="h-3.5 w-3.5" /> : <ChevronsLeft className="h-3.5 w-3.5" />}
-          {!collapsed ? "Daralt" : null}
-        </button>
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -176,17 +207,15 @@ export function Sidebar({
         <NavSection title="Yardımcı" items={PANEL_AI_NAV} pathname={pathname} role={role} collapsed={collapsed} />
       </nav>
 
-      <div className="space-y-3 border-t border-stone-200 px-3 py-4">
+      <div className="space-y-3 border-t px-3 py-4" style={{ borderColor: "var(--color-border)" }}>
         <NavSection title="Sistem" items={PANEL_SYSTEM_NAV} pathname={pathname} role={role} collapsed={collapsed} />
         <div className="space-y-0.5 px-0">
           <Link
             href="/ogretmen"
             title={collapsed ? "Öğretmen portalı" : undefined}
             aria-label="Öğretmen portalı"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100",
-              collapsed && "justify-center px-2"
-            )}
+            className={cn(portalLinkClass, collapsed && "justify-center px-2")}
+            style={{ color: "var(--color-text-muted)" }}
           >
             <Users className="h-4 w-4 shrink-0" /> {!collapsed ? "Öğretmen portalı" : null}
           </Link>
@@ -194,10 +223,8 @@ export function Sidebar({
             href="/veli"
             title={collapsed ? "Veli portalı" : undefined}
             aria-label="Veli portalı"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100",
-              collapsed && "justify-center px-2"
-            )}
+            className={cn(portalLinkClass, collapsed && "justify-center px-2")}
+            style={{ color: "var(--color-text-muted)" }}
           >
             <UserRound className="h-4 w-4 shrink-0" /> {!collapsed ? "Veli portalı" : null}
           </Link>
@@ -205,10 +232,8 @@ export function Sidebar({
             href="/ogrenci"
             title={collapsed ? "Öğrenci portalı" : undefined}
             aria-label="Öğrenci portalı"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100",
-              collapsed && "justify-center px-2"
-            )}
+            className={cn(portalLinkClass, collapsed && "justify-center px-2")}
+            style={{ color: "var(--color-text-muted)" }}
           >
             <Home className="h-4 w-4 shrink-0" /> {!collapsed ? "Öğrenci portalı" : null}
           </Link>

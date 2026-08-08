@@ -129,7 +129,6 @@ export default async function DashboardPage() {
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="Günlük özet"
-        description={`${data.settings.name} demo paneli — Erzene & Evka 3 için günlük ders programı, açık telafiler ve tahsilat uyarılarını gösterir.`}
         actions={
           <>
             <Link href="/panel/telafi">
