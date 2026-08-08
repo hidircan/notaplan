@@ -4119,6 +4119,10 @@ export async function createTaskTool(
     });
     await addActivity(ctx.tenantId, task.id, ctx.userId, "created", `Görev oluşturuldu: "${task.title}"`);
     audit(ctx, "task.create", "Task", task.id, { category: task.category, priority: task.priority });
+    if (task.assigneeId) {
+      const { notifyTaskAssigned } = await import("../task-notifications");
+      await notifyTaskAssigned(ctx.tenantId, task.assigneeId, task.title);
+    }
     return ok({ taskId: task.id });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createTask failed");
@@ -4363,6 +4367,10 @@ export async function updateTaskTool(
       await addActivity(ctx.tenantId, updated.id, ctx.userId, "field_updated", "Görev güncellendi");
     }
     audit(ctx, "task.update", "Task", updated.id, { changedFields: Object.keys(patch) });
+    if ("assigneeId" in v.data && updated.assigneeId && updated.assigneeId !== task.assigneeId) {
+      const { notifyTaskAssigned } = await import("../task-notifications");
+      await notifyTaskAssigned(ctx.tenantId, updated.assigneeId, updated.title);
+    }
     return ok({ taskId: updated.id });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTask failed");
