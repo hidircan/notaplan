@@ -22,6 +22,7 @@ function emptyData(): AppData {
       workingHours: { start: "09:00", end: "18:00" },
       workingDays: [1, 2, 3, 4, 5],
       currency: "TRY",
+      feeRoundingMode: "exact_minutes",
       branches: [],
     },
     teachers: [],
@@ -32,6 +33,8 @@ function emptyData(): AppData {
     attendances: [],
     makeupRequests: [],
     payments: [],
+    teacherFeeRules: [],
+    teacherPayouts: [],
   };
 }
 
