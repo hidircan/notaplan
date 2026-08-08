@@ -59,6 +59,7 @@ import {
   setNationalIdTool,
   setSocialMediaConsentTool,
   updateTeacherInstrumentsTool,
+  updateTeacherProfileTool,
   createPackageTool,
   updatePackageTool,
   archiveTeacherTool,
@@ -704,7 +705,7 @@ export async function actionAddTeacher(formData: FormData) {
           // geçersiz JSON — varsayılan müsaitliğe düş
         }
       }
-      assertOk(
+      const created = assertOk(
         await createTeacherTool(ctx, {
           name: String(formData.get("name") || ""),
           email: String(formData.get("email") || ""),
@@ -715,6 +716,13 @@ export async function actionAddTeacher(formData: FormData) {
           availability,
         })
       );
+
+      // T.C. kimlik — şifreli saklama, mevcut setNationalIdTool üzerinden
+      // (öğrenci create formuyla aynı desen — asla düz metin bir yere yazılmaz).
+      const nationalId = String(formData.get("nationalId") || "").trim();
+      if (nationalId) {
+        await setNationalIdTool(ctx, { entity: "teacher", entityId: created.teacherId, nationalId });
+      }
     });
     revalidateAll();
   } catch (error) {
@@ -741,6 +749,60 @@ export async function actionUpdateTeacherInstruments(input: {
     logger.error("actionUpdateTeacherInstruments failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Enstrüman/seviye güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateTeacherProfileActionResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Package D — öğretmen özlük/idari alanları + ek şube ataması. RBAC/hesap
+ * tek kaynağı `updateTeacherProfileTool`'dadır — bu action yalnız ince bir sarmalayıcı.
+ */
+export async function actionUpdateTeacherProfile(input: {
+  teacherId: string;
+  branchIds?: string[];
+  employmentType?: "tam_zamanli" | "yari_zamanli" | "serbest";
+  hireDate?: string;
+  terminationDate?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  birthDate?: string;
+  address?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  personnelNotes?: string;
+}): Promise<UpdateTeacherProfileActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateTeacherProfile", (ctx) =>
+      updateTeacherProfileTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateTeacherProfile failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Öğretmen profili güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type SetNationalIdActionResult = { ok: true; masked: string } | { ok: false; message: string };
+
+/** Öğrenci create formundakiyle aynı `setNationalIdTool` yolunu kullanan genel amaçlı action. */
+export async function actionSetNationalId(input: {
+  entity: "student" | "teacher";
+  entityId: string;
+  nationalId: string;
+}): Promise<SetNationalIdActionResult> {
+  try {
+    const result = await withAuthContext("actionSetNationalId", (ctx) => setNationalIdTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, masked: result.data.masked };
+  } catch (error) {
+    logger.error("actionSetNationalId failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "T.C. kimlik kaydedilirken beklenmeyen bir hata oluştu." };
   }
 }
 

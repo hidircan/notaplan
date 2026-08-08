@@ -18,6 +18,7 @@ import type {
   StudentType,
   Teacher,
   TeacherFeeRule,
+  TeacherProfilePatch,
 } from "./types";
 import {
   suggestMakeupSlots,
@@ -142,6 +143,24 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       contractStartDate:
         (teacher as { contractStartDate?: Date | null }).contractStartDate?.toISOString() ?? undefined,
       contractEndDate: (teacher as { contractEndDate?: Date | null }).contractEndDate?.toISOString() ?? undefined,
+      // Package D — özlük/idari alanlar + ek şube ataması. Bu alanlar
+      // öncesinde db modunda hiç OKUNMUYORDU (nationalIdCipher/birthDate/
+      // address TS tipinde vardı ama Prisma şemasında hiç yoktu) — parity
+      // için burada eklendi.
+      nationalIdCipher: (teacher as { nationalIdCipher?: string | null }).nationalIdCipher ?? undefined,
+      nationalIdLast2: (teacher as { nationalIdLast2?: string | null }).nationalIdLast2 ?? undefined,
+      birthDate: (teacher as { birthDate?: Date | null }).birthDate?.toISOString() ?? undefined,
+      address: (teacher as { address?: string | null }).address ?? undefined,
+      branchIds: ((teacher as { branchIds?: unknown }).branchIds as Teacher["branchIds"]) ?? undefined,
+      employmentType:
+        ((teacher as { employmentType?: string | null }).employmentType as Teacher["employmentType"]) ?? undefined,
+      hireDate: (teacher as { hireDate?: Date | null }).hireDate?.toISOString() ?? undefined,
+      terminationDate: (teacher as { terminationDate?: Date | null }).terminationDate?.toISOString() ?? undefined,
+      emergencyContactName:
+        (teacher as { emergencyContactName?: string | null }).emergencyContactName ?? undefined,
+      emergencyContactPhone:
+        (teacher as { emergencyContactPhone?: string | null }).emergencyContactPhone ?? undefined,
+      personnelNotes: (teacher as { personnelNotes?: string | null }).personnelNotes ?? undefined,
     })),
     students: school.students.map((student) => ({
       id: student.id,
@@ -1082,6 +1101,37 @@ export async function updateTeacherInstruments(
       instruments: instruments as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instrumentLevels: (instrumentLevels ?? null) as any,
+    },
+  });
+  if (result.count === 0) return null;
+  const data = await readData();
+  return data.teachers.find((t) => t.id === teacherId) ?? null;
+}
+
+/** Package D — özlük/idari alanlar + ek şube ataması. `updateStudentProfile` ile aynı desen. */
+export async function updateTeacherProfile(
+  teacherId: string,
+  patch: TeacherProfilePatch
+): Promise<Teacher | null> {
+  logger.info("updateTeacherProfile", teacherId);
+  const tid = requireTenantId();
+  const result = await prisma.teacher.updateMany({
+    where: { id: teacherId, tenantId: tid },
+    data: {
+      nationalIdCipher: patch.nationalIdCipher,
+      nationalIdLast2: patch.nationalIdLast2,
+      birthDate: patch.birthDate ? new Date(patch.birthDate) : undefined,
+      address: patch.address,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      branchIds: patch.branchIds !== undefined ? (patch.branchIds as any) : undefined,
+      contractStartDate: patch.contractStartDate ? new Date(patch.contractStartDate) : undefined,
+      contractEndDate: patch.contractEndDate ? new Date(patch.contractEndDate) : undefined,
+      employmentType: patch.employmentType,
+      hireDate: patch.hireDate ? new Date(patch.hireDate) : undefined,
+      terminationDate: patch.terminationDate ? new Date(patch.terminationDate) : undefined,
+      emergencyContactName: patch.emergencyContactName,
+      emergencyContactPhone: patch.emergencyContactPhone,
+      personnelNotes: patch.personnelNotes,
     },
   });
   if (result.count === 0) return null;

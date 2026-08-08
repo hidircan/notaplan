@@ -139,6 +139,8 @@ const teacherAvailabilityWindowSchema = z
     dayOfWeek: z.number().int().min(0).max(6),
     start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
     end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+    /** Package D — verilmezse "tüm şubeler" (açık, dokümante edilmiş fallback — bkz. src/lib/teacher-branches.ts). */
+    branchId: z.string().min(1).optional(),
   })
   .refine((w) => w.start < w.end, { message: "Bitiş saati başlangıçtan sonra olmalı" });
 
@@ -170,6 +172,37 @@ export const teacherSchema = z
     },
     { message: "Aynı enstrüman birden fazla kez eklenemez.", path: ["instrumentLevels"] }
   );
+
+const TEACHER_EMPLOYMENT_TYPE_ENUM = ["tam_zamanli", "yari_zamanli", "serbest"] as const;
+
+/**
+ * Package D — öğretmen özlük/idari alanları + ek şube ataması. T.C. kimlik
+ * BU şemada YOK — ayrı `setNationalIdSchema`/`setNationalIdTool` üzerinden
+ * (mevcut öğrenci deseniyle aynı, tek doğrulama/şifreleme yolu).
+ */
+export const updateTeacherProfileSchema = z
+  .object({
+    teacherId: z.string().min(1),
+    branchIds: z.array(z.string().min(1)).optional(),
+    employmentType: z.enum(TEACHER_EMPLOYMENT_TYPE_ENUM).optional(),
+    hireDate: optionalTrimmed,
+    terminationDate: optionalTrimmed,
+    contractStartDate: optionalTrimmed,
+    contractEndDate: optionalTrimmed,
+    birthDate: optionalTrimmed,
+    address: optionalTrimmed,
+    emergencyContactName: optionalTrimmed,
+    emergencyContactPhone: optionalTrimmed,
+    personnelNotes: optionalTrimmed,
+  })
+  .refine((v) => !v.contractStartDate || !v.contractEndDate || v.contractEndDate >= v.contractStartDate, {
+    message: "Sözleşme bitiş tarihi başlangıçtan önce olamaz.",
+    path: ["contractEndDate"],
+  })
+  .refine((v) => !v.hireDate || !v.terminationDate || v.terminationDate >= v.hireDate, {
+    message: "Ayrılış tarihi işe girişten önce olamaz.",
+    path: ["terminationDate"],
+  });
 
 export const roomSchema = z.object({
   name: z.string().min(1),
@@ -440,6 +473,8 @@ const availabilityWindowSchema = z
     dayOfWeek: z.number().int().min(0).max(6),
     start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
     end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat HH:mm biçiminde olmalı"),
+    /** Package D — verilmezse "tüm şubeler" (açık, dokümante edilmiş fallback — bkz. src/lib/teacher-branches.ts). */
+    branchId: z.string().min(1).optional(),
   })
   .refine((w) => w.start < w.end, { message: "Bitiş saati başlangıçtan sonra olmalı" });
 

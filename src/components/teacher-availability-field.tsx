@@ -22,7 +22,7 @@ import { dayName } from "@/lib/utils";
 import { Select, Input } from "@/components/ui";
 import { Plus, Trash2 } from "lucide-react";
 
-export type AvailabilityWindowRow = { dayOfWeek: number; start: string; end: string };
+export type AvailabilityWindowRow = { dayOfWeek: number; start: string; end: string; branchId?: string };
 
 /** Pzt(1)..Cts(6),Paz(0) — mevcut varsayılan sıralamayla tutarlı, Pazar sona eklendi. */
 const DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0];
@@ -35,17 +35,21 @@ const DEFAULT_ROWS: AvailabilityWindowRow[] = [
   { dayOfWeek: 5, start: "10:00", end: "16:00" },
 ];
 
+/** Aynı gün + aynı şube (ikisi de "tüm şubeler" dahil) bağlamında çakışma. */
 function timesOverlap(a: AvailabilityWindowRow, b: AvailabilityWindowRow): boolean {
-  return a.dayOfWeek === b.dayOfWeek && a.start < b.end && b.start < a.end;
+  return a.dayOfWeek === b.dayOfWeek && a.branchId === b.branchId && a.start < b.end && b.start < a.end;
 }
 
 export function TeacherAvailabilityField({
   name,
   initialRows,
+  branches,
 }: {
   /** Hidden input adı — form submit'te JSON string olarak gönderilir. */
   name: string;
   initialRows?: AvailabilityWindowRow[];
+  /** Package D — şube bazlı müsaitlik seçimi için. Boş/verilmezse şube sütunu gizlenir (legacy tek-şube davranışı). */
+  branches?: { id: string; name: string }[];
 }) {
   const [rows, setRows] = useState<AvailabilityWindowRow[]>(
     initialRows && initialRows.length > 0 ? initialRows : DEFAULT_ROWS
@@ -110,6 +114,21 @@ export function TeacherAvailabilityField({
             className="!w-auto flex-1"
             aria-label={`${dayName(row.dayOfWeek)} bitiş`}
           />
+          {branches && branches.length > 0 ? (
+            <Select
+              value={row.branchId ?? ""}
+              onChange={(e) => updateRow(idx, { branchId: e.target.value || undefined })}
+              className="!w-auto flex-1"
+              aria-label={`${dayName(row.dayOfWeek)} şube`}
+            >
+              <option value="">Tüm şubeler</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          ) : null}
           <button
             type="button"
             onClick={() => removeRow(idx)}

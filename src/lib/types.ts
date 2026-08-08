@@ -51,15 +51,32 @@ export type MakeupStatus =
 export type PaymentStatus = "paid" | "pending" | "overdue" | "partial" | "voided";
 export type LessonType = "regular" | "makeup" | "trial" | "group";
 
-/** Haftalık müsaitlik penceresi: 0=Pazar ... 6=Cumartesi */
-export type AvailabilityWindow = { dayOfWeek: number; start: string; end: string };
+/**
+ * Haftalık müsaitlik penceresi: 0=Pazar ... 6=Cumartesi. Package D —
+ * `branchId` verilirse pencere YALNIZ o şube için geçerlidir; verilmezse
+ * (legacy kayıtlar dahil) "tüm şubeler" olarak — açık, dokümante edilmiş bir
+ * fallback ile — değerlendirilir (bkz. src/lib/teacher-branches.ts
+ * `availabilityForBranch`). Sessiz/örtük bir eşleşme değildir.
+ */
+export type AvailabilityWindow = { dayOfWeek: number; start: string; end: string; branchId?: BranchId };
+
+/** Package D — öğretmenin çalışma biçimi. Serbest metin değil, sabit küme. */
+export type TeacherEmploymentType = "tam_zamanli" | "yari_zamanli" | "serbest";
 
 export interface Teacher {
   id: string;
   name: string;
   email: string;
   phone: string;
+  /** Birincil/varsayılan şube — geriye dönük uyumluluk için korunur. */
   branchId: BranchId;
+  /**
+   * Package D — öğretmenin fiilen ders verdiği TÜM şubeler. `branchId`
+   * (birincil) her zaman dahil sayılır (ayrıca listelenmesi gerekmez).
+   * Boş/undefined ise yalnızca `branchId` şubesine atanmış demektir —
+   * `teacherServesBranch` bu iki alanı birlikte değerlendirir.
+   */
+  branchIds?: BranchId[];
   instruments: Instrument[];
   availability: AvailabilityWindow[];
   maxDailyLessons: number;
@@ -79,7 +96,37 @@ export interface Teacher {
   weeklyHoursThreshold?: number;
   /** ÖNCELİK 4 (devam) — arşivleme (hard delete YOK); `active:false` ile birlikte set edilir. */
   archivedAt?: string;
+  /** Package D — özlük alanları. Hepsi opsiyonel; legacy kayıtlar kırılmaz. */
+  employmentType?: TeacherEmploymentType;
+  /** ISO tarih — işe giriş. */
+  hireDate?: string;
+  /** ISO tarih — işten ayrılış. Set edilmişse `hireDate`'ten önce olamaz (validation.ts). */
+  terminationDate?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  /** Özlük notu — serbest metin, PII değil ama yalnız admin/SUPER_ADMIN görür (mevcut UI kuralı). */
+  personnelNotes?: string;
 }
+
+/** Package D — mevcut updateStudentProfile deseniyle aynı: tek patch tipi, tüm store backend'leri destekler. */
+export type TeacherProfilePatch = Partial<
+  Pick<
+    Teacher,
+    | "branchIds"
+    | "birthDate"
+    | "nationalIdCipher"
+    | "nationalIdLast2"
+    | "address"
+    | "contractStartDate"
+    | "contractEndDate"
+    | "employmentType"
+    | "hireDate"
+    | "terminationDate"
+    | "emergencyContactName"
+    | "emergencyContactPhone"
+    | "personnelNotes"
+  >
+>;
 
 /**
  * EPIC 9 (IMPLEMENTATION_PLAN.md) — öğretmenin müsaitlik değişikliği önerisi.

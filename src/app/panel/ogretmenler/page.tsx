@@ -236,6 +236,11 @@ export default async function OgretmenlerPage({
               <Input name="phone" placeholder="05xx xxx xxxx" />
             </div>
             <div>
+              {/* T.C. kimlik — şifreli saklanır (setNationalIdTool), listede/exportta asla düz metin görünmez. */}
+              <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
+              <Input name="nationalId" inputMode="numeric" maxLength={11} placeholder="11 haneli" />
+            </div>
+            <div>
               <Label>Ana enstrüman (yalnızca hiç enstrüman eklenmezse kullanılır)</Label>
               <Select name="instrument" defaultValue={instrumentOptions?.[0] ?? "Piyano"}>
                 {(instrumentOptions ?? ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]).map((i) => (
@@ -260,10 +265,13 @@ export default async function OgretmenlerPage({
               </Select>
             </div>
             <div>
-              <Label>Haftalık müsaitlik</Label>
-              <TeacherAvailabilityField name="availabilityJson" />
+              <Label>Haftalık müsaitlik (şube bazlı — opsiyonel)</Label>
+              <TeacherAvailabilityField
+                name="availabilityJson"
+                branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
+              />
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Daha sonra öğretmen detay ekranından da düzenlenebilir.
+                Şube seçilmezse pencere tüm şubeler için geçerli sayılır. Daha sonra öğretmen detay ekranından da düzenlenebilir.
               </p>
             </div>
             <Button type="submit" className="w-full">

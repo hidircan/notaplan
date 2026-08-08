@@ -169,6 +169,25 @@ model Teacher {
   graduationYear      Int?
   contractStartDate   DateTime?
   contractEndDate     DateTime?
+  /// Package D — özlük/idari alanlar + çoklu şube ataması. Additive; hepsi
+  /// opsiyonel, legacy kayıtlar kırılmaz. `nationalIdCipher`/`birthDate`/
+  /// `address` TS tipinde (Teacher) zaten vardı ama hiçbir zaman DB'de
+  /// karşılığı yoktu (db modunda hep sessizce kayboluyordu) — burada eklendi.
+  nationalIdCipher      String?   @db.Text
+  nationalIdLast2       String?
+  birthDate             DateTime?
+  address               String?
+  /// Öğretmenin fiilen ders verdiği EK şubeler (birincil `branchId` her
+  /// zaman dahil sayılır, burada tekrar listelenmesi gerekmez).
+  branchIds             Json?
+  /// "tam_zamanli" | "yari_zamanli" | "serbest"
+  employmentType        String?
+  hireDate              DateTime?
+  /// Set edilmişse hireDate'ten önce olamaz (validation.ts).
+  terminationDate       DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  personnelNotes        String?   @db.Text
   color           String
   students        Student[]
   lessons         Lesson[]

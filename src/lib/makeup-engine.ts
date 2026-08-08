@@ -22,6 +22,7 @@ import type {
   Room,
   Teacher,
 } from "./types";
+import { availabilityForBranch, isTeacherSchedulable, teacherServesBranch } from "./teacher-branches";
 
 function parseHm(hm: string) {
   const [h, m] = hm.split(":").map(Number);
@@ -66,9 +67,9 @@ function roomFree(
   });
 }
 
-function teacherAvailableOnDay(teacher: Teacher, day: Date, start: Date, end: Date) {
+function teacherAvailableOnDay(teacher: Teacher, day: Date, start: Date, end: Date, branchId: BranchId) {
   const dow = getDay(day);
-  const windows = teacher.availability.filter((a) => a.dayOfWeek === dow);
+  const windows = availabilityForBranch(teacher.availability, branchId).filter((a) => a.dayOfWeek === dow);
   if (!windows.length) return false;
   return windows.some((w) => {
     const { h: sh, m: sm } = parseHm(w.start);
@@ -200,11 +201,21 @@ export function validateLessonSlot(
 
   const teacher = data.teachers.find((t) => t.id === input.teacherId);
   if (!teacher) return fail("TEACHER_NOT_FOUND");
-  if (!teacher.active) return fail("TEACHER_INACTIVE");
+  // Package D — pasif VEYA işten ayrılmış (terminationDate geçmiş) öğretmen
+  // hiçbir planlama akışında aday olamaz; yalnız `active` bayrağına
+  // güvenmek, admin unutup güncellemediğinde yanlış pozitif üretebilirdi.
+  if (!isTeacherSchedulable(teacher)) return fail("TEACHER_INACTIVE");
   if (!teacher.instruments.includes(context.instrument)) {
     return fail("TEACHER_INSTRUMENT_MISMATCH");
   }
-  if (!teacherAvailableOnDay(teacher, day, start, end)) return fail("TEACHER_UNAVAILABLE");
+
+  const room = data.rooms.find((r) => r.id === input.roomId);
+  if (!room) return fail("ROOM_NOT_FOUND");
+  if (!roomSupports(room, context.instrument)) return fail("ROOM_INSTRUMENT_MISMATCH");
+  // Package D — öğretmen odanın şubesinde fiilen ders veriyor olmalı
+  // (birincil VEYA ek atanmış şube); tek-şube eşitliği yerine.
+  if (!teacherServesBranch(teacher, room.branchId)) return fail("ROOM_BRANCH_MISMATCH");
+  if (!teacherAvailableOnDay(teacher, day, start, end, room.branchId)) return fail("TEACHER_UNAVAILABLE");
   if (!teacherFree(teacher.id, start, end, data.lessons, options?.excludeLessonId)) {
     return fail("TEACHER_CONFLICT");
   }
@@ -212,10 +223,6 @@ export function validateLessonSlot(
     return fail("TEACHER_DAILY_LIMIT");
   }
 
-  const room = data.rooms.find((r) => r.id === input.roomId);
-  if (!room) return fail("ROOM_NOT_FOUND");
-  if (!roomSupports(room, context.instrument)) return fail("ROOM_INSTRUMENT_MISMATCH");
-  if (room.branchId !== teacher.branchId) return fail("ROOM_BRANCH_MISMATCH");
   if (!roomFree(room.id, start, end, data.lessons, options?.excludeLessonId)) {
     return fail("ROOM_CONFLICT");
   }
@@ -259,7 +266,7 @@ export function suggestMakeupSlots(
 
   const candidates = data.teachers.filter(
     (t) =>
-      t.active &&
+      isTeacherSchedulable(t) &&
       t.instruments.includes(request.instrument as Teacher["instruments"][number])
   );
 
@@ -267,8 +274,10 @@ export function suggestMakeupSlots(
   candidates.sort((a, b) => {
     if (a.id === request.teacherId) return -1;
     if (b.id === request.teacherId) return 1;
-    if (a.branchId === request.branchId && b.branchId !== request.branchId) return -1;
-    if (b.branchId === request.branchId && a.branchId !== request.branchId) return 1;
+    const aServes = teacherServesBranch(a, request.branchId);
+    const bServes = teacherServesBranch(b, request.branchId);
+    if (aServes && !bServes) return -1;
+    if (bServes && !aServes) return 1;
     return 0;
   });
 
@@ -299,7 +308,7 @@ export function suggestMakeupSlots(
       if (isBefore(cursor, now)) continue;
 
       for (const teacher of candidates) {
-        const teacherRooms = roomsFallback.filter((r) => r.branchId === teacher.branchId);
+        const teacherRooms = roomsFallback.filter((r) => teacherServesBranch(teacher, r.branchId));
         let matched: ValidatedSlot | null = null;
         for (const room of teacherRooms) {
           const result = validateLessonSlot(data, request, {
@@ -325,7 +334,7 @@ export function suggestMakeupSlots(
           reasons.push("Alternatif öğretmen (aynı enstrüman)");
         }
 
-        if (teacher.branchId === request.branchId) {
+        if (teacherServesBranch(teacher, request.branchId)) {
           score += 15;
           reasons.push("Aynı şube");
         } else {

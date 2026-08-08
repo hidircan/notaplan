@@ -14,6 +14,7 @@ import type {
   StudentTermType,
   Teacher,
   TeacherFeeRule,
+  TeacherProfilePatch,
 } from "./types";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
@@ -56,6 +57,8 @@ type StoreApi = {
     instruments: Teacher["instruments"],
     instrumentLevels: Teacher["instrumentLevels"]
   ) => Promise<Teacher | null>;
+  /** Package D — özlük/idari alanlar + ek şube ataması. */
+  updateTeacherProfile: (teacherId: string, patch: TeacherProfilePatch) => Promise<Teacher | null>;
   addPackage: (input: import("./packages").PackageInput) => Promise<import("./packages").PackageMutationResult>;
   updatePackage: (
     packageId: string,
@@ -285,6 +288,13 @@ export async function updateTeacherInstruments(
   instrumentLevels: Teacher["instrumentLevels"]
 ): Promise<Teacher | null> {
   return withTenantScope(() => store.updateTeacherInstruments(teacherId, instruments, instrumentLevels));
+}
+
+export async function updateTeacherProfile(
+  teacherId: string,
+  patch: TeacherProfilePatch
+): Promise<Teacher | null> {
+  return withTenantScope(() => store.updateTeacherProfile(teacherId, patch));
 }
 
 export async function addPackage(

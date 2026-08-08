@@ -45,6 +45,7 @@ import {
   updateStudentProfile,
   updateTeacherAvailability,
   updateTeacherInstruments,
+  updateTeacherProfile,
   updateTeacherFeeRule,
   switchLessonOpsFlagLive,
   upsertMonthlyPlanPayment,
@@ -75,6 +76,7 @@ import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-schedul
 import { DEFAULT_LESSON_DURATION_MINUTES } from "../lesson-duration";
 import { computeMonthlyFee } from "../packages";
 import type { LessonDurationMinutes } from "../lesson-duration";
+import { isTeacherSchedulable, teacherServesBranch } from "../teacher-branches";
 import {
   buildSeriesPreviewText,
   checkSeriesOccurrences,
@@ -213,6 +215,7 @@ import {
   updateStudentProfileSchema,
   updateStudentPaymentProfileSchema,
   updateTeacherInstrumentsSchema,
+  updateTeacherProfileSchema,
   createPackageSchema,
   updatePackageSchema,
   socialMediaConsentSchema,
@@ -588,14 +591,17 @@ export async function findAvailableTeachersTool(
   if (!v.ok) return v;
 
   const data = await readData();
-  let teachers = data.teachers.filter((t) => t.active);
+  // Package D — pasif/işten ayrılmış öğretmen aday olarak asla dönmez;
+  // şube filtresi (verildiyse) birincil + ek atanmış şubeleri birlikte
+  // değerlendirir (teacherServesBranch), yalnız tek `branchId` alanına değil.
+  let teachers = data.teachers.filter((t) => isTeacherSchedulable(t));
   if (v.data.instrument) {
     teachers = teachers.filter((t) =>
       t.instruments.includes(v.data.instrument as Instrument)
     );
   }
   if (v.data.branchId) {
-    teachers = teachers.filter((t) => t.branchId === v.data.branchId);
+    teachers = teachers.filter((t) => teacherServesBranch(t, v.data.branchId as string));
   }
 
   return ok({
@@ -902,8 +908,8 @@ export async function createStudentTool(
     if (!teacher) {
       return fail("VALIDATION_ERROR", "Seçilen öğretmen bulunamadı veya bu kuruma ait değil.");
     }
-    if (!teacher.active) {
-      return fail("VALIDATION_ERROR", `"${teacher.name}" pasif — aktif bir öğretmen seçin.`);
+    if (!isTeacherSchedulable(teacher)) {
+      return fail("VALIDATION_ERROR", `"${teacher.name}" pasif/işten ayrılmış — aktif bir öğretmen seçin.`);
     }
     if (!teacher.instruments.includes(v.data.instrument as Instrument)) {
       return fail(
@@ -1193,6 +1199,44 @@ export async function updateTeacherInstrumentsTool(
     return ok({ teacherId: v.data.teacherId });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTeacherInstruments failed");
+  }
+}
+
+/**
+ * Package D — öğretmen özlük/idari alanları + ek şube ataması. T.C. kimlik
+ * ayrı `setNationalIdTool`'dan (mevcut tek doğrulama/şifreleme/audit yolu).
+ * Yalnız SCHOOL_ADMIN/SUPER_ADMIN — özlük verisi hassas, TEACHER kendi
+ * kaydını bile bu yoldan değiştiremez.
+ */
+export async function updateTeacherProfileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ teacherId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateTeacherProfileSchema, input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const teacher = data.teachers.find((t) => t.id === v.data.teacherId);
+  if (!teacher) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+
+  if (v.data.branchIds) {
+    const invalid = v.data.branchIds.find(
+      (bId) => !data.settings.branches.some((b) => b.id === bId)
+    );
+    if (invalid) return fail("VALIDATION_ERROR", `Geçersiz şube: "${invalid}".`);
+  }
+
+  try {
+    const { teacherId, ...patch } = v.data;
+    const updated = await updateTeacherProfile(teacherId, patch);
+    if (!updated) return fail("NOT_FOUND", "Öğretmen bulunamadı");
+    audit(ctx, "teacher.profile_update", "Teacher", teacherId, patch);
+    return ok({ teacherId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTeacherProfile failed");
   }
 }
 
@@ -2625,6 +2669,16 @@ export async function reviewTeacherAvailabilityRequestTool(
     const existing = await getAvailabilityRequest(ctx.tenantId, v.data.requestId);
     if (!existing) return fail("NOT_FOUND", "Müsaitlik önerisi bulunamadı.");
 
+    if (v.data.decision === "approved") {
+      const data = await readData();
+      const invalidBranch = existing.proposedAvailability.find(
+        (w) => w.branchId && !data.settings.branches.some((b) => b.id === w.branchId)
+      );
+      if (invalidBranch) {
+        return fail("VALIDATION_ERROR", `Öneride geçersiz bir şube var: "${invalidBranch.branchId}".`);
+      }
+    }
+
     const reviewed = await reviewAvailabilityRequest(ctx.tenantId, v.data.requestId, {
       status: v.data.decision,
       reviewNote: v.data.reviewNote,
@@ -3602,7 +3656,11 @@ export async function setNationalIdTool(
         nationalIdLast2: last2,
       });
     } else {
-      return fail("VALIDATION_ERROR", "Öğretmen T.C. güncelleme bu sürümde yakında.");
+      const updated = await updateTeacherProfile(v.data.entityId, {
+        nationalIdCipher: cipher,
+        nationalIdLast2: last2,
+      });
+      if (!updated) return fail("NOT_FOUND", "Öğretmen bulunamadı");
     }
     audit(ctx, "pii.national_id.set", v.data.entity === "student" ? "Student" : "Teacher", v.data.entityId, {
       last2,

@@ -23,6 +23,7 @@ import type {
   StudentProfilePatch,
   Teacher,
   TeacherFeeRule,
+  TeacherProfilePatch,
 } from "./types";
 import {
   suggestMakeupSlots,
@@ -328,6 +329,21 @@ export async function updateTeacherInstruments(
   const idx = data.teachers.findIndex((t) => t.id === teacherId);
   if (idx === -1) return null;
   const updated: Teacher = { ...data.teachers[idx], instruments, instrumentLevels };
+  const teachers = [...data.teachers];
+  teachers[idx] = updated;
+  save({ ...data, teachers });
+  return updated;
+}
+
+/** Package D — özlük/idari alanlar + ek şube ataması. `updateStudentProfile` ile aynı desen. */
+export async function updateTeacherProfile(
+  teacherId: string,
+  patch: TeacherProfilePatch
+): Promise<Teacher | null> {
+  const data = load();
+  const idx = data.teachers.findIndex((t) => t.id === teacherId);
+  if (idx === -1) return null;
+  const updated: Teacher = { ...data.teachers[idx], ...patch };
   const teachers = [...data.teachers];
   teachers[idx] = updated;
   save({ ...data, teachers });

@@ -23,6 +23,7 @@ import { formatDate, formatMoney } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
 import { computeTeacherEarningsForPeriod } from "@/lib/teacher-payout";
 import { TeacherInstrumentsEditor } from "@/components/teacher-instruments-editor";
+import { TeacherProfileEditor } from "@/components/teacher-profile-editor";
 import { BackButton } from "@/components/back-button";
 import { TeacherArchiveAction } from "@/components/teacher-archive-action";
 
@@ -206,8 +207,65 @@ export default async function TeacherDetailPage({
             <Field label="Mezuniyet yılı" value={teacher.graduationYear ? String(teacher.graduationYear) : "Belirtilmemiş"} />
             <Field label="Şube" value={branch?.name ?? "—"} />
             <Field label="Günlük ders limiti" value={String(teacher.maxDailyLessons)} />
+            <Field
+              label="Ek atanmış şubeler"
+              value={
+                (teacher.branchIds ?? [])
+                  .map((id) => data.settings.branches.find((b) => b.id === id)?.name)
+                  .filter(Boolean)
+                  .join(", ") || "Yok"
+              }
+            />
+            <Field
+              label="Çalışma türü"
+              value={
+                teacher.employmentType === "tam_zamanli"
+                  ? "Tam zamanlı"
+                  : teacher.employmentType === "yari_zamanli"
+                    ? "Yarı zamanlı"
+                    : teacher.employmentType === "serbest"
+                      ? "Serbest"
+                      : "Belirtilmemiş"
+              }
+            />
+            <Field label="İşe giriş" value={teacher.hireDate ? formatDate(teacher.hireDate) : "Belirtilmemiş"} />
+            <Field label="Ayrılış" value={teacher.terminationDate ? formatDate(teacher.terminationDate) : "—"} />
+            <Field
+              label="Sözleşme"
+              value={
+                teacher.contractStartDate
+                  ? `${formatDate(teacher.contractStartDate)} – ${teacher.contractEndDate ? formatDate(teacher.contractEndDate) : "belirsiz"}`
+                  : "Belirtilmemiş"
+              }
+            />
+            <Field label="Acil durum kişisi" value={teacher.emergencyContactName || "Belirtilmemiş"} />
+            <Field label="Acil durum telefonu" value={teacher.emergencyContactPhone || "Belirtilmemiş"} />
           </dl>
         </Card>
+
+        {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+          <div className="mt-3">
+            <h3 className="mb-2 text-xs font-semibold text-[var(--color-text-muted)]">Özlük Bilgilerini Düzenle</h3>
+            <TeacherProfileEditor
+              teacherId={teacher.id}
+              primaryBranchId={teacher.branchId}
+              branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
+              hasNationalId={!!teacher.nationalIdCipher}
+              initial={{
+                branchIds: teacher.branchIds,
+                employmentType: teacher.employmentType,
+                hireDate: teacher.hireDate?.slice(0, 10),
+                terminationDate: teacher.terminationDate?.slice(0, 10),
+                contractStartDate: teacher.contractStartDate?.slice(0, 10),
+                contractEndDate: teacher.contractEndDate?.slice(0, 10),
+                address: teacher.address,
+                emergencyContactName: teacher.emergencyContactName,
+                emergencyContactPhone: teacher.emergencyContactPhone,
+                personnelNotes: teacher.personnelNotes,
+              }}
+            />
+          </div>
+        ) : null}
       </section>
 
       <section id="uzmanlik" className="mb-8 scroll-mt-4">
