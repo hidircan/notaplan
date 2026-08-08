@@ -18,6 +18,10 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function str(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 function summarizeOne(result: ToolResultLike): string {
   if (!result.ok) {
     return `❌ ${result.tool} çalıştırılamadı: ${result.error || "bilinmeyen hata"}.`;
@@ -64,6 +68,40 @@ function summarizeOne(result: ToolResultLike): string {
       return slots.length > 0
         ? `${slots.length} uygun telafi slotu bulundu — en yüksek puanlı seçenek en üstte listelenir.`
         : "Uygun telafi slotu bulunamadı — öğretmen/oda müsaitliği veya çakışma olabilir.";
+    }
+    case "findPersonSchedule": {
+      const matchType = typeof data?.matchType === "string" ? data.matchType : undefined;
+      if (matchType === "none") {
+        return `"${str(data?.query) ?? ""}" adında kayıtlı bir öğrenci/öğretmen bulunamadı.`;
+      }
+      if (matchType === "ambiguous") {
+        const names = asArray(data?.candidates)
+          .map((c) => asRecord(c))
+          .filter((r): r is Record<string, unknown> => Boolean(r))
+          .map((c) => `${str(c.name) ?? "?"} (${c.kind === "teacher" ? "öğretmen" : "öğrenci"})`)
+          .join(", ");
+        return `Birden fazla eşleşme bulundu: ${names}. Hangisini kastettiğinizi belirtin.`;
+      }
+      if (matchType === "student" || matchType === "teacher") {
+        const name = str(data?.name) ?? "Kişi";
+        const lessons = asArray(data?.upcomingLessons)
+          .map((l) => asRecord(l))
+          .filter((r): r is Record<string, unknown> => Boolean(r));
+        if (lessons.length === 0) return `${name} için planlanmış yaklaşan ders bulunamadı.`;
+        const startAt = str(lessons[0].startAt);
+        const when = startAt
+          ? new Date(startAt).toLocaleString("tr-TR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "?";
+        const more = lessons.length > 1 ? ` (+${lessons.length - 1} ders daha)` : "";
+        return `${name}'in bir sonraki dersi: ${when}${more}.`;
+      }
+      return "Kişi bilgisi işlendi.";
     }
     case "findAvailableTeachers": {
       const teachers = asArray(data?.teachers);

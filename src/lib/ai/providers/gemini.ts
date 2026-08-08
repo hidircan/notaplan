@@ -12,16 +12,50 @@ export type GeminiConfig = {
   timeoutMs?: number;
 };
 
-function toolsToGemini(tools: ToolDescriptor[]) {
+/**
+ * Gemini's `functionDeclarations[].parameters` accepts only a restricted
+ * subset of JSON Schema. These are all valid JSON Schema keywords — zod 4's
+ * `toJSONSchema()` (see `agent/registry.ts`'s `zodToJsonSchemaLite`) emits
+ * `$schema`/`additionalProperties` on every object schema and
+ * `propertyNames` on `z.record()` schemas — but Gemini's API rejects a
+ * request outright if any of them are present anywhere in `parameters`.
+ */
+const GEMINI_UNSUPPORTED_SCHEMA_KEYS = new Set(["$schema", "additionalProperties", "propertyNames"]);
+
+/**
+ * Recursively strips Gemini-incompatible keys from a JSON Schema object,
+ * without mutating the input. Only ever called for Gemini's own request
+ * body — every other provider (`openai-compatible.ts`, `heuristic.ts`)
+ * keeps using `ToolDescriptor.inputSchema` exactly as `zodToJsonSchemaLite`
+ * produced it.
+ */
+export function sanitizeSchemaForGemini(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map((item) => sanitizeSchemaForGemini(item));
+  }
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (GEMINI_UNSUPPORTED_SCHEMA_KEYS.has(key)) continue;
+    result[key] = sanitizeSchemaForGemini(value);
+  }
+  return result;
+}
+
+export function toolsToGemini(tools: ToolDescriptor[]) {
   return [
     {
       functionDeclarations: tools.map((t) => ({
         name: t.name,
         description: t.description,
-        parameters: t.inputSchema || {
-          type: "object",
-          properties: {},
-        },
+        parameters: sanitizeSchemaForGemini(
+          t.inputSchema || {
+            type: "object",
+            properties: {},
+          }
+        ),
       })),
     },
   ];

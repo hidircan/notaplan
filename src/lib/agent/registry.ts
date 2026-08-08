@@ -21,6 +21,7 @@ import {
   createTeacherTool,
   findAvailableSlotsTool,
   findAvailableTeachersTool,
+  findPersonScheduleTool,
   getParentBalanceTool,
   getStudentScheduleTool,
   getTeacherScheduleTool,
@@ -184,6 +185,19 @@ export const TOOL_REGISTRY: Record<AgentToolName, ToolDefinition<any, any>> = {
     }),
     requiredRoles: STAFF,
     execute: (ctx, input) => getTeacherScheduleTool(ctx, input),
+  },
+  findPersonSchedule: {
+    name: "findPersonSchedule",
+    description:
+      "Resolve a person's NAME (student or teacher, not an id) to their next few upcoming " +
+      "lessons. Use this whenever the user refers to someone by name instead of an id — " +
+      "e.g. \"when is Can's lesson\", \"Ayşe öğretmenin programı\". Returns matchType: " +
+      "'none' (no match), 'ambiguous' (multiple people matched — ask which one), or " +
+      "'student'/'teacher' (single match, with upcomingLessons).",
+    inputSchema: z.object({ query: z.string().min(1) }),
+    outputSchema: z.object({ matchType: z.string() }).passthrough(),
+    requiredRoles: ALL,
+    execute: (ctx, input) => findPersonScheduleTool(ctx, input),
   },
   getParentBalance: {
     name: "getParentBalance",

@@ -44,10 +44,16 @@ export type MemoryQuery = {
   workflowId?: string;
   queryText?: string;
   scopes?: MemoryScope[];
+  /** topK for semantic search (alias of limit) */
+  topK?: number;
   limit?: number;
+  /** Minimum cosine similarity (default from MEMORY_MIN_SCORE) */
+  minScore?: number;
+  /** Optional precomputed query embedding */
+  queryEmbedding?: number[];
 };
 
-/** Future: swap FileMemoryStore for VectorMemoryStore implementing this */
+/** Record store — vectors may be dual-written to VectorStore */
 export interface MemoryBackend {
   upsert(record: Omit<MemoryRecord, "id" | "createdAt" | "updatedAt"> & { id?: string }): Promise<MemoryRecord>;
   list(tenantId: string, filter?: Partial<Pick<MemoryRecord, "scope" | "scopeKey" | "kind">>): Promise<MemoryRecord[]>;

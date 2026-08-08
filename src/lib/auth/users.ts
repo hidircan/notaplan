@@ -76,6 +76,20 @@ const BOOTSTRAP: BootstrapUser[] = [
     role: "AI_AGENT",
     tenantId: DEFAULT_TENANT_ID,
   },
+  {
+    /**
+     * İkinci kurum (Test Kampüs) için ayrı bir SCHOOL_ADMIN — çoklu-kurum
+     * demoda kurum izolasyonunu (SCHOOL_ADMIN'in yalnızca kendi kurumunu
+     * görmesi) gerçek, ayrı bir hesapla doğrulamak için eklendi. Kimliği
+     * DEFAULT_TENANT_ID'den FARKLI bir tenantId'ye bağlıdır — mevcut
+     * admin@niluferacar.com.tr hesabıyla çakışmaz.
+     */
+    userId: "user_admin_test_kampus",
+    email: "admin@testkampus.notaplan.app",
+    password: process.env.AUTH_TEST_ADMIN_PASSWORD || "demo-test-admin",
+    role: "SCHOOL_ADMIN",
+    tenantId: "tenant_test_kampus",
+  },
 ];
 
 const HASHED = BOOTSTRAP.map((u) => ({

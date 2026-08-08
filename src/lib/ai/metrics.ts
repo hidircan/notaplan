@@ -6,7 +6,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "../config";
-import { getProviderConfig } from "./config";
+import { getProviderConfig, resolveChainProviderConfig } from "./config";
+import { PROVIDER_CHAIN, type ProviderId } from "./provider-chain";
 
 export type AiExecutionRecord = {
   id: string;
@@ -231,4 +232,44 @@ export async function checkProviderHealth(): Promise<ProviderHealth> {
     await setProviderHealth(health);
     return health;
   }
+}
+
+export type ChainProviderHealth = {
+  id: ProviderId;
+  configured: boolean;
+  status: "healthy" | "unconfigured";
+  model?: string;
+  message: string;
+};
+
+/**
+ * Presence-only health for EVERY provider in `PROVIDER_CHAIN` — distinct
+ * from `checkProviderHealth()` above, which probes only the chat
+ * orchestrator's single active provider. No live network ping (same
+ * "config presence = configured" honesty as `checkProviderHealth()`), and
+ * never includes API keys/tokens — only whether one is set and which model
+ * would be used.
+ */
+export async function checkAllProviderHealth(): Promise<ChainProviderHealth[]> {
+  return PROVIDER_CHAIN.map(({ id }): ChainProviderHealth => {
+    const cfg = resolveChainProviderConfig(id);
+    if (!cfg.configured) {
+      return {
+        id,
+        configured: false,
+        status: id === "heuristic" ? "healthy" : "unconfigured",
+        message:
+          id === "heuristic"
+            ? "Offline heuristic provider"
+            : "Gerekli API anahtarı/env değişkeni tanımlı değil.",
+      };
+    }
+    return {
+      id,
+      configured: true,
+      status: "healthy",
+      model: "model" in cfg ? cfg.model : undefined,
+      message: "Yapılandırılmış (env üzerinden).",
+    };
+  });
 }

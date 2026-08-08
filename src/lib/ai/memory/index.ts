@@ -15,3 +15,11 @@ export {
   deleteMemory,
   rememberFact,
 } from "./service";
+export {
+  getVectorStore,
+  getEmbeddingService,
+  getVectorConfig,
+  FileVectorStore,
+  PgVectorStore,
+  QdrantStore,
+} from "./vector";

@@ -18,6 +18,7 @@ import type { AgentToolName } from "../agent/types";
 import { recordAiExecution } from "./metrics";
 import { withRetry } from "./retry";
 import { createExecutionPlan, getExecutableToolCalls } from "./planner";
+import { describeIdentity, isIdentityQuestion, summarizeToolResults } from "./response-shaping";
 
 export type ChatTurnResult = {
   conversation: Conversation;
@@ -174,6 +175,15 @@ export async function runChatTurn(args: {
   let { conversation } = prep;
   const { text, provider, tools, history, ctx } = prep;
 
+  // Deterministic, provider-independent — never let the LLM guess its own
+  // identity (it may hallucinate a wrong name). No plan/tool/narrate call,
+  // no billable AI execution recorded, since none actually ran.
+  if (isIdentityQuestion(text)) {
+    const assistantMessage = newMessage("assistant", describeIdentity());
+    conversation = await appendMessages(ctx.tenantId, ctx.userId, conversation.id, [assistantMessage]);
+    return { conversation, assistantMessage, toolMessages: [], provider: provider.name };
+  }
+
   const cfg = getProviderConfig();
   let plan;
   const planT0 = Date.now();
@@ -274,16 +284,14 @@ export async function runChatTurn(args: {
       error: e instanceof Error ? e.message : "narrate failed",
       billableUnits: 1,
     });
-    assistantText =
-      toolResults.length > 0
-        ? `Araçlar çalıştı ancak özetleme başarısız: ${e instanceof Error ? e.message : "hata"}`
-        : plan.assistantText;
+    assistantText = toolResults.length > 0 ? summarizeToolResults(toolResults) : plan.assistantText;
   }
 
   if (!assistantText) {
     assistantText = toolResults.length
-      ? "İşlem tamamlandı."
-      : "Size nasıl yardımcı olabilirim?";
+      ? summarizeToolResults(toolResults)
+      : 'Bu isteği hangi göreve yönlendireceğimi belirleyemedim. Örnek: "s1 öğrencisinin bakiyesi", ' +
+        '"t2 öğretmeninin programı", "m1 için telafi slotu öner".';
   }
 
   const assistantMessage = newMessage("assistant", assistantText);
@@ -327,6 +335,23 @@ export async function* streamChatTurn(args: {
       provider: provider.name,
     };
 
+    if (isIdentityQuestion(text)) {
+      const assistantText = describeIdentity();
+      for (let i = 0; i < assistantText.length; i += 12) {
+        yield { type: "token", text: assistantText.slice(i, i + 12) };
+      }
+      const assistantMessage = newMessage("assistant", assistantText);
+      conversation = await appendMessages(ctx.tenantId, ctx.userId, conversation.id, [assistantMessage]);
+      yield {
+        type: "done",
+        conversationId: conversation.id,
+        messages: conversation.messages,
+        assistantMessage,
+        provider: provider.name,
+      };
+      return;
+    }
+
     let plan;
     try {
       plan = await provider.plan({ messages: history, tools });
@@ -361,10 +386,10 @@ export async function* streamChatTurn(args: {
           { userMessage: text, toolResults },
           (token) => tokens.push(token)
         );
-      } catch (e) {
-        assistantText = await provider.narrate({ userMessage: text, toolResults }).catch(
-          () => `Araçlar tamamlandı. Özet hatası: ${e instanceof Error ? e.message : "hata"}`
-        );
+      } catch {
+        assistantText = await provider
+          .narrate({ userMessage: text, toolResults })
+          .catch(() => summarizeToolResults(toolResults));
         tokens.length = 0;
       }
       if (tokens.length) {
@@ -384,15 +409,16 @@ export async function* streamChatTurn(args: {
       }
       if (!assistantText) {
         assistantText = toolResults.length
-          ? "İşlem tamamlandı."
-          : "Size nasıl yardımcı olabilirim?";
+          ? summarizeToolResults(toolResults)
+          : 'Bu isteği hangi göreve yönlendireceğimi belirleyemedim. Örnek: "s1 öğrencisinin bakiyesi", ' +
+            '"t2 öğretmeninin programı", "m1 için telafi slotu öner".';
       }
       for (let i = 0; i < assistantText.length; i += 12) {
         yield { type: "token", text: assistantText.slice(i, i + 12) };
       }
     }
 
-    if (!assistantText) assistantText = "İşlem tamamlandı.";
+    if (!assistantText) assistantText = summarizeToolResults(toolResults) || "İşlem tamamlandı.";
 
     const assistantMessage = newMessage("assistant", assistantText);
     conversation = await appendMessages(ctx.tenantId, ctx.userId, conversation.id, [

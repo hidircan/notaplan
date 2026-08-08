@@ -1,12 +1,14 @@
 /**
- * File/memory backend for AI memories.
- * Designed so a VectorMemoryStore (pgvector/Qdrant/Pinecone) can replace this later.
+ * File memory record store + semantic search via VectorStore/EmbeddingService.
+ * Memory Layer stays independent of embedding/vector provider implementations.
  */
 
 import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "../../config";
 import type { MemoryBackend, MemoryQuery, MemoryRecord } from "./types";
+import { getEmbeddingService, getVectorStore } from "./vector";
+import { cosineSimilarity } from "./vector/math";
 
 type StoreShape = { records: MemoryRecord[] };
 
@@ -45,22 +47,33 @@ async function save(data: StoreShape): Promise<void> {
   }
 }
 
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((t) => t.length > 1);
+function defaultTopK(q: MemoryQuery) {
+  return q.topK ?? q.limit ?? Number(process.env.MEMORY_TOP_K || 10);
 }
 
-/** Naive lexical score — replaced by cosine(embedding) with vector DB later */
-function scoreText(content: string, query?: string): number {
-  if (!query) return 0.5;
-  const q = new Set(tokenize(query));
-  if (!q.size) return 0.5;
-  const tokens = tokenize(content);
-  let hit = 0;
-  for (const t of tokens) if (q.has(t)) hit += 1;
-  return hit / q.size;
+function defaultMinScore(q: MemoryQuery) {
+  return q.minScore ?? Number(process.env.MEMORY_MIN_SCORE || 0.25);
+}
+
+function scopeFilter(query: MemoryQuery, r: MemoryRecord): boolean {
+  const scopes = query.scopes || ["conversation", "user", "tenant", "workflow"];
+  if (!scopes.includes(r.scope)) return false;
+  if (r.scope === "conversation" && query.conversationId) {
+    return r.scopeKey === query.conversationId;
+  }
+  if (r.scope === "user" && query.userId) {
+    return r.scopeKey === query.userId;
+  }
+  if (r.scope === "tenant") {
+    return r.scopeKey === query.tenantId;
+  }
+  if (r.scope === "workflow" && query.workflowId) {
+    return r.scopeKey === query.workflowId;
+  }
+  if (r.scope === "workflow" && !query.workflowId) return true;
+  if (r.scope === "conversation" && !query.conversationId) return false;
+  if (r.scope === "user" && !query.userId) return false;
+  return true;
 }
 
 export class FileMemoryStore implements MemoryBackend {
@@ -69,39 +82,93 @@ export class FileMemoryStore implements MemoryBackend {
   ): Promise<MemoryRecord> {
     const data = await load();
     const now = new Date().toISOString();
+
+    // Generate embedding on write when missing
+    let embedding = record.embedding ?? null;
+    let embeddingModel = record.embeddingModel ?? null;
+    if (!embedding && record.content) {
+      try {
+        const emb = getEmbeddingService();
+        embedding = await emb.embed(record.content);
+        embeddingModel = emb.model;
+      } catch {
+        embedding = null;
+      }
+    }
+
+    let saved: MemoryRecord;
     if (record.id) {
       const idx = data.records.findIndex(
         (r) => r.id === record.id && r.tenantId === record.tenantId
       );
       if (idx >= 0) {
-        const next: MemoryRecord = {
+        saved = {
           ...data.records[idx],
           ...record,
           id: record.id,
           updatedAt: now,
-          embedding: record.embedding ?? data.records[idx].embedding ?? null,
+          embedding: embedding ?? data.records[idx].embedding ?? null,
+          embeddingModel: embeddingModel ?? data.records[idx].embeddingModel ?? null,
         };
-        data.records[idx] = next;
+        data.records[idx] = saved;
         await save(data);
-        return next;
+      } else {
+        saved = {
+          id: record.id,
+          createdAt: now,
+          updatedAt: now,
+          embedding,
+          embeddingModel,
+          tenantId: record.tenantId,
+          scope: record.scope,
+          kind: record.kind,
+          scopeKey: record.scopeKey,
+          content: record.content,
+          metadata: record.metadata,
+        };
+        data.records.unshift(saved);
+        await save(data);
+      }
+    } else {
+      saved = {
+        id: `mem_${crypto.randomUUID().slice(0, 12)}`,
+        createdAt: now,
+        updatedAt: now,
+        embedding,
+        embeddingModel,
+        tenantId: record.tenantId,
+        scope: record.scope,
+        kind: record.kind,
+        scopeKey: record.scopeKey,
+        content: record.content,
+        metadata: record.metadata,
+      };
+      data.records.unshift(saved);
+      await save(data);
+    }
+
+    // Dual-write vector index
+    if (saved.embedding?.length) {
+      try {
+        const vs = getVectorStore();
+        await vs.upsertVector({
+          id: saved.id,
+          tenantId: saved.tenantId,
+          embedding: saved.embedding,
+          payload: {
+            scope: saved.scope,
+            scopeKey: saved.scopeKey,
+            kind: saved.kind,
+            content: saved.content,
+            metadata: saved.metadata || {},
+          },
+        });
+      } catch {
+        /* vector backend optional */
       }
     }
-    const created: MemoryRecord = {
-      id: record.id || `mem_${crypto.randomUUID().slice(0, 12)}`,
-      createdAt: now,
-      updatedAt: now,
-      embedding: record.embedding ?? null,
-      embeddingModel: record.embeddingModel ?? null,
-      tenantId: record.tenantId,
-      scope: record.scope,
-      kind: record.kind,
-      scopeKey: record.scopeKey,
-      content: record.content,
-      metadata: record.metadata,
-    };
-    data.records.unshift(created);
-    await save(data);
-    return created;
+
+    return saved;
   }
 
   async list(
@@ -120,35 +187,83 @@ export class FileMemoryStore implements MemoryBackend {
 
   async search(query: MemoryQuery): Promise<MemoryRecord[]> {
     const data = await load();
-    const scopes = query.scopes || ["conversation", "user", "tenant", "workflow"];
-    const candidates = data.records.filter((r) => {
-      if (r.tenantId !== query.tenantId) return false;
-      if (!scopes.includes(r.scope)) return false;
-      if (r.scope === "conversation" && query.conversationId) {
-        return r.scopeKey === query.conversationId;
-      }
-      if (r.scope === "user" && query.userId) {
-        return r.scopeKey === query.userId;
-      }
-      if (r.scope === "tenant") {
-        return r.scopeKey === query.tenantId;
-      }
-      if (r.scope === "workflow" && query.workflowId) {
-        return r.scopeKey === query.workflowId;
-      }
-      if (r.scope === "workflow" && !query.workflowId) return true;
-      if (r.scope === "conversation" && !query.conversationId) return false;
-      if (r.scope === "user" && !query.userId) return false;
-      return true;
-    });
+    const topK = defaultTopK(query);
+    const minScore = defaultMinScore(query);
+    const tenantRecords = data.records.filter(
+      (r) => r.tenantId === query.tenantId && scopeFilter(query, r)
+    );
 
-    // TODO(vector): if embedding present, rank by cosine similarity via pgvector/Qdrant/Pinecone
-    const scored = candidates.map((r) => ({
-      ...r,
-      score: scoreText(r.content, query.queryText),
-    }));
+    // Semantic path
+    let queryEmbedding = query.queryEmbedding;
+    if (!queryEmbedding && query.queryText) {
+      try {
+        queryEmbedding = await getEmbeddingService().embed(query.queryText);
+      } catch {
+        queryEmbedding = undefined;
+      }
+    }
+
+    if (queryEmbedding?.length) {
+      // Prefer dedicated vector store
+      try {
+        const vs = getVectorStore();
+        const scopeKeys: string[] = [];
+        if (query.conversationId) scopeKeys.push(query.conversationId);
+        if (query.userId) scopeKeys.push(query.userId);
+        scopeKeys.push(query.tenantId);
+        if (query.workflowId) scopeKeys.push(query.workflowId);
+
+        const hits = await vs.search({
+          tenantId: query.tenantId,
+          embedding: queryEmbedding,
+          topK,
+          minScore,
+          filter: {
+            scopes: query.scopes,
+            // don't over-filter scopeKeys when multiple scopes mixed
+          },
+        });
+
+        const byId = new Map(tenantRecords.map((r) => [r.id, r]));
+        const fromVector: MemoryRecord[] = [];
+        for (const h of hits) {
+          const rec = byId.get(h.id);
+          if (rec && scopeFilter(query, rec)) {
+            fromVector.push({ ...rec, score: h.score });
+          }
+        }
+        if (fromVector.length) return fromVector.slice(0, topK);
+      } catch {
+        /* fall through to in-record cosine */
+      }
+
+      const scored = tenantRecords
+        .map((r) => ({
+          ...r,
+          score: r.embedding?.length
+            ? cosineSimilarity(queryEmbedding!, r.embedding)
+            : -1,
+        }))
+        .filter((r) => (r.score ?? -1) >= minScore)
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+      if (scored.length) return scored.slice(0, topK);
+    }
+
+    // Lexical fallback
+    const q = (query.queryText || "").toLowerCase();
+    const scored = tenantRecords.map((r) => {
+      const c = r.content.toLowerCase();
+      let score = 0.1;
+      if (q && c.includes(q)) score = 0.9;
+      else if (q) {
+        const parts = q.split(/\s+/).filter(Boolean);
+        const hits = parts.filter((p) => c.includes(p)).length;
+        score = parts.length ? hits / parts.length : 0.1;
+      }
+      return { ...r, score };
+    });
     scored.sort((a, b) => (b.score || 0) - (a.score || 0));
-    return scored.slice(0, query.limit ?? 12);
+    return scored.filter((r) => (r.score || 0) >= Math.min(minScore, 0.1)).slice(0, topK);
   }
 
   async delete(tenantId: string, id: string): Promise<boolean> {
@@ -156,9 +271,13 @@ export class FileMemoryStore implements MemoryBackend {
     const before = data.records.length;
     data.records = data.records.filter((r) => !(r.tenantId === tenantId && r.id === id));
     await save(data);
+    try {
+      await getVectorStore().deleteVector({ tenantId, id });
+    } catch {
+      /* ok */
+    }
     return data.records.length < before;
   }
 }
 
-/** Singleton — swap for VectorMemoryStore when VECTOR_BACKEND is set */
 export const memoryStore: MemoryBackend = new FileMemoryStore();

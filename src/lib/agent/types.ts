@@ -23,6 +23,7 @@ export type AgentToolName =
   | "findAvailableTeachers"
   | "getStudentSchedule"
   | "getTeacherSchedule"
+  | "findPersonSchedule"
   | "getParentBalance"
   | "createPayment"
   | "sendParentMessage"

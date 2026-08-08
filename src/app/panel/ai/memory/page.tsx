@@ -50,15 +50,15 @@ export default async function AiMemoryPage() {
           ] as const
         ).map(([label, n]) => (
           <Card key={label} className="!py-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-            <p className="text-2xl font-semibold text-slate-900">{n}</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{n}</p>
           </Card>
         ))}
       </div>
 
       <Card className="overflow-hidden p-0">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="px-3 py-2">Kapsam</th>
               <th className="px-3 py-2">Tür</th>
@@ -70,13 +70,13 @@ export default async function AiMemoryPage() {
           <tbody>
             {memories.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
                   Bellek boş. AI sohbeti veya workflow çalıştırın.
                 </td>
               </tr>
             ) : (
               memories.map((m) => (
-                <tr key={m.id} className="border-b border-slate-50 align-top">
+                <tr key={m.id} className="border-b border-slate-50 align-top dark:border-slate-800">
                   <td className="px-3 py-2">
                     <Badge>{m.scope}</Badge>
                     <span className="mt-1 block max-w-[100px] truncate font-mono text-[10px] text-slate-400">
@@ -84,10 +84,10 @@ export default async function AiMemoryPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs">{m.kind}</td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
+                  <td className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">
                     <p className="max-w-md whitespace-pre-wrap">{m.content}</p>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-[10px] text-slate-500">
+                  <td className="whitespace-nowrap px-3 py-2 text-[10px] text-slate-500 dark:text-slate-400">
                     {formatDateTime(m.updatedAt)}
                   </td>
                   <td className="px-3 py-2">

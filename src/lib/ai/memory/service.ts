@@ -12,16 +12,20 @@ export async function retrieveRelevantMemories(args: {
   conversationId?: string;
   queryText: string;
   limit?: number;
+  topK?: number;
+  minScore?: number;
 }): Promise<MemoryRecord[]> {
-  const { ctx, conversationId, queryText, limit } = args;
-  // Tenant isolation: only this tenant
+  const { ctx, conversationId, queryText, limit, topK, minScore } = args;
+  // Tenant isolation: only this tenant (from ServiceContext / JWT)
   return memoryStore.search({
     tenantId: ctx.tenantId,
     userId: ctx.userId,
     conversationId,
     queryText,
     scopes: ["conversation", "user", "tenant", "workflow"],
-    limit: limit ?? 10,
+    limit: limit ?? topK ?? Number(process.env.MEMORY_TOP_K || 10),
+    topK: topK ?? limit ?? Number(process.env.MEMORY_TOP_K || 10),
+    minScore: minScore ?? Number(process.env.MEMORY_MIN_SCORE || 0.25),
   });
 }
 
@@ -48,7 +52,7 @@ export async function rememberFact(args: {
   content: string;
   metadata?: Record<string, unknown>;
 }): Promise<MemoryRecord> {
-  // Enforce tenant from context only
+  // Enforce tenant from context only; embedding generated inside store.upsert
   return memoryStore.upsert({
     tenantId: args.ctx.tenantId,
     scope: args.scope,
@@ -60,8 +64,6 @@ export async function rememberFact(args: {
       writtenBy: args.ctx.userId,
       role: args.ctx.role,
     },
-    embedding: null,
-    embeddingModel: null,
   });
 }
 

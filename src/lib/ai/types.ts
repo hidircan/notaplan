@@ -29,7 +29,17 @@ export type LlmProviderName =
   | "grok"
   | "claude"
   | "gemini"
-  | "local";
+  | "local"
+  // Provider-chain runtime additions (Sprint: Real Multi-Provider Runtime) —
+  // Groq Cloud / Cerebras Cloud / NVIDIA NIM are OpenAI-compatible and reuse
+  // `providers/openai-compatible.ts`; Cloudflare Workers AI has its own
+  // adapter (`providers/cloudflare-workers-ai.ts`). Distinct from "grok"
+  // (xAI, `api.x.ai`) above — "groq" is Groq Cloud (`api.groq.com`), a
+  // different company despite the near-identical name.
+  | "groq"
+  | "cerebras"
+  | "nvidiaNim"
+  | "cloudflareAi";
 
 export type LlmToolCall = {
   tool: AgentToolName;
