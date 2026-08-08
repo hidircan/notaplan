@@ -585,6 +585,42 @@ export const createDocumentInstanceSchema = z.object({
   trialLessonId: z.string().optional(),
   branchId: z.string().optional(),
   fieldValues: z.record(z.string(), z.string()).default({}),
+  /** Aynı isteğin tekrarında (ör. çift tıklama) duplicate belge üretmemek için opsiyonel istemci anahtarı. */
+  idempotencyKey: z.string().max(200).optional(),
+});
+
+/** Evraklar — şablon oluşturma/düzenleme. `bodyHtml` burada değil, tools.ts'te (createTemplate/updateTemplate) sanitize edilir. */
+export const createDocumentTemplateSchema = z.object({
+  kind: z.enum([
+    "student_enrollment_contract",
+    "parent_social_media_consent",
+    "kvkk",
+    "teacher_contract",
+    "teacher_info_form",
+    "trial_form",
+    "makeup_request",
+    "payment_commitment",
+    "petition",
+    "custom",
+  ]),
+  name: z.string().min(1).max(200),
+  bodyHtml: z.string().min(1).max(200_000),
+});
+
+export const updateDocumentTemplateSchema = z.object({
+  templateId: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  bodyHtml: z.string().min(1).max(200_000).optional(),
+});
+
+export const archiveDocumentTemplateSchema = z.object({
+  templateId: z.string().min(1),
+  active: z.boolean(),
+});
+
+export const deleteSignedDocumentVersionSchema = z.object({
+  documentId: z.string().min(1),
+  versionId: z.string().min(1),
 });
 
 export const socialMediaConsentSchema = z.object({

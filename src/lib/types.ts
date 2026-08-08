@@ -904,6 +904,10 @@ export interface DocumentTemplate {
   name: string;
   bodyHtml: string;
   active: boolean;
+  /** Şablonu oluşturan yönetici — varsayılan (otomatik seed) şablonlarda yok. */
+  createdById?: string;
+  /** Her güncellemede +1 — "oluşturma/versiyon bilgisi" gereksinimi. */
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -927,12 +931,34 @@ export interface DocumentInstance {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  /** İmzalı/taranmış sürüm — yüklenince status "uploaded" olur. */
+  /** İmzalı/taranmış sürüm (GÜNCEL/aktif olan) — yüklenince status "uploaded" olur. */
   fileName?: string;
   fileMimeType?: string;
   fileData?: string;
+  fileSize?: number;
   signedUploadedAt?: string;
+  /** İmzalı sürümü yükleyen sorumlu (kural E — "imzalanma tarihi/sorumlusu kaydedilsin"). */
+  signedBy?: string;
+  /**
+   * İmzalı sürüm YÜKLEME geçmişi (metadata) — her yükleme yeni bir kayıt
+   * ekler, ÜZERİNE YAZMAZ. `deletedAt` set edilmiş kayıt soft-delete'tir.
+   * Yalnızca METADATA tutulur (fileName/fileMimeType/fileSize/uploadedAt/
+   * uploadedBy) — eski sürümlerin ham dosya baytı AYRICA saklanmaz (yeni
+   * ağır depolama katmanı eklememek için bilinçli sınır); "güncel" sürümün
+   * ham verisi yukarıdaki `fileData` alanındadır.
+   */
+  signedVersions?: DocumentSignedVersion[];
 }
+
+export type DocumentSignedVersion = {
+  id: string;
+  fileName: string;
+  fileMimeType: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  deletedAt?: string;
+};
 
 /** MEB seviye 1–8; LCM serbest; diğer türlerde yok */
 export function isMebStudentType(t?: StudentType): boolean {

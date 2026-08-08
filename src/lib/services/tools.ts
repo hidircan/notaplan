@@ -56,6 +56,7 @@ import { resolveDayStatus, isWeeklyClosedDayForTerm } from "../attendance-calend
 import {
   setSocialMediaConsent,
   getLatestSocialMediaConsent,
+  listSocialMediaConsentHistory,
 } from "../social-media-consent";
 import {
   createInstrumentCatalogEntry,
@@ -192,6 +193,10 @@ import {
   updateRoomSchema,
   setNationalIdSchema,
   createDocumentInstanceSchema,
+  createDocumentTemplateSchema,
+  updateDocumentTemplateSchema,
+  archiveDocumentTemplateSchema,
+  deleteSignedDocumentVersionSchema,
   startLessonSchema,
   studentSchema,
   suggestLessonSlotsSchema,
@@ -305,13 +310,18 @@ import type { StudentCurriculumTopic, DocumentInstance, TeacherFeedbackStatus } 
 import { createTrialLesson, listTrialLessons, updateTrialLessonStatus, getTrialLesson } from "../trial-lessons";
 import {
   listTemplates,
+  listAllTemplates,
   getTemplate,
+  createTemplate,
+  updateTemplate,
+  archiveTemplate,
   createDocumentInstance,
   markDocumentPrinted,
   listDocumentsForStudent,
   listDocumentInstances,
   archiveDocumentInstance,
   uploadSignedDocumentFile,
+  softDeleteSignedVersion,
   type DocumentInstanceFilters,
 } from "../documents";
 import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
@@ -1174,6 +1184,31 @@ export async function getSocialMediaConsentTool(
 
   const consent = await getLatestSocialMediaConsent(ctx.tenantId, v.data.studentId);
   return ok({ consent });
+}
+
+/**
+ * Evraklar Faz 2 — onam denetim izi (kural F: "geri çekilme tarihi/nedeni",
+ * denetlenebilirlik). `setSocialMediaConsent` HER değişiklikte yeni bir
+ * satır ekliyordu ama hiçbir tool bu tarihçeyi dışarı açmıyordu — bu tool
+ * yalnızca OKUR, mevcut audit/tarihçe modelini genişletmez.
+ */
+export async function listSocialMediaConsentHistoryTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ history: Awaited<ReturnType<typeof listSocialMediaConsentHistory>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(z.object({ studentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const data = await readData();
+  const student = data.students.find((s) => s.id === v.data.studentId);
+  const access = assertStudentAccess(ctx, student, v.data.studentId);
+  if (!access.ok) return fail(access.code, access.message);
+
+  const history = await listSocialMediaConsentHistory(ctx.tenantId, v.data.studentId);
+  return ok({ history });
 }
 
 export async function createBranchTool(
@@ -3553,6 +3588,88 @@ export async function listDocumentTemplatesTool(
   }
 }
 
+/** Şablon yönetim ekranı için — arşivlenmiş (pasif) DAHİL tüm şablonlar. Admin-only. */
+export async function listAllDocumentTemplatesTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ templates: Awaited<ReturnType<typeof listAllTemplates>> }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    const templates = await listAllTemplates(ctx.tenantId);
+    return ok({ templates });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "listAllTemplates failed");
+  }
+}
+
+/** Yönetici yeni şablon oluşturur — `bodyHtml` sunucuda sanitize edilir (script/iframe/event handler/javascript: URL elenir). */
+export async function createDocumentTemplateTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ templateId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(createDocumentTemplateSchema, input);
+  if (!v.ok) return v;
+  try {
+    const tpl = await createTemplate({
+      tenantId: ctx.tenantId,
+      kind: v.data.kind,
+      name: v.data.name,
+      bodyHtml: v.data.bodyHtml,
+      createdById: ctx.userId,
+    });
+    audit(ctx, "document_template.create", "DocumentTemplate", tpl.id, { kind: tpl.kind, name: tpl.name });
+    return ok({ templateId: tpl.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createDocumentTemplate failed");
+  }
+}
+
+/** Yönetici şablon düzenler — `bodyHtml` verilirse yeniden sanitize edilir, `version` +1 olur. */
+export async function updateDocumentTemplateTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ templateId: string; version: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(updateDocumentTemplateSchema, input);
+  if (!v.ok) return v;
+  try {
+    const tpl = await updateTemplate(ctx.tenantId, v.data.templateId, {
+      name: v.data.name,
+      bodyHtml: v.data.bodyHtml,
+    });
+    if (!tpl) return fail("NOT_FOUND", "Şablon bulunamadı veya bu kuruma ait değil.");
+    audit(ctx, "document_template.update", "DocumentTemplate", tpl.id, { version: tpl.version });
+    return ok({ templateId: tpl.id, version: tpl.version });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateDocumentTemplate failed");
+  }
+}
+
+/** Silme yok — arşivleme `active:false`/geri açma `active:true` yapar. */
+export async function archiveDocumentTemplateTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ templateId: string; active: boolean }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(archiveDocumentTemplateSchema, input);
+  if (!v.ok) return v;
+  try {
+    const tpl = await archiveTemplate(ctx.tenantId, v.data.templateId, v.data.active);
+    if (!tpl) return fail("NOT_FOUND", "Şablon bulunamadı veya bu kuruma ait değil.");
+    audit(ctx, "document_template.archive", "DocumentTemplate", tpl.id, { active: tpl.active });
+    return ok({ templateId: tpl.id, active: tpl.active });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveDocumentTemplate failed");
+  }
+}
+
+/** Aynı `idempotencyKey` ile 60sn içinde tekrar çağrılırsa yeni belge YARATILMAZ, mevcut olan döner. */
+const DOCUMENT_IDEMPOTENCY_WINDOW_MS = 60_000;
+
 export async function createDocumentInstanceTool(
   ctx: ServiceContext,
   input: unknown
@@ -3562,16 +3679,47 @@ export async function createDocumentInstanceTool(
   const v = parseOrFail(createDocumentInstanceSchema, input);
   if (!v.ok) return v;
   const tpl = await getTemplate(ctx.tenantId, v.data.templateId);
-  if (!tpl) return fail("NOT_FOUND", "Şablon bulunamadı");
+  if (!tpl) return fail("NOT_FOUND", "Şablon bulunamadı veya bu kuruma ait değil.");
+
   const data = await readData();
+
+  // MT-güvenlik — sahte/başka-tenant öğrenci veya öğretmen ID'si sessizce
+  // yok sayılmaz, açıkça reddedilir (`data.students`/`data.teachers` zaten
+  // tenant-scoped — cross-tenant bir ID burada asla "bulunur" görünmez).
   const student = v.data.studentId ? data.students.find((s) => s.id === v.data.studentId) : undefined;
+  if (v.data.studentId && !student) {
+    return fail("VALIDATION_ERROR", "Seçilen öğrenci bulunamadı veya bu kuruma ait değil.");
+  }
+  const teacher = v.data.teacherId ? data.teachers.find((t) => t.id === v.data.teacherId) : undefined;
+  if (v.data.teacherId && !teacher) {
+    return fail("VALIDATION_ERROR", "Seçilen öğretmen bulunamadı veya bu kuruma ait değil.");
+  }
+
+  // Basit tekrar-koruması: aynı kullanıcı, aynı şablon, aynı idempotencyKey
+  // ile kısa süre içinde tekrar çağrılırsa (ör. çift tıklama) yeni belge
+  // YARATILMAZ, en son eşleşen belge döner.
+  if (v.data.idempotencyKey) {
+    const cutoff = Date.now() - DOCUMENT_IDEMPOTENCY_WINDOW_MS;
+    const existing = await listDocumentInstances(ctx.tenantId, { studentId: v.data.studentId });
+    const dup = existing.find(
+      (d) =>
+        d.templateId === tpl.id &&
+        d.createdBy === ctx.userId &&
+        d.fieldValues.__idempotencyKey === v.data.idempotencyKey &&
+        new Date(d.createdAt).getTime() >= cutoff
+    );
+    if (dup) return ok({ documentId: dup.id, reference: dup.reference });
+  }
+
   const branch = student
     ? data.settings.branches.find((b) => b.id === student.branchId)
     : v.data.branchId
       ? data.settings.branches.find((b) => b.id === v.data.branchId)
       : undefined;
+  const nowTr = new Date().toLocaleDateString("tr-TR");
   const autoFields: Record<string, string> = {
-    date: new Date().toLocaleDateString("tr-TR"),
+    // Legacy düz anahtarlar (mevcut varsayılan şablonlar bunları kullanıyor — bozmuyoruz).
+    date: nowTr,
     studentName: student?.name ?? "",
     parentName: student?.parentName ?? "",
     branchName: branch?.name ?? "",
@@ -3586,7 +3734,23 @@ export async function createDocumentInstanceTool(
     scopes: "",
     name: "",
     phone: "",
+    // MT — Evraklar Faz 2 noktalı placeholder seti. `{{document.referenceNumber}}`/
+    // `{{document.createdAt}}` referans/oluşturma anındaki id'ye bağlı olduğu
+    // için burada henüz bilinmiyor — renderedHtml, documents/index.ts
+    // createDocumentInstance içinde reference ÜRETİLDİKTEN SONRA ayrıca
+    // enjekte edilir (bkz. o fonksiyondaki `{ ...fieldValues, reference }`).
+    // Eksik veri için TÜMÜ güvenli boş string'e düşer (renderTemplate zaten
+    // bulunamayan anahtar için "" döner) — asla hata fırlatmaz.
+    "institution.name": data.settings.name ?? "",
+    "institution.address": branch?.address ?? "",
+    "student.fullName": student?.name ?? "",
+    "student.birthDate": student?.birthDate ? new Date(student.birthDate).toLocaleDateString("tr-TR") : "",
+    "parent.fullName": student?.parentName ?? "",
+    "parent.phone": student?.parentPhone ?? "",
+    "teacher.fullName": teacher?.name ?? "",
+    currentDate: nowTr,
     ...v.data.fieldValues,
+    ...(v.data.idempotencyKey ? { __idempotencyKey: v.data.idempotencyKey } : {}),
   };
   try {
     const doc = await createDocumentInstance({
@@ -3600,7 +3764,12 @@ export async function createDocumentInstanceTool(
       branchId: v.data.branchId ?? student?.branchId,
       createdBy: ctx.userId,
     });
-    audit(ctx, "document.create", "DocumentInstance", doc.id, { reference: doc.reference });
+    audit(ctx, "document.create", "DocumentInstance", doc.id, {
+      reference: doc.reference,
+      kind: doc.kind,
+      studentId: doc.studentId,
+      teacherId: doc.teacherId,
+    });
     return ok({ documentId: doc.id, reference: doc.reference });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createDocument failed");
@@ -3717,12 +3886,54 @@ export async function archiveDocumentInstanceTool(
 
 const uploadSignedDocumentSchema = z.object({
   documentId: z.string().min(1),
-  fileName: z.string().min(1),
-  fileMimeType: z.string().min(1),
-  fileData: z.string().max(2_800_000),
+  fileName: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."), "Geçersiz dosya adı"),
+  fileMimeType: z.string().min(1).max(100),
+  fileData: z.string().min(1).max(2_800_000),
 });
 
-/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur, dosya tipi/boyutu Zod'da doğrulanır. */
+/**
+ * Evraklar — imzalı sürüm dosya güvenliği. Sabit allowlist (PDF + güvenli
+ * görsel türleri), yasak uzantı denylist'i (task-attachments ile aynı
+ * desen), boş/aşırı boyut reddi. Yeni depolama sağlayıcısı YOK — mevcut
+ * base64-in-DB deseni (TeachingMaterial/HomeworkSubmission/TaskAttachment).
+ */
+const DOCUMENT_SIGNED_FILE_ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+const DOCUMENT_SIGNED_FILE_DISALLOWED_EXT =
+  /\.(exe|sh|bat|cmd|com|msi|dll|js|mjs|cjs|html?|svg|php\d?|jar|apk|ps1|vbs|scr|jsp)$/i;
+const DOCUMENT_SIGNED_FILE_MAX_BYTES = 2_000_000;
+
+function validateSignedDocumentFilePayload(input: {
+  fileName: string;
+  fileMimeType: string;
+  fileData: string;
+}): { ok: true; byteLength: number } | { ok: false; message: string } {
+  if (DOCUMENT_SIGNED_FILE_DISALLOWED_EXT.test(input.fileName)) {
+    return { ok: false, message: "Bu dosya türüne izin verilmiyor." };
+  }
+  if (!DOCUMENT_SIGNED_FILE_ALLOWED_MIME.has(input.fileMimeType)) {
+    return { ok: false, message: "Desteklenmeyen dosya türü — yalnız PDF veya görsel (PNG/JPEG/WEBP) yükleyin." };
+  }
+  let byteLength = 0;
+  try {
+    byteLength = Buffer.from(input.fileData, "base64").length;
+  } catch {
+    return { ok: false, message: "Dosya verisi okunamadı." };
+  }
+  if (byteLength <= 0) return { ok: false, message: "Boş dosya yüklenemez." };
+  if (byteLength > DOCUMENT_SIGNED_FILE_MAX_BYTES) return { ok: false, message: "Dosya çok büyük (maks. 2MB)." };
+  return { ok: true, byteLength };
+}
+
+/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur, imzalayan+zaman kaydedilir, önceki sürüm geçmişte kalır. */
 export async function uploadSignedDocumentTool(
   ctx: ServiceContext,
   input: unknown
@@ -3731,17 +3942,50 @@ export async function uploadSignedDocumentTool(
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
   const v = parseOrFail(uploadSignedDocumentSchema, input);
   if (!v.ok) return v;
+
+  const fileCheck = validateSignedDocumentFilePayload(v.data);
+  if (!fileCheck.ok) return fail("VALIDATION_ERROR", fileCheck.message);
+
   try {
-    const doc = await uploadSignedDocumentFile(ctx.tenantId, v.data.documentId, {
+    const doc = await uploadSignedDocumentFile(
+      ctx.tenantId,
+      v.data.documentId,
+      {
+        fileName: v.data.fileName,
+        fileMimeType: v.data.fileMimeType,
+        fileData: v.data.fileData,
+        fileSize: fileCheck.byteLength,
+      },
+      ctx.userId
+    );
+    if (!doc) return fail("NOT_FOUND", "Belge bulunamadı.");
+    audit(ctx, "document.upload_signed", "DocumentInstance", doc.id, {
       fileName: v.data.fileName,
-      fileMimeType: v.data.fileMimeType,
-      fileData: v.data.fileData,
+      fileSize: fileCheck.byteLength,
     });
-    if (!doc) return fail("NOT_FOUND", "Belge bulunamadı");
-    audit(ctx, "document.upload_signed", "DocumentInstance", doc.id, { fileName: v.data.fileName });
     return ok({ documentId: doc.id, status: doc.status });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "uploadSignedDocument failed");
+  }
+}
+
+/** Yalnız yükleyen sorumlu veya tenant yöneticisi (her admin zaten TASK_ADMIN eşdeğeri) kaldırabilir — soft-delete, audit'li. */
+export async function deleteSignedDocumentVersionTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; status: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(deleteSignedDocumentVersionSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const doc = await softDeleteSignedVersion(ctx.tenantId, v.data.documentId, v.data.versionId);
+    if (!doc) return fail("NOT_FOUND", "Belge veya sürüm kaydı bulunamadı.");
+    audit(ctx, "document.signed_version_delete", "DocumentInstance", doc.id, { versionId: v.data.versionId });
+    return ok({ documentId: doc.id, status: doc.status });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "deleteSignedDocumentVersion failed");
   }
 }
 

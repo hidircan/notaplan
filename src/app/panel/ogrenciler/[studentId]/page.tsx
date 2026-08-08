@@ -35,6 +35,7 @@ import { maskNationalId } from "@/lib/pii/tc-identity";
 import { canViewFullNationalId } from "@/lib/pii";
 import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
+import { documentKindLabel } from "@/lib/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -235,12 +236,18 @@ export default async function StudentDetailPage({
             <Field
               label="Sosyal medya izni"
               value={
+                // Faz 2 — geri çekilmiş/reddedilmiş izin sessizce "verildi" ile
+                // karışmasın diye HER durum ayrı, açık bir Türkçe etiketle
+                // gösterilir; "hiç kayıt yok" ile "reddedildi" birbirinden
+                // görünür biçimde ayrıştırılır (kural F).
                 socialMediaConsent
                   ? socialMediaConsent.status === "granted"
-                    ? `Var — ${formatDate(socialMediaConsent.grantedAt)}`
+                    ? `Verildi — ${formatDate(socialMediaConsent.grantedAt)}`
                     : socialMediaConsent.status === "withdrawn"
                       ? `Geri çekildi — ${socialMediaConsent.withdrawnAt ? formatDate(socialMediaConsent.withdrawnAt) : "—"}`
-                      : "Yok"
+                      : socialMediaConsent.status === "denied"
+                        ? `Verilmedi — ${formatDate(socialMediaConsent.grantedAt)}`
+                        : `Süresi doldu — ${formatDate(socialMediaConsent.grantedAt)}`
                   : "Henüz kaydedilmemiş"
               }
             />
@@ -500,8 +507,15 @@ export default async function StudentDetailPage({
               <Card key={d.id} className="!p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium text-[var(--color-text)]">{d.reference}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{formatDate(d.createdAt)}</p>
+                    <Link
+                      href={`/panel/evraklar/${d.id}`}
+                      className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      {d.reference}
+                    </Link>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {documentKindLabel(d.kind)} · {formatDate(d.createdAt)}
+                    </p>
                   </div>
                   <Badge status={d.status}>{d.status}</Badge>
                 </div>

@@ -16,8 +16,18 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
-/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur. */
-export function DocumentSignedUpload({ documentId }: { documentId: string }) {
+/**
+ * İmzalı/taranmış sürüm yükleme — status "uploaded" olur. Zaten bir sürüm
+ * varsa (`hasExisting`) da tekrar çağrılabilir: ÜZERİNE YAZMAZ, yeni bir
+ * sürüm geçmişi kaydı ekler (bkz. documents/index.ts uploadSignedDocumentFile).
+ */
+export function DocumentSignedUpload({
+  documentId,
+  hasExisting = false,
+}: {
+  documentId: string;
+  hasExisting?: boolean;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -54,14 +64,14 @@ export function DocumentSignedUpload({ documentId }: { documentId: string }) {
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,image/*"
+        accept="application/pdf,image/png,image/jpeg,image/webp"
         disabled={busy}
         onChange={(e) => void onUpload(e)}
         className="hidden"
         aria-label="İmzalı sürüm yükle"
       />
       <Button variant="secondary" onClick={() => inputRef.current?.click()} disabled={busy}>
-        {busy ? "Yükleniyor…" : "İmzalı Sürüm Yükle"}
+        {busy ? "Yükleniyor…" : hasExisting ? "Yeni Sürüm Yükle" : "İmzalı Sürüm Yükle"}
       </Button>
       {error ? (
         <p className="mt-1 text-xs font-medium text-[var(--color-danger)]" role="alert">

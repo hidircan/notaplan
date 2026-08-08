@@ -11,6 +11,8 @@ export type DocumentRow = {
   reference: string;
   kindLabel: string;
   personName: string;
+  /** Öğrenciyle ilişkiliyse veli adı — arama alanına dahil edilir (kural A: "veli adı" ile arama). */
+  parentName?: string;
   branchName?: string;
   status: string;
   createdAt: string;
@@ -31,6 +33,15 @@ export function DocumentsTable({ rows }: { rows: DocumentRow[] }) {
   const kindFilter = searchParams.getAll("kind");
   const statusFilter = searchParams.getAll("status");
   const branchFilter = searchParams.getAll("branch");
+  const fromDate = searchParams.get("from") ?? "";
+  const toDate = searchParams.get("to") ?? "";
+
+  function setDateParam(key: "from" | "to", value: string) {
+    updateParams((params) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
+  }
 
   function updateParams(mutate: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
@@ -74,15 +85,24 @@ export function DocumentsTable({ rows }: { rows: DocumentRow[] }) {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (query && !r.reference.toLowerCase().includes(query) && !r.personName.toLowerCase().includes(query)) return false;
+      if (
+        query &&
+        !r.reference.toLowerCase().includes(query) &&
+        !r.personName.toLowerCase().includes(query) &&
+        !(r.parentName ?? "").toLowerCase().includes(query)
+      )
+        return false;
       if (kindFilter.length && !kindFilter.includes(r.kindLabel)) return false;
       if (statusFilter.length && !statusFilter.includes(r.status)) return false;
       if (branchFilter.length && !(r.branchName && branchFilter.includes(r.branchName))) return false;
+      if (fromDate && r.createdAt.slice(0, 10) < fromDate) return false;
+      if (toDate && r.createdAt.slice(0, 10) > toDate) return false;
       return true;
     });
-  }, [rows, search, kindFilter, statusFilter, branchFilter]);
+  }, [rows, search, kindFilter, statusFilter, branchFilter, fromDate, toDate]);
 
-  const anyFilterActive = Boolean(search) || kindFilter.length > 0 || statusFilter.length > 0 || branchFilter.length > 0;
+  const anyFilterActive =
+    Boolean(search) || kindFilter.length > 0 || statusFilter.length > 0 || branchFilter.length > 0 || Boolean(fromDate) || Boolean(toDate);
 
   return (
     <>
@@ -92,8 +112,8 @@ export function DocumentsTable({ rows }: { rows: DocumentRow[] }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Referans veya kişi ara..."
-            aria-label="Referans veya kişi ara"
+            placeholder="Referans, başlık, öğrenci veya veli adı ara..."
+            aria-label="Referans, başlık, öğrenci veya veli adı ara"
             className="w-full max-w-xs rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]/30 sm:w-auto"
           />
           {anyFilterActive ? (
@@ -110,6 +130,32 @@ export function DocumentsTable({ rows }: { rows: DocumentRow[] }) {
           <FilterChips label="Evrak türü" options={kindOptions} selected={kindFilter} onToggle={(v) => toggleMulti("kind", v, kindFilter)} />
           <FilterChips label="Durum" options={statusOptions} selected={statusFilter} onToggle={(v) => toggleMulti("status", v, statusFilter)} />
           <FilterChips label="Şube" options={branchOptions} selected={branchFilter} onToggle={(v) => toggleMulti("branch", v, branchFilter)} />
+        </div>
+        <div className="grid max-w-sm grid-cols-2 gap-3">
+          <div>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+              Başlangıç tarihi
+            </p>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setDateParam("from", e.target.value)}
+              aria-label="Başlangıç tarihi"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+            />
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+              Bitiş tarihi
+            </p>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setDateParam("to", e.target.value)}
+              aria-label="Bitiş tarihi"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+            />
+          </div>
         </div>
         <p className="text-xs font-medium text-[var(--color-text-muted)]">
           Toplam {rows.length} evrak{anyFilterActive ? ` · Filtre sonucu ${filtered.length}` : ""}

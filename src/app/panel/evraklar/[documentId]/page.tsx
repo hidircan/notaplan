@@ -7,6 +7,7 @@ import { listAuditLogs } from "@/lib/audit/log";
 import { readData } from "@/lib/store";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DocumentSignedUpload } from "@/components/document-signed-upload";
+import { DocumentSignedVersions, type SignedVersionRow } from "@/components/document-signed-versions";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,14 @@ export default async function DocumentDetailPage({
         description={documentKindLabel(doc.kind)}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/evrak-yazdir/${doc.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Yazdırma görünümü
+            </Link>
             {canCreateTask ? (
               <Link
                 href={`/panel/is-takip?newTaskDocumentId=${doc.id}&returnTo=${encodeURIComponent(
@@ -95,16 +104,20 @@ export default async function DocumentDetailPage({
                   <p className="text-sm font-medium text-[var(--color-text)]">{doc.fileName}</p>
                   <p className="text-xs text-[var(--color-text-muted)]">
                     Yüklendi: {doc.signedUploadedAt ? formatDateTime(doc.signedUploadedAt) : "—"}
+                    {doc.signedBy ? ` · Yükleyen: ${doc.signedBy}` : ""}
                   </p>
                 </div>
-                <a
-                  href={`/api/v1/documents/${doc.id}/file`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
-                >
-                  Görüntüle / indir
-                </a>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={`/api/v1/documents/${doc.id}/file`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+                  >
+                    Görüntüle / indir
+                  </a>
+                  <DocumentSignedUpload documentId={doc.id} hasExisting />
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-between gap-2">
@@ -112,6 +125,27 @@ export default async function DocumentDetailPage({
                 <DocumentSignedUpload documentId={doc.id} />
               </div>
             )}
+            {(doc.signedVersions ?? []).length > 0 ? (
+              <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+                  Sürüm geçmişi
+                </p>
+                <DocumentSignedVersions
+                  documentId={doc.id}
+                  versions={(doc.signedVersions ?? []).map(
+                    (v): SignedVersionRow => ({
+                      id: v.id,
+                      fileName: v.fileName,
+                      fileSize: v.fileSize,
+                      uploadedAt: v.uploadedAt,
+                      uploadedBy: v.uploadedBy,
+                      deletedAt: v.deletedAt,
+                      isCurrent: v.fileName === doc.fileName && v.uploadedAt === doc.signedUploadedAt,
+                    })
+                  )}
+                />
+              </div>
+            ) : null}
           </Card>
 
           <Card>

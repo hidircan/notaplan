@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Label, Select } from "@/components/ui";
+
+function randomKey(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function DocumentCreateForm({
   templates,
@@ -18,6 +24,9 @@ export function DocumentCreateForm({
   const [error, setError] = useState<string | null>(null);
   const [lastRef, setLastRef] = useState<string | null>(null);
   const [printHtml, setPrintHtml] = useState<string | null>(null);
+  // Aynı isteğin (ör. çift tıklama) duplicate belge üretmesini önlemek için
+  // istemci-tarafı tekrar anahtarı — başarılı oluşturmadan sonra yenilenir.
+  const idempotencyKeyRef = useRef(randomKey());
 
   async function createDoc() {
     setBusy(true);
@@ -27,7 +36,12 @@ export function DocumentCreateForm({
       const res = await fetch("/api/v1/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId, studentId: studentId || undefined, fieldValues: {} }),
+        body: JSON.stringify({
+          templateId,
+          studentId: studentId || undefined,
+          fieldValues: {},
+          idempotencyKey: idempotencyKeyRef.current,
+        }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -40,6 +54,7 @@ export function DocumentCreateForm({
         return;
       }
       setLastRef(json.data.reference);
+      idempotencyKeyRef.current = randomKey();
       const printRes = await fetch(`/api/v1/documents/${json.data.documentId}/print`, {
         method: "POST",
       });

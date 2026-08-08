@@ -989,15 +989,19 @@ model TrialLesson {
 
 /// PRODUCT_BACKLOG §6 Faz 1
 model DocumentTemplate {
-  id        String   @id
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  kind      String
-  name      String
-  bodyHtml  String   @db.LongText
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind        String
+  name        String
+  bodyHtml    String   @db.LongText
+  active      Boolean  @default(true)
+  /// Şablonu oluşturan yönetici — varsayılan (otomatik seed) şablonlarda null.
+  createdById String?
+  /// Her düzenlemede +1 — "versiyon/oluşturma bilgisi" gereksinimi (Evraklar Faz 2).
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([tenantId, kind])
 }
@@ -1023,7 +1027,13 @@ model DocumentInstance {
   fileName     String?
   fileMimeType String?
   fileData     String?  @db.LongText
+  fileSize     Int?
   signedUploadedAt DateTime?
+  /// İmzalı sürümü yükleyen sorumlu (kural E).
+  signedBy     String?
+  /// Append-only imzalı sürüm YÜKLEME geçmişi (metadata) — bkz.
+  /// src/lib/documents/index.ts uploadSignedDocumentFile/softDeleteSignedVersion.
+  signedVersions Json?
 
   @@unique([tenantId, reference])
   @@index([tenantId, studentId])

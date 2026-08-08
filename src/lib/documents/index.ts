@@ -6,6 +6,7 @@ import path from "path";
 import { isDbMode, resolveDataDir } from "../config";
 import { uid } from "../utils";
 import { buildDocumentReference } from "../document-reference";
+import { sanitizeTemplateHtml } from "../document-sanitize";
 import type {
   DocumentInstance,
   DocumentInstanceStatus,
@@ -87,6 +88,7 @@ export async function ensureDefaultTemplates(tenantId: string): Promise<Document
     name: documentKindLabel(kind),
     bodyHtml,
     active: true,
+    version: 1,
     createdAt: now,
     updatedAt: now,
   }));
@@ -102,6 +104,7 @@ export async function ensureDefaultTemplates(tenantId: string): Promise<Document
           name: t.name,
           bodyHtml: t.bodyHtml,
           active: true,
+          version: 1,
         },
       });
     }
@@ -124,6 +127,8 @@ function mapTplDb(t: {
   name: string;
   bodyHtml: string;
   active: boolean;
+  createdById?: string | null;
+  version?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }): DocumentTemplate {
@@ -133,9 +138,133 @@ function mapTplDb(t: {
     name: t.name,
     bodyHtml: t.bodyHtml,
     active: t.active,
+    createdById: t.createdById ?? undefined,
+    version: t.version ?? 1,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
+}
+
+export type CreateTemplateInput = {
+  tenantId: string;
+  kind: DocumentTemplateKind;
+  name: string;
+  bodyHtml: string;
+  createdById: string;
+};
+
+/** Yönetici tarafından yeni şablon — bodyHtml sanitize edilerek yazılır (XSS savunması). */
+export async function createTemplate(input: CreateTemplateInput): Promise<DocumentTemplate> {
+  const now = new Date().toISOString();
+  const safeBody = sanitizeTemplateHtml(input.bodyHtml);
+  const row: StoredTpl = {
+    id: uid("dtpl"),
+    tenantId: input.tenantId,
+    kind: input.kind,
+    name: input.name,
+    bodyHtml: safeBody,
+    active: true,
+    createdById: input.createdById,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    await prisma.documentTemplate.create({
+      data: {
+        id: row.id,
+        tenantId: row.tenantId,
+        kind: row.kind,
+        name: row.name,
+        bodyHtml: row.bodyHtml,
+        active: true,
+        createdById: input.createdById,
+        version: 1,
+      },
+    });
+  } else {
+    const all = await loadTpl();
+    await saveTpl([...all, row]);
+  }
+  return publicTpl(row);
+}
+
+export type UpdateTemplateInput = {
+  name?: string;
+  bodyHtml?: string;
+};
+
+/** Yönetici tarafından şablon düzenleme — `bodyHtml` verilirse yeniden sanitize edilir, `version` +1 olur. */
+export async function updateTemplate(
+  tenantId: string,
+  id: string,
+  patch: UpdateTemplateInput
+): Promise<DocumentTemplate | null> {
+  const now = new Date().toISOString();
+  const safeBody = patch.bodyHtml !== undefined ? sanitizeTemplateHtml(patch.bodyHtml) : undefined;
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const existing = await prisma.documentTemplate.findFirst({ where: { id, tenantId } });
+    if (!existing) return null;
+    const row = await prisma.documentTemplate.update({
+      where: { id },
+      data: {
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(safeBody !== undefined ? { bodyHtml: safeBody } : {}),
+        version: existing.version + 1,
+      },
+    });
+    return mapTplDb(row);
+  }
+  const all = await loadTpl();
+  const idx = all.findIndex((t) => t.id === id && t.tenantId === tenantId);
+  if (idx === -1) return null;
+  const updated: StoredTpl = {
+    ...all[idx],
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(safeBody !== undefined ? { bodyHtml: safeBody } : {}),
+    version: (all[idx].version ?? 1) + 1,
+    updatedAt: now,
+  };
+  const next = [...all];
+  next[idx] = updated;
+  await saveTpl(next);
+  return publicTpl(updated);
+}
+
+/** Silme yok — arşivleme `active:false` yapar (DocumentInstance ile aynı "soft" desen). */
+export async function archiveTemplate(tenantId: string, id: string, active: boolean): Promise<DocumentTemplate | null> {
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const existing = await prisma.documentTemplate.findFirst({ where: { id, tenantId } });
+    if (!existing) return null;
+    const row = await prisma.documentTemplate.update({ where: { id }, data: { active } });
+    return mapTplDb(row);
+  }
+  const all = await loadTpl();
+  const idx = all.findIndex((t) => t.id === id && t.tenantId === tenantId);
+  if (idx === -1) return null;
+  const updated: StoredTpl = { ...all[idx], active, updatedAt: new Date().toISOString() };
+  const next = [...all];
+  next[idx] = updated;
+  await saveTpl(next);
+  return publicTpl(updated);
+}
+
+/** Yönetim ekranı için — arşivlenmiş DAHİL tüm şablonlar (listTemplates yalnız aktifleri döner). */
+export async function listAllTemplates(tenantId: string): Promise<DocumentTemplate[]> {
+  await ensureDefaultTemplates(tenantId);
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    const rows = await prisma.documentTemplate.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } });
+    return rows.map(mapTplDb);
+  }
+  const all = await loadTpl();
+  return all
+    .filter((t) => t.tenantId === tenantId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(publicTpl);
 }
 
 const KIND_LABELS: Record<DocumentTemplateKind, string> = {
@@ -155,9 +284,42 @@ export function documentKindLabel(kind: DocumentTemplateKind): string {
   return KIND_LABELS[kind] ?? kind;
 }
 
-export function renderTemplate(bodyHtml: string, fields: Record<string, string>): string {
-  return bodyHtml.replace(/\{\{(\w+)\}\}/g, (_, key: string) => fields[key] ?? "");
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
+
+/**
+ * `{{key}}` VEYA `{{namespace.key}}` (ör. `{{student.fullName}}`) —
+ * `fields` düz bir Record olduğu için nokta dahil TÜM anahtar aynen
+ * `fields["student.fullName"]` olarak aranır (çağıran taraf — tools.ts
+ * createDocumentInstanceTool — hem eski düz anahtarları hem yeni
+ * namespace'li anahtarları AYNI `fields` objesinde birlikte doldurur).
+ * Bulunamayan HER placeholder için boş string döner — asla hata fırlatmaz
+ * (kural: eksik veri güvenli/boş davranır).
+ *
+ * GÜVENLİK: değerler HTML-ESCAPE edilerek enjekte edilir — şablonun
+ * KENDİSİ (`bodyHtml`) sanitize edilse bile, alan değerleri (ör. yönetici
+ * tarafından serbest metin olarak girilen `freeText`) ham HTML olarak
+ * yazılırsa ikinci bir XSS yolu açardı. `renderedHtml` sonradan
+ * `dangerouslySetInnerHTML` ile gösterilip yazdırıldığı için bu kritik.
+ */
+export function renderTemplate(bodyHtml: string, fields: Record<string, string>): string {
+  return bodyHtml.replace(/\{\{([\w.]+)\}\}/g, (_, key: string) => escapeHtml(fields[key] ?? ""));
+}
+
+/**
+ * Aynı `reference` tenant içinde ZATEN varsa (istatistiksel olarak imkansıza
+ * yakın ama `instanceId` çakışması dışında da tetiklenebilir — ör. aynı
+ * kind+yıl kombinasyonunda hash çakışması) yeni bir `id` ile tekrar dener.
+ * DB modunda gerçek `@@unique([tenantId, reference])` ihlali (P2002) da
+ * aynı şekilde yeniden denemeyi tetikler — çift kayıt asla DB'ye yazılmaz.
+ */
+const REFERENCE_COLLISION_MAX_RETRY = 3;
 
 export async function createDocumentInstance(input: {
   tenantId: string;
@@ -170,59 +332,81 @@ export async function createDocumentInstance(input: {
   branchId?: string;
   createdBy: string;
 }): Promise<DocumentInstance> {
-  const id = uid("doc");
-  const reference = buildDocumentReference(input.kind, id);
   const tpl = await getTemplate(input.tenantId, input.templateId);
   const body = tpl?.bodyHtml ?? input.fieldValues.__bodyHtml ?? "";
-  const renderedHtml = renderTemplate(body, { ...input.fieldValues, reference });
   const now = new Date().toISOString();
-  const row: StoredInst = {
-    id,
-    tenantId: input.tenantId,
-    templateId: input.templateId,
-    kind: input.kind,
-    reference,
-    status: "draft",
-    studentId: input.studentId,
-    teacherId: input.teacherId,
-    trialLessonId: input.trialLessonId,
-    branchId: input.branchId,
-    fieldValues: input.fieldValues,
-    renderedHtml,
-    printCount: 0,
-    createdBy: input.createdBy,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const year = new Date(now).getFullYear();
 
-  if (isDbMode) {
-    const { prisma } = await import("../db");
-    await prisma.documentInstance.create({
-      data: {
-        id: row.id,
-        tenantId: input.tenantId,
-        templateId: row.templateId,
-        kind: row.kind,
-        reference: row.reference,
-        status: row.status,
-        studentId: row.studentId,
-        teacherId: row.teacherId,
-        trialLessonId: row.trialLessonId,
-        branchId: row.branchId,
-        fieldValues: row.fieldValues,
-        renderedHtml: row.renderedHtml,
-        printCount: 0,
-        createdBy: row.createdBy,
-      },
+  for (let attempt = 0; attempt < REFERENCE_COLLISION_MAX_RETRY; attempt++) {
+    const id = uid("doc");
+    const reference = buildDocumentReference(input.kind, id, year);
+    const renderedHtml = renderTemplate(body, {
+      ...input.fieldValues,
+      reference,
+      "document.referenceNumber": reference,
+      "document.createdAt": now,
     });
-  } else {
-    const all = await loadInst();
-    all.push(row);
-    await saveInst(all);
+    const row: StoredInst = {
+      id,
+      tenantId: input.tenantId,
+      templateId: input.templateId,
+      kind: input.kind,
+      reference,
+      status: "draft",
+      studentId: input.studentId,
+      teacherId: input.teacherId,
+      trialLessonId: input.trialLessonId,
+      branchId: input.branchId,
+      fieldValues: input.fieldValues,
+      renderedHtml,
+      printCount: 0,
+      createdBy: input.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (isDbMode) {
+      const { prisma } = await import("../db");
+      try {
+        await prisma.documentInstance.create({
+          data: {
+            id: row.id,
+            tenantId: input.tenantId,
+            templateId: row.templateId,
+            kind: row.kind,
+            reference: row.reference,
+            status: row.status,
+            studentId: row.studentId,
+            teacherId: row.teacherId,
+            trialLessonId: row.trialLessonId,
+            branchId: row.branchId,
+            fieldValues: row.fieldValues,
+            renderedHtml: row.renderedHtml,
+            printCount: 0,
+            createdBy: row.createdBy,
+          },
+        });
+      } catch (e) {
+        // Prisma P2002 = unique constraint ihlali (tenantId+reference) — yeniden dene.
+        const isUniqueViolation = typeof e === "object" && e !== null && "code" in e && e.code === "P2002";
+        if (isUniqueViolation && attempt < REFERENCE_COLLISION_MAX_RETRY - 1) continue;
+        throw e;
+      }
+    } else {
+      const all = await loadInst();
+      if (all.some((x) => x.tenantId === input.tenantId && x.reference === reference)) {
+        if (attempt < REFERENCE_COLLISION_MAX_RETRY - 1) continue;
+        throw new Error("Belge referans numarası çakışması — lütfen tekrar deneyin.");
+      }
+      all.push(row);
+      await saveInst(all);
+    }
+    const { tenantId: _t, ...pub } = row;
+    void _t;
+    return pub;
   }
-  const { tenantId: _t, ...pub } = row;
-  void _t;
-  return pub;
+  // Buraya asla ulaşılmamalı (döngü içinde her zaman return/throw var) — TS için savunma.
+  throw new Error("Belge oluşturulamadı.");
 }
 
 type DbInstanceRow = {
@@ -244,7 +428,10 @@ type DbInstanceRow = {
   fileName?: string | null;
   fileMimeType?: string | null;
   fileData?: string | null;
+  fileSize?: number | null;
   signedUploadedAt?: Date | null;
+  signedBy?: string | null;
+  signedVersions?: unknown;
 };
 
 function mapDbInstance(r: DbInstanceRow): DocumentInstance {
@@ -267,7 +454,10 @@ function mapDbInstance(r: DbInstanceRow): DocumentInstance {
     fileName: r.fileName ?? undefined,
     fileMimeType: r.fileMimeType ?? undefined,
     fileData: r.fileData ?? undefined,
+    fileSize: r.fileSize ?? undefined,
     signedUploadedAt: r.signedUploadedAt ? r.signedUploadedAt.toISOString() : undefined,
+    signedBy: r.signedBy ?? undefined,
+    signedVersions: (r.signedVersions as DocumentInstance["signedVersions"]) ?? undefined,
   };
 }
 
@@ -299,6 +489,19 @@ export type DocumentInstanceFilters = {
 };
 
 /** Evraklar Merkezi ana tablosu — kurumun TÜM evrak örnekleri, isteğe bağlı filtrelerle. */
+/**
+ * Ham dosya baytını (`fileData`) YANITTAN ÇIKARIR — liste görünümü yalnızca
+ * metadata'ya (fileName/fileMimeType/fileSize/signedUploadedAt) ihtiyaç
+ * duyar; ham içerik yalnızca tekil `getDocumentInstance` (dosya indirme
+ * rotasının okuduğu AYNI fonksiyon) üzerinden, sahiplik kontrolü geçtikten
+ * sonra erişilebilir olmalı (kural E).
+ */
+function stripFileData(doc: DocumentInstance): DocumentInstance {
+  const { fileData: _fd, ...rest } = doc;
+  void _fd;
+  return rest;
+}
+
 export async function listDocumentInstances(
   tenantId: string,
   filters: DocumentInstanceFilters = {}
@@ -319,7 +522,7 @@ export async function listDocumentInstances(
       },
       orderBy: { createdAt: "desc" },
     });
-    return rows.map(mapDbInstance);
+    return rows.map(mapDbInstance).map(stripFileData);
   }
   const all = await loadInst();
   return all
@@ -333,7 +536,7 @@ export async function listDocumentInstances(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map(({ tenantId: _t, ...pub }) => {
       void _t;
-      return pub;
+      return stripFileData(pub);
     });
 }
 
@@ -359,17 +562,33 @@ export async function archiveDocumentInstance(
   return pub;
 }
 
-/** İmzalı/taranmış sürüm yükleme — status "uploaded" olur. */
+/**
+ * İmzalı/taranmış sürüm yükleme — status "uploaded" olur, imzalayan sorumlu
+ * ve zaman kaydedilir. ÖNCEKİ sürüm ÜZERİNE YAZILMAZ: `signedVersions`
+ * geçmişine yeni bir metadata kaydı EKLENİR (append-only), yalnızca GÜNCEL
+ * sürümün ham baytı `fileData`'da tutulur (kural E — "eskisini yok etmek
+ * yerine sürüm geçmişinde tut; en güncel sürüm varsayılan indirilen olsun").
+ */
 export async function uploadSignedDocumentFile(
   tenantId: string,
   id: string,
-  file: { fileName: string; fileMimeType: string; fileData: string }
+  file: { fileName: string; fileMimeType: string; fileData: string; fileSize: number },
+  uploadedBy: string
 ): Promise<DocumentInstance | null> {
   const now = new Date();
+  const versionEntry = {
+    id: uid("dver"),
+    fileName: file.fileName,
+    fileMimeType: file.fileMimeType,
+    fileSize: file.fileSize,
+    uploadedAt: now.toISOString(),
+    uploadedBy,
+  };
   if (isDbMode) {
     const { prisma } = await import("../db");
     const r = await prisma.documentInstance.findFirst({ where: { id, tenantId } });
     if (!r) return null;
+    const existingVersions = Array.isArray(r.signedVersions) ? r.signedVersions : [];
     await prisma.documentInstance.update({
       where: { id },
       data: {
@@ -377,7 +596,11 @@ export async function uploadSignedDocumentFile(
         fileName: file.fileName,
         fileMimeType: file.fileMimeType,
         fileData: file.fileData,
+        fileSize: file.fileSize,
         signedUploadedAt: now,
+        signedBy: uploadedBy,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        signedVersions: [...existingVersions, versionEntry] as any,
       },
     });
     return getDocumentInstance(tenantId, id);
@@ -391,8 +614,71 @@ export async function uploadSignedDocumentFile(
     fileName: file.fileName,
     fileMimeType: file.fileMimeType,
     fileData: file.fileData,
+    fileSize: file.fileSize,
     signedUploadedAt: now.toISOString(),
+    signedBy: uploadedBy,
+    signedVersions: [...(all[idx].signedVersions ?? []), versionEntry],
     updatedAt: now.toISOString(),
+  };
+  await saveInst(all);
+  const { tenantId: _t, ...pub } = all[idx];
+  void _t;
+  return pub;
+}
+
+/**
+ * İmzalı sürüm geçmişinden BİR kaydı soft-delete eder (audit izi kalır,
+ * hard delete YOK — modül geneliyle aynı desen). Silinen kayıt GÜNCEL
+ * (`fileData` ile eşleşen) sürümse, dosya alanları temizlenir ve durum
+ * `sent_for_signature`'a geri döner — eski sürümlerin ham baytı zaten
+ * saklanmadığı için (yalnızca metadata) otomatik bir öncekine "geri dönme"
+ * YAPILAMAZ; yönetici yeniden yükler. Bu sınır kodda ve teslim raporunda
+ * açıkça belirtilir.
+ */
+export async function softDeleteSignedVersion(
+  tenantId: string,
+  documentId: string,
+  versionId: string
+): Promise<DocumentInstance | null> {
+  const now = new Date();
+  const doc = await getDocumentInstance(tenantId, documentId);
+  if (!doc) return null;
+  const versions = doc.signedVersions ?? [];
+  const versionIdx = versions.findIndex((v) => v.id === versionId && !v.deletedAt);
+  if (versionIdx === -1) return null;
+  const nextVersions = versions.map((v, i) => (i === versionIdx ? { ...v, deletedAt: now.toISOString() } : v));
+  const wasCurrent = versions[versionIdx]!.fileName === doc.fileName && versions[versionIdx]!.uploadedAt === doc.signedUploadedAt;
+
+  if (isDbMode) {
+    const { prisma } = await import("../db");
+    await prisma.documentInstance.update({
+      where: { id: documentId },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        signedVersions: nextVersions as any,
+        ...(wasCurrent
+          ? { status: "sent_for_signature", fileName: null, fileMimeType: null, fileData: null, fileSize: null }
+          : {}),
+      },
+    });
+    return getDocumentInstance(tenantId, documentId);
+  }
+  const all = await loadInst();
+  const idx = all.findIndex((x) => x.id === documentId && x.tenantId === tenantId);
+  if (idx < 0) return null;
+  all[idx] = {
+    ...all[idx],
+    signedVersions: nextVersions,
+    updatedAt: now.toISOString(),
+    ...(wasCurrent
+      ? {
+          status: "sent_for_signature" as DocumentInstanceStatus,
+          fileName: undefined,
+          fileMimeType: undefined,
+          fileData: undefined,
+          fileSize: undefined,
+        }
+      : {}),
   };
   await saveInst(all);
   const { tenantId: _t, ...pub } = all[idx];
@@ -440,14 +726,14 @@ export async function listDocumentsForStudent(
       where: { tenantId, studentId },
       orderBy: { createdAt: "desc" },
     });
-    return rows.map(mapDbInstance);
+    return rows.map(mapDbInstance).map(stripFileData);
   }
   const all = await loadInst();
   return all
     .filter((x) => x.tenantId === tenantId && x.studentId === studentId)
     .map(({ tenantId: _t, ...pub }) => {
       void _t;
-      return pub;
+      return stripFileData(pub);
     });
 }
 

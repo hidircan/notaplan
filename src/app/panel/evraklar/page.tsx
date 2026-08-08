@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
-import { listDocumentTemplatesTool, listDocumentInstancesTool } from "@/lib/services";
+import { listDocumentTemplatesTool, listAllDocumentTemplatesTool, listDocumentInstancesTool } from "@/lib/services";
 import { documentKindLabel } from "@/lib/documents";
 import { Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { DocumentsTable, type DocumentRow } from "@/components/documents-table";
+import { DocumentTemplateManager } from "@/components/document-template-manager";
 import { readData } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +27,14 @@ export default async function DocumentsCenterPage({
     redirect("/panel");
   }
 
-  const [templatesResult, documentsResult, data] = await Promise.all([
+  const [templatesResult, allTemplatesResult, documentsResult, data] = await Promise.all([
     listDocumentTemplatesTool(session),
+    listAllDocumentTemplatesTool(session),
     listDocumentInstancesTool(session, studentId ? { studentId } : {}),
     readData(),
   ]);
   const templates = templatesResult.ok ? templatesResult.data.templates : [];
+  const allTemplates = allTemplatesResult.ok ? allTemplatesResult.data.templates : [];
   const documents = documentsResult.ok ? documentsResult.data.documents : [];
   const students = data.students.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
 
@@ -41,16 +44,15 @@ export default async function DocumentsCenterPage({
   const expiredCount = documents.filter((d) => d.status === "expired").length;
 
   const rows: DocumentRow[] = documents.map((d) => {
-    const person =
-      (d.studentId && data.students.find((s) => s.id === d.studentId)?.name) ||
-      (d.teacherId && data.teachers.find((t) => t.id === d.teacherId)?.name) ||
-      "—";
+    const relatedStudent = d.studentId ? data.students.find((s) => s.id === d.studentId) : undefined;
+    const person = relatedStudent?.name || (d.teacherId && data.teachers.find((t) => t.id === d.teacherId)?.name) || "—";
     const branchName = d.branchId ? data.settings.branches.find((b) => b.id === d.branchId)?.shortName : undefined;
     return {
       id: d.id,
       reference: d.reference,
       kindLabel: documentKindLabel(d.kind),
       personName: person,
+      parentName: relatedStudent?.parentName,
       branchName,
       status: d.status,
       createdAt: d.createdAt,
@@ -77,13 +79,27 @@ export default async function DocumentsCenterPage({
           Yeni Evrak Oluştur
         </p>
         {templates.length === 0 ? (
-          <EmptyState title="Şablon yok" description="Kurulum ekranından belge şablonlarını etkinleştirin." />
+          <EmptyState title="Şablon yok" description="Aşağıdaki 'Şablon Yönetimi' bölümünden yeni bir şablon oluşturun." />
         ) : (
           <DocumentCreateForm
             templates={templates.map((t) => ({ id: t.id, name: t.name, kind: t.kind }))}
             students={students}
           />
         )}
+      </Card>
+
+      <Card className="mb-6">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">Şablon Yönetimi</p>
+        <DocumentTemplateManager
+          templates={allTemplates.map((t) => ({
+            id: t.id,
+            name: t.name,
+            kind: t.kind,
+            active: t.active,
+            version: t.version,
+            updatedAt: t.updatedAt,
+          }))}
+        />
       </Card>
 
       {documents.length === 0 ? (

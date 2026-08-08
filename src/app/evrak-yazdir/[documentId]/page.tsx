@@ -1,0 +1,107 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireSessionContext, homePathForRole } from "@/lib/auth/session";
+import { getDocumentInstanceTool } from "@/lib/services";
+import { documentKindLabel } from "@/lib/documents";
+import { readData } from "@/lib/store";
+import { formatDate } from "@/lib/utils";
+import { DocumentPrintActions } from "@/components/document-print-actions";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Evraklar — A4 odaklı, sade yazdırma görünümü. Makbuz sayfasıyla
+ * (`/makbuz/[paymentId]`) AYNI desen: `/panel` layout'unun (sidebar/nav)
+ * DIŞINDA, kendi kök sayfası — böylece tarayıcı yazdırmasında panel
+ * navigasyonu hiç DOM'da yer almaz (gizlemeye gerek yok, zaten yok).
+ * Admin-only; içerik `getDocumentInstanceTool` üzerinden AYNI tenant/RBAC
+ * kontrolünden geçer — belge başka kuruma aitse burada da erişilemez.
+ */
+export default async function DocumentPrintPage({
+  params,
+}: {
+  params: Promise<{ documentId: string }>;
+}) {
+  const { documentId } = await params;
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect(`/login?next=/evrak-yazdir/${documentId}`);
+  }
+  if (session.role !== "SCHOOL_ADMIN" && session.role !== "SUPER_ADMIN") {
+    redirect(homePathForRole(session.role));
+  }
+
+  const result = await getDocumentInstanceTool(session, { documentId });
+  if (!result.ok) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-20 text-center">
+        <p className="text-lg font-semibold text-slate-900">Evrak bulunamadı.</p>
+        <p className="mt-2 text-sm text-slate-500">Bu belge silinmiş olabilir veya kurumunuza ait değil.</p>
+        <Link href="/panel/evraklar" className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700">
+          Evraklar Merkezine dön
+        </Link>
+      </div>
+    );
+  }
+
+  const doc = result.data.document;
+  const data = await readData();
+  const branch = doc.branchId ? data.settings.branches.find((b) => b.id === doc.branchId) : undefined;
+
+  return (
+    <div className="min-h-screen bg-[#f4f2f8] px-4 py-8 print:bg-white print:p-0 sm:px-6">
+      <style>{"@media print { @page { size: A4; margin: 16mm; } }"}</style>
+      <div className="mx-auto max-w-2xl">
+        <DocumentPrintActions backHref={`/panel/evraklar/${doc.id}`} />
+
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
+            <div>
+              <p className="text-lg font-semibold text-slate-900">{data.settings.name}</p>
+              <p className="text-sm text-slate-500">{branch?.address ?? data.settings.city}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Referans</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-slate-700">{doc.reference}</p>
+              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400">Belge Türü</p>
+              <p className="mt-1 text-sm text-slate-700">{documentKindLabel(doc.kind)}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 text-sm text-slate-500">
+            <p>Oluşturulma tarihi: {formatDate(doc.createdAt, "d MMMM yyyy")}</p>
+          </div>
+
+          {doc.renderedHtml ? (
+            <div className="prose prose-sm mt-6 max-w-none border-t border-slate-100 pt-6">
+              <div dangerouslySetInnerHTML={{ __html: doc.renderedHtml }} />
+            </div>
+          ) : (
+            <p className="mt-6 text-sm text-slate-400">İçerik yok.</p>
+          )}
+
+          {/*
+            Şablonun kendi imza/tarih alanları (varsa) `renderedHtml` içinde
+            zaten yer alır ve BOŞ bırakılmışsa sistem bunu ZORLA doldurmaz.
+            Bu aşağıdaki blok, şablondan bağımsız, yazdırma görünümünün genel
+            "imza alanı" iskeletidir (makbuz sayfasıyla aynı konvansiyon).
+          */}
+          <div className="mt-12 flex gap-10 border-t border-slate-100 pt-10 print:break-inside-avoid">
+            <div className="min-w-[200px] max-w-xs flex-1">
+              <div className="h-16 border-b border-slate-400" />
+              <p className="mt-2 text-center text-xs font-medium text-slate-600">Tarih</p>
+            </div>
+            <div className="min-w-[200px] max-w-xs flex-1">
+              <div className="h-16 border-b border-slate-400" />
+              <p className="mt-2 text-center text-xs font-medium text-slate-600">İmza</p>
+            </div>
+          </div>
+
+          <p className="mt-10 text-center text-[11px] text-slate-400">Bu belge sistem tarafından oluşturulmuştur.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
