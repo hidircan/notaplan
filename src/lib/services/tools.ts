@@ -219,6 +219,7 @@ import {
   addTaskCommentSchema,
   updateTaskCommentSchema,
   deleteTaskCommentSchema,
+  updateTaskReminderPreferenceSchema,
   listTasksFilterSchema,
 } from "../validation";
 import {
@@ -270,6 +271,8 @@ import {
   clearTasks,
   type TaskFilter,
 } from "../tasks";
+import { clearTaskReminderLog } from "../task-reminder-log";
+import { getReminderPreference, setReminderPreference, clearReminderPreferences } from "../task-reminder-preferences";
 import {
   assertStudentAccess,
   canAccessStudent,
@@ -4673,6 +4676,44 @@ export async function deleteTaskCommentTool(
 /** Demo/Kurulum Merkezi sıfırlaması — resetDemoTool/resetToCleanTemplateTool tarafından çağrılır. */
 export async function clearTasksForTenant(tenantId: string): Promise<void> {
   await clearTasks(tenantId);
+  await clearTaskReminderLog(tenantId);
+  await clearReminderPreferences(tenantId);
+}
+
+// ─── İş Takip hatırlatma tercihleri (Faz 3A) — HER ZAMAN yalnızca kendi
+// (ctx.userId) tercihi; admin BAŞKASININ tercihini göremez/değiştiremez —
+// input'ta bir userId ALINMAZ, sızdırılamaz bir tasarım kararı, RBAC ayrıca
+// yazılmasına gerek bırakmaz. Sorumlu atama bildirimi (notifyTaskAssigned)
+// bu tercihlerden BAĞIMSIZDIR, etkilenmez.
+
+export async function getTaskReminderPreferenceTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ dueSoonEnabled: boolean; dueTodayEnabled: boolean; overdueEnabled: boolean }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    const pref = await getReminderPreference(ctx.tenantId, ctx.userId);
+    return ok(pref);
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getTaskReminderPreference failed");
+  }
+}
+
+export async function updateTaskReminderPreferenceTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ dueSoonEnabled: boolean; dueTodayEnabled: boolean; overdueEnabled: boolean }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(updateTaskReminderPreferenceSchema, input);
+  if (!v.ok) return v;
+  try {
+    const pref = await setReminderPreference(ctx.tenantId, ctx.userId, v.data);
+    audit(ctx, "task.reminder_preference.update", "TaskReminderPreference", ctx.userId, { ...v.data });
+    return ok(pref);
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTaskReminderPreference failed");
+  }
 }
 
 export const TOOL_CATALOG = [

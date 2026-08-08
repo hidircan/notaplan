@@ -73,6 +73,8 @@ import {
   addTaskCommentTool,
   updateTaskCommentTool,
   deleteTaskCommentTool,
+  getTaskReminderPreferenceTool,
+  updateTaskReminderPreferenceTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -1520,5 +1522,43 @@ export async function actionDeleteTaskComment(input: {
     logger.error("actionDeleteTaskComment failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Yorum kaldırılırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type TaskReminderPreferenceResult =
+  | { ok: true; data: { dueSoonEnabled: boolean; dueTodayEnabled: boolean; overdueEnabled: boolean } }
+  | { ok: false; message: string };
+
+/** Her zaman ÇAĞIRANIN KENDİ tercihi — girdi bir userId almaz, admin başkasınınkini değiştiremez. */
+export async function actionGetTaskReminderPreference(): Promise<TaskReminderPreferenceResult> {
+  try {
+    const result = await withAuthContext("actionGetTaskReminderPreference", (ctx) =>
+      getTaskReminderPreferenceTool(ctx)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, data: result.data };
+  } catch (error) {
+    logger.error("actionGetTaskReminderPreference failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Hatırlatma tercihleri okunurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionUpdateTaskReminderPreference(input: {
+  dueSoonEnabled: boolean;
+  dueTodayEnabled: boolean;
+  overdueEnabled: boolean;
+}): Promise<TaskReminderPreferenceResult> {
+  try {
+    const result = await withAuthContext("actionUpdateTaskReminderPreference", (ctx) =>
+      updateTaskReminderPreferenceTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: result.data };
+  } catch (error) {
+    logger.error("actionUpdateTaskReminderPreference failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Hatırlatma tercihleri kaydedilirken beklenmeyen bir hata oluştu." };
   }
 }

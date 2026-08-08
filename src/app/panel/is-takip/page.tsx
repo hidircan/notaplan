@@ -11,6 +11,7 @@ import { actionCreateTaskForm } from "@/lib/actions";
 import { cn, formatDate } from "@/lib/utils";
 import { resolveSafeReturnTo } from "@/lib/safe-return-to";
 import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
+import { TaskReminderPreferencesModal } from "@/components/task-reminder-preferences-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +131,7 @@ export default async function IsTakipPage({
             <Link href="/panel/is-takip/takvim" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
               Takvim görünümü
             </Link>
+            <TaskReminderPreferencesModal />
           </div>
         }
       />

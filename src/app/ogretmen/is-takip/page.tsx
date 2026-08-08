@@ -6,6 +6,7 @@ import { Badge, Card, EmptyState } from "@/components/ui";
 import { getTaskKpiSummaryTool, listTasksTool } from "@/lib/services";
 import { formatDate } from "@/lib/utils";
 import type { TaskStatus } from "@/lib/types";
+import { TaskReminderPreferencesModal } from "@/components/task-reminder-preferences-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export default async function OgretmenIsTakipPage() {
           <Link href="/ogretmen/is-takip/takvim" className="font-medium text-cyan-700 hover:text-cyan-800">
             Takvim görünümü →
           </Link>
+          <TaskReminderPreferencesModal triggerClassName="font-medium text-cyan-700 hover:text-cyan-800" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Card className="!p-3">

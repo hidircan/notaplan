@@ -141,6 +141,26 @@ export function TaskDetailPanel({
         </div>
       </div>
 
+      {/*
+        Erişilebilir gecikme/hatırlatma durumu — RENK TEK BAŞINA anlam
+        taşımaz, her zaman metin+ikon birlikte (bkz. madde 5 gereksinimi).
+        Kullanıcı bildirim ALMIYORSA nedenini de burada görür (yanlış
+        yönlendirme yok): son tarih yok / tamamlanmış / iptal-arşiv.
+      */}
+      <p className="text-xs text-[var(--color-text-muted)]" role="status">
+        {(() => {
+          if (task.status === "COMPLETED") return "✓ Tamamlandı — hatırlatma üretilmez.";
+          if (task.status === "CANCELLED" || task.status === "ARCHIVED")
+            return "— İptal/arşiv — hatırlatma üretilmez.";
+          if (!task.dueDate) return "— Son tarih girilmemiş — hatırlatma üretilmez.";
+          const todayYmd = new Date().toISOString().slice(0, 10);
+          const dueYmd = task.dueDate.slice(0, 10);
+          if (dueYmd < todayYmd) return "⚠ Gecikmiş — son tarih geçti.";
+          if (dueYmd === todayYmd) return "⏰ Bugün teslim.";
+          return "Son tarihe göre hatırlatma planlı (yaklaşınca/gününde bildirim alırsınız).";
+        })()}
+      </p>
+
       {task.studentId || task.teacherId || task.branchId || task.lessonId || task.paymentId || task.documentId ? (
         <div className="flex flex-wrap gap-2">
           {task.studentId ? (

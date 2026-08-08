@@ -126,4 +126,6 @@ export {
   addTaskCommentTool,
   updateTaskCommentTool,
   deleteTaskCommentTool,
+  getTaskReminderPreferenceTool,
+  updateTaskReminderPreferenceTool,
 } from "./tools";

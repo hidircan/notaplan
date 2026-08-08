@@ -43,6 +43,8 @@ model Tenant {
   documentTemplates DocumentTemplate[]
   documentInstances DocumentInstance[]
   tasks Task[]
+  taskReminderLogs TaskReminderLog[]
+  taskReminderPreferences TaskReminderPreference[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1119,4 +1121,44 @@ model TaskActivity {
 
   @@index([taskId])
   @@index([tenantId])
+}
+
+/// İş Takip Faz 3A — son tarih hatırlatma tekilleştirme kaydı. `taskId`'ye
+/// bilinçli olarak FK YOK (Task ile aynı desende diğer bağlı-kayıt alanları
+/// gibi) — bir görev asla silinmediği için pratik risk yok, ama tutarlılık
+/// için mevcut deseni koruyoruz. Benzersizlik anahtarı aynı gün aynı
+/// görev+sorumlu+tür için birden fazla bildirim üretilmesini DB seviyesinde
+/// engeller (idempotency — bkz. src/lib/task-reminder-log.ts).
+model TaskReminderLog {
+  id             String   @id
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId         String
+  /// Bildirimin gittiği User.id — sorumlu değişirse yeni bir satır (eski sorumluya tekrar bildirim GİTMEZ, ayrı anahtar).
+  assigneeUserId String
+  /// DUE_SOON | DUE_TODAY | OVERDUE
+  kind           String
+  /// Kurum saat diliminde "yyyy-MM-dd" — OVERDUE için "günde en fazla 1" bunun sayesinde garanti edilir.
+  calendarDay    String
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, taskId, assigneeUserId, kind, calendarDay])
+  @@index([tenantId, taskId])
+}
+
+/// İş Takip Faz 3A — kullanıcı bazlı hatırlatma tercihleri. Sorumlu ATAMA
+/// bildirimi bu tercihlerden BAĞIMSIZDIR (mevcut davranış, bkz.
+/// task-notifications.ts notifyTaskAssigned) — yalnızca DUE_SOON/DUE_TODAY/
+/// OVERDUE hatırlatmaları bu tercihlere tabidir.
+model TaskReminderPreference {
+  id               String   @id
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String
+  dueSoonEnabled   Boolean  @default(true)
+  dueTodayEnabled  Boolean  @default(true)
+  overdueEnabled   Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+
+  @@unique([tenantId, userId])
 }

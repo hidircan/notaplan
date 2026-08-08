@@ -750,6 +750,12 @@ export const deleteTaskCommentSchema = z.object({
   commentId: z.string().min(1),
 });
 
+export const updateTaskReminderPreferenceSchema = z.object({
+  dueSoonEnabled: z.boolean(),
+  dueTodayEnabled: z.boolean(),
+  overdueEnabled: z.boolean(),
+});
+
 export const listTasksFilterSchema = z.object({
   status: z.array(z.enum(TASK_STATUS_ENUM)).optional(),
   priority: z.enum(TASK_PRIORITY_ENUM).optional(),

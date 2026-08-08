@@ -1,20 +1,22 @@
 /**
  * İş Takip → mevcut kurum-içi bildirim altyapısına (src/lib/notifications)
  * KÖPRÜ — yeni bir bildirim sistemi KURULMAZ, yalnızca `createNotification`
- * çağrılır. Faz 2 kapsamı bilinçli olarak SADECE "sorumlu atandı" olayına
- * sınırlıdır (event-driven, tek bir yazma anında tetiklenir, güvenli).
+ * çağrılır.
  *
- * "Son tarih yaklaşınca" / "gecikince" bildirimleri KASITLI OLARAK
- * YAPILMADI: bu uygulamada tekrarlayan/zamanlanmış bir tetikleyici yalnızca
- * `/panel/workflows` (AI otomasyon motoru, `src/lib/workflows/engine.ts`)
- * üzerinden var — İş Takip'i oraya bağlamak görev tanımının "workflows ile
- * KARIŞTIRMA, tamamen ayrı" kuralını ihlal eder. Yeni bir zamanlayıcı/cron
- * icat etmek de (bu ortamda gerçek bir scheduler olmadan) kırılgan,
- * doğrulanamaz bir şey inşa etmek olurdu. Bu yüzden bu iki bildirim türü
- * bilinçli olarak Faz 3'e bırakıldı (bkz. teslim raporu) — zorlama yok.
+ * Faz 2: yalnızca "sorumlu atandı" olayı (event-driven, ctx tabanlı yazma
+ * anında tetiklenir).
+ * Faz 3A: DUE_SOON/DUE_TODAY/OVERDUE hatırlatmaları — bunlar zamana bağlı
+ * olduğu için AYRI, güvenli bir tetikleyiciye ihtiyaç duyar: bkz.
+ * `/api/v1/tasks/reminders/tick` (src/app/api/v1/tasks/reminders/tick/route.ts)
+ * — `/panel/workflows` (AI otomasyonu) ile İLGİSİZ, kasıtlı olarak ayrı bir
+ * uç nokta (gerekçe teslim raporunda).
  */
 
 import { isDbMode } from "./config";
+import type { TaskReminderKind } from "./task-reminders";
+import { buildTaskReminderText, taskReminderNotificationKind } from "./task-reminders";
+import { recordReminderIfNew } from "./task-reminder-log";
+import { getReminderPreference } from "./task-reminder-preferences";
 
 /**
  * `assigneeId` bir Teacher.id (öğretmen personel) VEYA doğrudan bir
@@ -47,6 +49,101 @@ export async function resolveTaskNotifyUserId(
     return users.find((u) => u.teacherId === assigneeId)?.id;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * Bir sorumlunun (assigneeId — Teacher.id veya User.id) hâlâ AKTİF olup
+ * olmadığını kontrol eder — arşivlenmiş öğretmene/pasif kullanıcıya yeni
+ * hatırlatma ÜRETİLMEZ (madde 1). Bilinmeyen bir kimlik de "aktif değil"
+ * sayılır (fail-closed — sessizce yanlış kişiye bildirim gitmesin).
+ */
+export async function isTaskAssigneeActive(tenantId: string, assigneeId: string): Promise<boolean> {
+  try {
+    if (isDbMode) {
+      const { prisma } = await import("./db");
+      const asUser = await prisma.user.findFirst({ where: { id: assigneeId, tenantId } });
+      if (asUser) return asUser.active;
+      const teacher = await prisma.teacher.findFirst({ where: { id: assigneeId, tenantId } });
+      if (teacher) return teacher.active;
+      return false;
+    }
+    const { readData } = await import("./store");
+    const { runWithTenantAsync } = await import("./tenant-context");
+    const data = await runWithTenantAsync(tenantId, () => readData());
+    const teacher = data.teachers.find((t) => t.id === assigneeId);
+    if (teacher) return teacher.active;
+    // Bootstrap admin kimlikleri (json/memory) her zaman aktif kabul edilir —
+    // bu demo modunda pasifleştirme mekanizması yok.
+    const { getBootstrapUsersForSeed } = await import("./auth/users");
+    return getBootstrapUsersForSeed(tenantId).some((u) => u.id === assigneeId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * DUE_SOON/DUE_TODAY/OVERDUE hatırlatması — tercihe tabi, tekilleştirilmiş.
+ * Sıra ÖNEMLİ: önce tekilleştirme kaydı (aynı gün/tür için ikinci bir
+ * çağrıda kesin olarak atlanır), sonra aktiflik, sonra tercih, sonra
+ * kullanıcı çözümleme. Herhangi bir adımda "hayır" ise sessizce atlanır —
+ * hiçbiri hata fırlatmaz (tick'in batch'i tek bir görev/kullanıcı yüzünden
+ * durmamalı, bkz. tick endpoint'i).
+ *
+ * @returns "created" (yeni bildirim üretildi), "duplicate" (zaten vardı,
+ *   tekilleştirmeyle atlandı) veya "skipped" (aktif değil/tercih kapalı/
+ *   kullanıcı çözülemedi).
+ */
+export async function notifyTaskReminder(input: {
+  tenantId: string;
+  taskId: string;
+  taskTitle: string;
+  assigneeId: string;
+  kind: TaskReminderKind;
+  calendarDay: string;
+}): Promise<"created" | "duplicate" | "skipped"> {
+  const targetUserId = await resolveTaskNotifyUserId(input.tenantId, input.assigneeId);
+  if (!targetUserId) return "skipped";
+
+  const active = await isTaskAssigneeActive(input.tenantId, input.assigneeId);
+  if (!active) return "skipped";
+
+  const preference = await getReminderPreference(input.tenantId, targetUserId);
+  const preferenceKey =
+    input.kind === "DUE_SOON" ? "dueSoonEnabled" : input.kind === "DUE_TODAY" ? "dueTodayEnabled" : "overdueEnabled";
+  if (!preference[preferenceKey]) return "skipped";
+
+  // Tekilleştirme anahtarı targetUserId (ÇÖZÜLMÜŞ User.id) ile — sorumlu bir
+  // Teacher.id olsa bile hatırlatma HER ZAMAN aynı kişiye/gün/türe göre
+  // tekilleşir; sorumlu değişirse yeni bir User.id → yeni anahtar → eski
+  // sorumluya asla tekrar bildirim gitmez, yeni sorumluya aynı gün bile
+  // gidebilir (ayrı görev/kişi kombinasyonu).
+  const isNew = await recordReminderIfNew({
+    tenantId: input.tenantId,
+    taskId: input.taskId,
+    assigneeUserId: targetUserId,
+    kind: input.kind,
+    calendarDay: input.calendarDay,
+  });
+  if (!isNew) return "duplicate";
+
+  try {
+    const { createNotification } = await import("./notifications");
+    const { title, body } = buildTaskReminderText(input.kind, input.taskTitle, input.taskId);
+    await createNotification({
+      tenantId: input.tenantId,
+      targetUserId,
+      kind: taskReminderNotificationKind(input.kind),
+      title,
+      body,
+    });
+    return "created";
+  } catch {
+    // Bildirim yazımı başarısız olsa bile tekilleştirme kaydı zaten
+    // oluşturuldu — bu, aynı hatırlatmanın sonsuz tekrar denenmesini
+    // engeller (en kötü ihtimalle o gün için o hatırlatma kaçırılır,
+    // ertesi gün/tür için yeniden denenir — asla spam olmaz).
+    return "skipped";
   }
 }
 
