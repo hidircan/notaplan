@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { promises as fs } from "fs";
 import path from "path";
 import { readFileSync } from "fs";
@@ -7,7 +7,6 @@ import { createBranchTool, previewTeacherImportTool, commitTeacherImportTool } f
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
-import OgretmenlerPage from "../../app/panel/ogretmenler/page";
 import { runWithTenantAsync } from "../tenant-context";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
@@ -21,6 +20,21 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
     ...overrides,
   };
 }
+
+// OgretmenlerPage artık requireSessionContext() + kurum kapsamı (cookies())
+// okur — bu test sayfayı gerçek bir HTTP isteği olmadan doğrudan çağırdığından
+// ikisini de burada sahteler. Kurum cookie'si yokmuş gibi davranmak,
+// SCHOOL_ADMIN'in varsayılan olarak kendi kurumuna (DEFAULT_TENANT_ID) düşmesi
+// anlamına gelir — testin ALS ile zaten kurduğu kapsamla birebir uyumludur.
+vi.mock("@/lib/auth/session", () => ({
+  requireSessionContext: async () => ctx(),
+  getSessionContext: async () => ctx(),
+}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined, set: () => {} }),
+}));
+
+const { default: OgretmenlerPage } = await import("../../app/panel/ogretmenler/page");
 
 beforeEach(async () => {
   await fs.rm(DATA_FILE, { force: true });
