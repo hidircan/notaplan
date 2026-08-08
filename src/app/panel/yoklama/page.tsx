@@ -1,105 +1,104 @@
-import { actionMarkAttendance } from "@/lib/actions";
+import { redirect } from "next/navigation";
+import { requireSessionContext } from "@/lib/auth/session";
 import { readData } from "@/lib/store";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { formatDateTime, formatTime } from "@/lib/utils";
+import { Badge, Card, PageHeader, EmptyState } from "@/components/ui";
+import { formatTime } from "@/lib/utils";
+import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actions";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Yoklama — varsayılan yalnız bugünün dersleri.
+ * Üç operasyonel aksiyon: Geldi, İşlendi, Telafi (ayrı bayraklar).
+ */
 export default async function YoklamaPage() {
-  const data = await readData();
+  let session;
+  try {
+    session = await requireSessionContext();
+  } catch {
+    redirect("/login?next=/panel/yoklama");
+  }
+  if (session.role === "TEACHER") redirect("/ogretmen");
+  if (session.role === "PARENT") redirect("/veli");
+  if (session.role === "STUDENT") redirect("/ogrenci");
 
-  // Son 14 gün + bugün + yarın dersleri
+  const data = await readData();
   const now = new Date();
-  const cutoff = now.getTime() - 14 * 24 * 60 * 60 * 1000;
-  const lessons = [...data.lessons]
-    .filter((l) => new Date(l.startAt).getTime() >= cutoff)
-    .sort((a, b) => b.startAt.localeCompare(a.startAt));
+  // Yerel gün anahtarı (TR): ISO slice UTC kaymasına karşı formatla
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  const todayLessons = data.lessons
+    .filter((l) => {
+      const d = new Date(l.startAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return key === todayKey;
+    })
+    .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
   return (
     <div>
       <PageHeader
         title="Yoklama"
-        description="Ders yoklamasını buradan kaydedin. Gelmedi veya okul iptal seçildiğinde telafi hakkı otomatik oluşturulur."
+        description="Bugünün dersleri. Geldi = katılım, İşlendi = ders tamamlandı (hakediş), Telafi = telafi akışı. Birlikte işaretlenebilir."
       />
 
-      <Card className="mb-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        Gelmedi / okul iptal seçenekleri telafi hakkı üretir. Sonra Telafi Merkezi’ne gidip uygun slotu seçin ve veli/öğretmene haber verin.
+      <Card className="mb-6 !p-4 text-sm text-stone-600">
+        Varsayılan görünüm: <strong>yalnız bugün</strong> ({todayKey}). Geçmiş 14 gün listesi kaldırıldı — gürültüyü azaltmak için.
       </Card>
 
-      <div className="space-y-3">
-        {lessons.map((lesson) => {
-          const student = data.students.find((s) => s.id === lesson.studentId);
-          const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
-          const attendance = data.attendances.find((a) => a.lessonId === lesson.id);
-          const isPast = new Date(lesson.startAt).getTime() < now.getTime();
-
-          return (
-            <Card key={lesson.id}>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-slate-900">
-                      {student?.name} · {lesson.instrument}
+      {todayLessons.length === 0 ? (
+        <EmptyState title="Bugün ders yok" description="Programda bugüne ait seans bulunmuyor." />
+      ) : (
+        <div className="space-y-3">
+          {todayLessons.map((lesson) => {
+            const student = data.students.find((s) => s.id === lesson.studentId);
+            const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
+            const room = data.rooms.find((r) => r.id === lesson.roomId);
+            return (
+              <Card key={lesson.id} className="!p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-stone-900">
+                      {formatTime(lesson.startAt)} · {student?.name ?? "—"}
                     </p>
-                    <Badge status={lesson.status} />
-                    {lesson.type === "makeup" ? <Badge status="makeup" /> : null}
-                    {attendance ? <Badge status={attendance.status} /> : null}
+                    <p className="text-sm text-stone-500">
+                      {lesson.instrument} · {teacher?.name ?? "—"} · {room?.name ?? "—"}
+                      {lesson.type === "makeup" ? " · (tip: makeup)" : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge status={lesson.status} />
+                      <LessonOpsBadges
+                        studentAttended={lesson.studentAttended}
+                        lessonProcessed={lesson.lessonProcessed}
+                        opsMakeupFlag={lesson.opsMakeupFlag}
+                      />
+                    </div>
+                    {(lesson.studentAttendedBy || lesson.lessonProcessedBy || lesson.opsMakeupFlagBy) && (
+                      <p className="mt-1 text-[11px] text-stone-400">
+                        {lesson.studentAttendedAt
+                          ? `Geldi: ${lesson.studentAttendedBy} @ ${lesson.studentAttendedAt.slice(0, 16)}`
+                          : ""}
+                        {lesson.lessonProcessedAt
+                          ? ` · İşlendi: ${lesson.lessonProcessedBy} @ ${lesson.lessonProcessedAt.slice(0, 16)}`
+                          : ""}
+                        {lesson.opsMakeupFlagAt
+                          ? ` · Telafi: ${lesson.opsMakeupFlagBy} @ ${lesson.opsMakeupFlagAt.slice(0, 16)}`
+                          : ""}
+                      </p>
+                    )}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {formatDateTime(lesson.startAt)} ({formatTime(lesson.startAt)}–
-                    {formatTime(lesson.endAt)}) · {teacher?.name}
-                  </p>
-                  {attendance?.reason ? (
-                    <p className="mt-1 text-xs text-slate-400">Not: {attendance.reason}</p>
-                  ) : null}
+                  <LessonOpsActions
+                    lessonId={lesson.id}
+                    studentAttended={lesson.studentAttended}
+                    lessonProcessed={lesson.lessonProcessed}
+                    opsMakeupFlag={lesson.opsMakeupFlag}
+                  />
                 </div>
-
-                {(isPast || lesson.status === "scheduled") && !attendance ? (
-                  <div className="flex flex-wrap gap-2">
-                    <form action={actionMarkAttendance}>
-                      <input type="hidden" name="lessonId" value={lesson.id} />
-                      <input type="hidden" name="status" value="present" />
-                      <Button type="submit" variant="success">
-                        Geldi
-                      </Button>
-                    </form>
-                    <form action={actionMarkAttendance}>
-                      <input type="hidden" name="lessonId" value={lesson.id} />
-                      <input type="hidden" name="status" value="late" />
-                      <Button type="submit" variant="secondary">
-                        Geç kaldı
-                      </Button>
-                    </form>
-                    <form action={actionMarkAttendance}>
-                      <input type="hidden" name="lessonId" value={lesson.id} />
-                      <input type="hidden" name="status" value="absent" />
-                      <input type="hidden" name="reason" value="Veli bildirdi — mazeret" />
-                      <Button type="submit" variant="danger">
-                        Gelmedi (+telafi)
-                      </Button>
-                    </form>
-                    <form action={actionMarkAttendance}>
-                      <input type="hidden" name="lessonId" value={lesson.id} />
-                      <input type="hidden" name="status" value="cancelled_by_school" />
-                      <input type="hidden" name="reason" value="Okul / öğretmen kaynaklı iptal" />
-                      <Button type="submit" variant="secondary">
-                        Okul iptal (+telafi)
-                      </Button>
-                    </form>
-                  </div>
-                ) : attendance ? (
-                  <p className="text-sm text-slate-500">
-                    Yoklama alındı
-                    {attendance.createsMakeupCredit ? " · telafi hakkı oluşturuldu" : ""}
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-400">Henüz yoklama zamanı değil</p>
-                )}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
