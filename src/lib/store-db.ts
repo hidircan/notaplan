@@ -196,6 +196,21 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       packageId: (student as { packageId?: string | null }).packageId ?? undefined,
       birthPlace: (student as { birthPlace?: string | null }).birthPlace ?? undefined,
       schoolOrOccupation: (student as { schoolOrOccupation?: string | null }).schoolOrOccupation ?? undefined,
+      // Bu turda fark edildi: nationalIdCipher/nationalIdLast2/birthDate/
+      // address/educationMethod/firstLessonAt/archivedAt Prisma şemasında
+      // ZATEN vardı ama db-mode SELECT mapping'inde hiç okunmuyordu —
+      // Student.monthlyFee gibi başka alanlar için daha önce düzeltilen
+      // aynı sınıf parity açığı, burada da kapatıldı.
+      nationalIdCipher: (student as { nationalIdCipher?: string | null }).nationalIdCipher ?? undefined,
+      nationalIdLast2: (student as { nationalIdLast2?: string | null }).nationalIdLast2 ?? undefined,
+      birthDate: (student as { birthDate?: Date | null }).birthDate?.toISOString() ?? undefined,
+      address: (student as { address?: string | null }).address ?? undefined,
+      educationMethod:
+        ((student as { educationMethod?: string | null }).educationMethod as
+          | import("./types").EducationMethod
+          | undefined) ?? undefined,
+      firstLessonAt: (student as { firstLessonAt?: Date | null }).firstLessonAt?.toISOString() ?? undefined,
+      archivedAt: (student as { archivedAt?: Date | null }).archivedAt?.toISOString() ?? undefined,
       // Package C — ödeme profili + paket fiyatlandırma. Bu alanlar
       // öncesinde db modunda hiç OKUNMUYORDU (yalnızca updateStudentProfile
       // parametresi olarak kabul ediliyordu, satıra hiç yazılmıyordu/geri
@@ -252,6 +267,12 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       opsMakeupFlag: (lesson as { opsMakeupFlag?: boolean }).opsMakeupFlag ?? undefined,
       opsMakeupFlagAt: (lesson as { opsMakeupFlagAt?: Date | null }).opsMakeupFlagAt?.toISOString?.() ?? undefined,
       opsMakeupFlagBy: (lesson as { opsMakeupFlagBy?: string | null }).opsMakeupFlagBy ?? undefined,
+      studentAbsent: (lesson as { studentAbsent?: boolean }).studentAbsent ?? undefined,
+      studentAbsentAt: (lesson as { studentAbsentAt?: Date | null }).studentAbsentAt?.toISOString?.() ?? undefined,
+      studentAbsentBy: (lesson as { studentAbsentBy?: string | null }).studentAbsentBy ?? undefined,
+      studentExcused: (lesson as { studentExcused?: boolean }).studentExcused ?? undefined,
+      studentExcusedAt: (lesson as { studentExcusedAt?: Date | null }).studentExcusedAt?.toISOString?.() ?? undefined,
+      studentExcusedBy: (lesson as { studentExcusedBy?: string | null }).studentExcusedBy ?? undefined,
       // ÖNCELİK 4 — bu satırlar eksikti (db modunda hiç map edilmiyordu); bu
       // turda term/academicYearStart eklerken fark edildi, aynı satırda düzeltildi.
       opsClosedFlag: (lesson as { opsClosedFlag?: boolean }).opsClosedFlag ?? undefined,
@@ -1020,6 +1041,14 @@ export async function updateStudentProfile(
       packageId: patch.packageId,
       birthPlace: patch.birthPlace,
       schoolOrOccupation: patch.schoolOrOccupation,
+      // Bu turda eklendi — iletişim/kişisel alanlar (StudentProfilePatch'te
+      // zaten vardı ama db-mode yazma yolu yoktu; T.C. kimlik ayrı
+      // setNationalIdTool'dan, burada değil).
+      phone: patch.phone,
+      parentName: patch.parentName,
+      parentPhone: patch.parentPhone,
+      address: patch.address,
+      birthDate: patch.birthDate ? new Date(patch.birthDate) : undefined,
       // Package C — ödeme profili + paket fiyatlandırma alanları. Bu
       // mapping öncesinde paymentMethod/paymentAmount/paymentDueDay hiçbir
       // DB-mode yazma yoluna sahip değildi (JSON/memory store generic
@@ -1680,6 +1709,12 @@ async function persistLessonOpsResult(
       opsMakeupFlag: L.opsMakeupFlag ?? false,
       opsMakeupFlagAt: L.opsMakeupFlagAt ? new Date(L.opsMakeupFlagAt) : null,
       opsMakeupFlagBy: L.opsMakeupFlagBy ?? null,
+      studentAbsent: L.studentAbsent ?? false,
+      studentAbsentAt: L.studentAbsentAt ? new Date(L.studentAbsentAt) : null,
+      studentAbsentBy: L.studentAbsentBy ?? null,
+      studentExcused: L.studentExcused ?? false,
+      studentExcusedAt: L.studentExcusedAt ? new Date(L.studentExcusedAt) : null,
+      studentExcusedBy: L.studentExcusedBy ?? null,
       status: L.status,
       actualEndAt: L.actualEndAt ? new Date(L.actualEndAt) : undefined,
     },

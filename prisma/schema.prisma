@@ -353,6 +353,14 @@ model Lesson {
   opsMakeupFlag       Boolean  @default(false)
   opsMakeupFlagAt     DateTime?
   opsMakeupFlagBy     String?
+  /// Yoklama kapanışı — Gelmedi (mazeretsiz) / Mazeretli. Geldi/İşlendi/
+  /// Telafi ile AYNI birbirini dışlayan tek-statü mekanizması, mali sonuç yok.
+  studentAbsent       Boolean  @default(false)
+  studentAbsentAt     DateTime?
+  studentAbsentBy     String?
+  studentExcused      Boolean  @default(false)
+  studentExcusedAt    DateTime?
+  studentExcusedBy    String?
   /// ÖNCELİK 4 — Yoklama Takvimi'nin 4. statüsü ("Kapalı", siyah). Telafi
   /// gibi hiçbir mali sonuç doğurmaz; yalnız yeni takvim ekranından set
   /// edilir, mevcut Program/Yoklama'nın 3 butonlu hızlı aksiyonuna eklenmez.

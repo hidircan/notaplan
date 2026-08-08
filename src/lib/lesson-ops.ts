@@ -1,8 +1,12 @@
 /**
- * Geldi / İşlendi / Telafi — ayrı, kalıcı operasyonel bayraklar (tek enum değil).
+ * Geldi / İşlendi / Telafi / Gelmedi / Mazeretli — ayrı, kalıcı operasyonel
+ * bayraklar (tek enum değil), TEK, birbirini dışlayan statü olarak davranır
+ * (bkz. switchLessonOpsFlag).
  * - Geldi: öğrenci katıldı; dersi otomatik tamamlamaz
  * - İşlendi: ders fiilen işlendi → hakediş kaynağı (status completed)
  * - Telafi: telafi akışına alındı (kırmızı)
+ * - Gelmedi: öğrenci mazeretsiz katılmadı
+ * - Mazeretli: öğrenci mazeretle katılmadı (telafi/hakediş kararı yönetici inisiyatifinde)
  *
  * Mali ayrım (Package B): öğrenciler ders başına değil aylık paket ücretiyle
  * ödeme yapar. Geldi/İşlendi/Telafi hiçbir zaman Payment oluşturmaz veya
@@ -18,7 +22,7 @@ import type { AppData, Attendance, Lesson, MakeupRequest } from "./types";
 import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
 
-export type LessonOpsFlag = "attended" | "processed" | "makeup";
+export type LessonOpsFlag = "attended" | "processed" | "makeup" | "absent" | "excused";
 
 export type LessonOpsPatch = Partial<
   Pick<
@@ -32,6 +36,12 @@ export type LessonOpsPatch = Partial<
     | "opsMakeupFlag"
     | "opsMakeupFlagAt"
     | "opsMakeupFlagBy"
+    | "studentAbsent"
+    | "studentAbsentAt"
+    | "studentAbsentBy"
+    | "studentExcused"
+    | "studentExcusedAt"
+    | "studentExcusedBy"
     | "status"
     | "actualEndAt"
   >
@@ -132,6 +142,36 @@ export function applyLessonOpsFlag(
     };
   }
 
+  if (flag === "absent") {
+    if (lesson.studentAbsent) {
+      return { ok: true, alreadySet: true, data, lesson, message: "Gelmedi zaten işaretli." };
+    }
+    const patch: LessonOpsPatch = {
+      studentAbsent: true,
+      studentAbsentAt: nowIso,
+      studentAbsentBy: actorUserId,
+    };
+    const lessons = data.lessons.map((l) => (l.id === lessonId ? { ...l, ...patch } : l));
+    const next = { ...data, lessons };
+    const nextLesson = lessons.find((l) => l.id === lessonId)!;
+    return { ok: true, alreadySet: false, data: next, lesson: nextLesson, message: "Gelmedi işaretlendi." };
+  }
+
+  if (flag === "excused") {
+    if (lesson.studentExcused) {
+      return { ok: true, alreadySet: true, data, lesson, message: "Mazeretli zaten işaretli." };
+    }
+    const patch: LessonOpsPatch = {
+      studentExcused: true,
+      studentExcusedAt: nowIso,
+      studentExcusedBy: actorUserId,
+    };
+    const lessons = data.lessons.map((l) => (l.id === lessonId ? { ...l, ...patch } : l));
+    const next = { ...data, lessons };
+    const nextLesson = lessons.find((l) => l.id === lessonId)!;
+    return { ok: true, alreadySet: false, data: next, lesson: nextLesson, message: "Mazeretli işaretlendi." };
+  }
+
   // makeup
   if (lesson.opsMakeupFlag) {
     return {
@@ -186,13 +226,15 @@ export function applyLessonOpsFlag(
   };
 }
 
-/** Bir dersin o an "etkin" tek statüsü — öncelik: İşlendi > Geldi > Telafi. */
+/** Bir dersin o an "etkin" tek statüsü — öncelik: İşlendi > Geldi > Telafi > Gelmedi > Mazeretli. */
 export function effectiveLessonOpsStatus(
-  lesson: Pick<Lesson, "studentAttended" | "lessonProcessed" | "opsMakeupFlag">
+  lesson: Pick<Lesson, "studentAttended" | "lessonProcessed" | "opsMakeupFlag" | "studentAbsent" | "studentExcused">
 ): LessonOpsFlag | null {
   if (lesson.lessonProcessed) return "processed";
   if (lesson.studentAttended) return "attended";
   if (lesson.opsMakeupFlag) return "makeup";
+  if (lesson.studentAbsent) return "absent";
+  if (lesson.studentExcused) return "excused";
   return null;
 }
 
@@ -238,6 +280,12 @@ export function switchLessonOpsFlag(
     opsMakeupFlag: false,
     opsMakeupFlagAt: undefined,
     opsMakeupFlagBy: undefined,
+    studentAbsent: false,
+    studentAbsentAt: undefined,
+    studentAbsentBy: undefined,
+    studentExcused: false,
+    studentExcusedAt: undefined,
+    studentExcusedBy: undefined,
   };
   const clearedData: AppData = {
     ...data,

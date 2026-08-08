@@ -4301,7 +4301,7 @@ export async function setLessonOpsFlagTool(
   const v = parseOrFail(
     z.object({
       lessonId: z.string().min(1),
-      flag: z.enum(["attended", "processed", "makeup"]),
+      flag: z.enum(["attended", "processed", "makeup", "absent", "excused"]),
       /** Kullanıcı, farklı bir statüden geçişi onay popup'ında ONAYLADIYSA true. */
       confirmSwitch: z.boolean().optional(),
     }),
@@ -4390,8 +4390,8 @@ export type AttendanceCalendarLessonPaymentInfo = {
 
 export type AttendanceCalendarLessonOpsInfo = {
   lessonId: string;
-  /** effectiveLessonOpsStatus(lesson) — İşlendi > Geldi > Telafi öncelikli, TEK statü; hiçbiri set değilse null. */
-  opsStatus: "attended" | "processed" | "makeup" | null;
+  /** effectiveLessonOpsStatus(lesson) — İşlendi > Geldi > Telafi > Gelmedi > Mazeretli öncelikli, TEK statü; hiçbiri set değilse null. */
+  opsStatus: "attended" | "processed" | "makeup" | "absent" | "excused" | null;
 };
 
 export async function getAttendanceCalendarMonthTool(

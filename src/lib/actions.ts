@@ -461,6 +461,14 @@ export async function actionUpdateStudentProfile(input: {
   specialNotes?: string;
   /** ÖNCELİK 4 (devam) — yalnız SCHOOL_ADMIN/SUPER_ADMIN (updateStudentProfileTool RBAC'ı) set edebilir. */
   termType?: "guz" | "yaz";
+  phone?: string;
+  parentName?: string;
+  parentPhone?: string;
+  address?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  schoolOrOccupation?: string;
+  communicationOptOut?: boolean;
 }): Promise<UpdateStudentProfileActionResult> {
   try {
     const result = await withAuthContext("actionUpdateStudentProfile", (ctx) =>

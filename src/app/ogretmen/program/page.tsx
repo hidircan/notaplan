@@ -165,6 +165,8 @@ export default async function TeacherOwnProgramPage({
                             studentAttended={lesson.studentAttended}
                             lessonProcessed={lesson.lessonProcessed}
                             opsMakeupFlag={lesson.opsMakeupFlag}
+                            studentAbsent={lesson.studentAbsent}
+                            studentExcused={lesson.studentExcused}
                           />
                         </div>
                         {today ? (
@@ -176,6 +178,8 @@ export default async function TeacherOwnProgramPage({
                               studentAttended={lesson.studentAttended}
                               lessonProcessed={lesson.lessonProcessed}
                               opsMakeupFlag={lesson.opsMakeupFlag}
+                              studentAbsent={lesson.studentAbsent}
+                              studentExcused={lesson.studentExcused}
                             />
                           </>
                         ) : null}

@@ -61,7 +61,7 @@ type LessonPaymentInfo = {
 
 type DayLessonOpsInfo = {
   lessonId: string;
-  opsStatus: "attended" | "processed" | "makeup" | null;
+  opsStatus: "attended" | "processed" | "makeup" | "absent" | "excused" | null;
 };
 
 type DayInfo = {
@@ -278,7 +278,7 @@ export function AttendanceCalendarPanel({
    * yalnızca ilgili dersin günündeki `lessons[].opsStatus` yerinde güncellenir.
    */
   const onLessonStatusChange = useCallback(
-    (lessonId: string, flag: "attended" | "processed" | "makeup" | null) => {
+    (lessonId: string, flag: "attended" | "processed" | "makeup" | "absent" | "excused" | null) => {
       setByMonth((prev) => {
         let changed = false;
         const next: Record<string, MonthResponse> = { ...prev };
@@ -615,7 +615,7 @@ function DayDetail({
   readOnly: boolean;
   studentActive: boolean;
   onToggleOverride: (day: DayInfo) => void | Promise<void>;
-  onLessonStatusChange: (lessonId: string, flag: "attended" | "processed" | "makeup" | null) => void;
+  onLessonStatusChange: (lessonId: string, flag: "attended" | "processed" | "makeup" | "absent" | "excused" | null) => void;
   onLessonOpsSettled: (lessonId: string) => void;
 }) {
   // Takvimden tahsilat: yoklama statüsüyle (Geldi/İşlendi/Telafi) ZORLA
@@ -661,6 +661,8 @@ function DayDetail({
                 studentAttended={opsStatus === "attended"}
                 lessonProcessed={opsStatus === "processed"}
                 opsMakeupFlag={opsStatus === "makeup"}
+                studentAbsent={opsStatus === "absent"}
+                studentExcused={opsStatus === "excused"}
                 onStatusChange={onLessonStatusChange}
                 onSettled={onLessonOpsSettled}
               />

@@ -92,6 +92,21 @@ export const updateStudentProfileSchema = z.object({
   specialNotes: optionalTrimmed,
   /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
   termType: z.enum(["guz", "yaz"]).optional(),
+  /**
+   * Bu sprint — temel iletişim/kişisel alanlar (T.C. kimlik hariç; o ayrı
+   * `setNationalIdSchema`/`setNationalIdTool`'dan, mevcut şifreleme/audit
+   * yoluyla değişir). `name`/`email`/`teacherId`/`branchId` bilinçli olarak
+   * BU şemaya dahil edilmedi — kayıt kimliğini/atamayı değiştirmek daha
+   * geniş kapsamlı bir karardır (ders/hakediş etkisi), bu turun kapsamı dışı.
+   */
+  phone: optionalTrimmed,
+  parentName: optionalTrimmed,
+  parentPhone: optionalTrimmed,
+  address: optionalTrimmed,
+  birthDate: optionalTrimmed,
+  birthPlace: optionalTrimmed,
+  schoolOrOccupation: optionalTrimmed,
+  communicationOptOut: z.boolean().optional(),
 });
 
 /**

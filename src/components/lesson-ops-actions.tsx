@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type Flag = "attended" | "processed" | "makeup";
+type Flag = "attended" | "processed" | "makeup" | "absent" | "excused";
 
 export function LessonOpsActions({
   lessonId,
   studentAttended,
   lessonProcessed,
   opsMakeupFlag,
+  studentAbsent,
+  studentExcused,
   compact = false,
   onStatusChange,
   onSettled,
@@ -19,6 +21,8 @@ export function LessonOpsActions({
   studentAttended?: boolean;
   lessonProcessed?: boolean;
   opsMakeupFlag?: boolean;
+  studentAbsent?: boolean;
+  studentExcused?: boolean;
   compact?: boolean;
   /**
    * Yoklama Takvimi gün kutusu dolgusu bu bileşenin "etkin" (effective) tek
@@ -38,6 +42,8 @@ export function LessonOpsActions({
     attended: !!studentAttended,
     processed: !!lessonProcessed,
     makeup: !!opsMakeupFlag,
+    absent: !!studentAbsent,
+    excused: !!studentExcused,
   });
   /** ÖNCELİK 4 (devam) — farklı bir statüden geçiş istendiğinde onay bekleyen aksiyon. */
   const [pendingSwitch, setPendingSwitch] = useState<{ from: Flag; to: Flag } | null>(null);
@@ -49,7 +55,11 @@ export function LessonOpsActions({
       ? "attended"
       : local.makeup
         ? "makeup"
-        : null;
+        : local.absent
+          ? "absent"
+          : local.excused
+            ? "excused"
+            : null;
 
   useEffect(() => {
     onStatusChange?.(lessonId, effective);
@@ -76,7 +86,13 @@ export function LessonOpsActions({
 
     // İyimser güncelleme — tek statü, diğerleri anında temizlenir.
     const previous = { ...local };
-    setLocal({ attended: flag === "attended", processed: flag === "processed", makeup: flag === "makeup" });
+    setLocal({
+      attended: flag === "attended",
+      processed: flag === "processed",
+      makeup: flag === "makeup",
+      absent: flag === "absent",
+      excused: flag === "excused",
+    });
 
     try {
       const res = await fetch(`/api/v1/lessons/${lessonId}/ops`, {
@@ -118,13 +134,15 @@ export function LessonOpsActions({
    * sürümde İşlendi de yeşil, Telafi kırmızı boyanıyordu — spesifikasyonla
    * tutarsızdı; burada düzeltildi.
    */
-  const TONE_CLASS: Record<"green" | "red" | "yellow", string> = {
+  const TONE_CLASS: Record<"green" | "red" | "yellow" | "stone" | "orange", string> = {
     green: "border-[#2f6b4f] bg-[#e8f2ec] text-[#1e4d36]",
     red: "border-[#8b3a3a] bg-[#f8ecec] text-[#6b2424]",
     yellow: "border-[#8a6d1d] bg-[#fbf3d9] text-[#5c4a12]",
+    stone: "border-stone-500 bg-stone-100 text-stone-700",
+    orange: "border-orange-500 bg-orange-50 text-orange-800",
   };
 
-  const btn = (flag: Flag, label: string, active: boolean, tone: "green" | "red" | "yellow") => (
+  const btn = (flag: Flag, label: string, active: boolean, tone: "green" | "red" | "yellow" | "stone" | "orange") => (
     <button
       type="button"
       disabled={busy !== null}
@@ -142,7 +160,13 @@ export function LessonOpsActions({
     </button>
   );
 
-  const FLAG_LABEL: Record<Flag, string> = { attended: "Geldi", processed: "İşlendi", makeup: "Telafi" };
+  const FLAG_LABEL: Record<Flag, string> = {
+    attended: "Geldi",
+    processed: "İşlendi",
+    makeup: "Telafi",
+    absent: "Gelmedi",
+    excused: "Mazeretli",
+  };
 
   return (
     <div className={cn("mt-2", compact && "mt-1.5")}>
@@ -150,6 +174,8 @@ export function LessonOpsActions({
         {btn("attended", "Geldi", local.attended, "green")}
         {btn("processed", "İşlendi", local.processed, "red")}
         {btn("makeup", "Telafi", local.makeup, "yellow")}
+        {btn("absent", "Gelmedi", local.absent, "stone")}
+        {btn("excused", "Mazeretli", local.excused, "orange")}
       </div>
       {error ? (
         <p className="mt-1 text-[11px] font-medium text-[#8b3a3a]" role="alert">
@@ -192,11 +218,15 @@ export function LessonOpsBadges({
   studentAttended,
   lessonProcessed,
   opsMakeupFlag,
+  studentAbsent,
+  studentExcused,
   opsClosedFlag,
 }: {
   studentAttended?: boolean;
   lessonProcessed?: boolean;
   opsMakeupFlag?: boolean;
+  studentAbsent?: boolean;
+  studentExcused?: boolean;
   opsClosedFlag?: boolean;
 }) {
   return (
@@ -214,6 +244,16 @@ export function LessonOpsBadges({
       {opsMakeupFlag ? (
         <span className="rounded-full bg-[#fbf3d9] px-2 py-0.5 text-[10px] font-semibold text-[#5c4a12]">
           Telafi
+        </span>
+      ) : null}
+      {studentAbsent ? (
+        <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-semibold text-stone-700">
+          Gelmedi
+        </span>
+      ) : null}
+      {studentExcused ? (
+        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-800">
+          Mazeretli
         </span>
       ) : null}
       {opsClosedFlag ? (

@@ -28,6 +28,7 @@ import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentTermTypeEditor } from "@/components/student-term-type-editor";
+import { StudentProfileEditor } from "@/components/student-profile-editor";
 import { StudentPaymentProfileEditor } from "@/components/student-payment-profile-editor";
 import { StudentArchiveToggle } from "@/components/student-archive-toggle";
 import { BackButton } from "@/components/back-button";
@@ -266,14 +267,25 @@ export default async function StudentDetailPage({
             <Field label="E-posta" value={student.email || "—"} />
             <Field label="İletişim tercihi" value={student.communicationOptOut ? "Tahsilat hatırlatmalarından çıktı" : "Standart"} />
           </dl>
-          <div className="mt-4 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-strong)] p-3">
-            <p className="text-xs font-medium text-[var(--color-text)]">Sosyal medya izni</p>
-            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-              Bu kurulumda sosyal medya izin takibi henüz bir veri modeliyle desteklenmiyor
-              (PRODUCT_BACKLOG §1.4 tanımlı ama uygulanmamış) — izin durumu burada gösterilemiyor.
-            </p>
-          </div>
         </Card>
+        {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+          <div className="mt-3">
+            <h3 className="mb-2 text-xs font-semibold text-[var(--color-text-muted)]">İletişim/Kişisel Bilgileri Düzenle</h3>
+            <StudentProfileEditor
+              studentId={student.id}
+              initial={{
+                phone: student.phone,
+                parentName: student.parentName,
+                parentPhone: student.parentPhone,
+                address: student.address,
+                birthDate: student.birthDate,
+                birthPlace: student.birthPlace,
+                schoolOrOccupation: student.schoolOrOccupation,
+                communicationOptOut: student.communicationOptOut,
+              }}
+            />
+          </div>
+        ) : null}
       </section>
 
       <section id="program" className="mb-8 scroll-mt-4">
@@ -343,6 +355,8 @@ export default async function StudentDetailPage({
                       studentAttended={l.studentAttended}
                       lessonProcessed={l.lessonProcessed}
                       opsMakeupFlag={l.opsMakeupFlag}
+                      studentAbsent={l.studentAbsent}
+                      studentExcused={l.studentExcused}
                     />
                   </div>
                 </Card>

@@ -131,3 +131,67 @@ describe("updateStudentProfileTool — yetkilendirme ve kısmi güncelleme", () 
     expect(result.ok).toBe(false);
   });
 });
+
+describe("updateStudentProfileTool — iletişim/kişisel alanlar (bu sprint)", () => {
+  it("SCHOOL_ADMIN telefon/veli/adres/doğum/okul-meslek alanlarını günceller", async () => {
+    const before = await readData();
+    const target = before.students[0];
+
+    const result = await updateStudentProfileTool(ctx(), {
+      studentId: target.id,
+      phone: "0555 111 2233",
+      parentName: "Yeni Veli Adı",
+      parentPhone: "0555 111 2244",
+      address: "Yeni adres",
+      birthDate: "2012-05-01",
+      birthPlace: "Ankara",
+      schoolOrOccupation: "Filiz İlkokulu 4-B",
+      communicationOptOut: true,
+    });
+    expect(result.ok).toBe(true);
+
+    const after = await readData();
+    const updated = after.students.find((s) => s.id === target.id);
+    expect(updated?.phone).toBe("0555 111 2233");
+    expect(updated?.parentName).toBe("Yeni Veli Adı");
+    expect(updated?.parentPhone).toBe("0555 111 2244");
+    expect(updated?.address).toBe("Yeni adres");
+    expect(updated?.birthDate).toContain("2012-05-01");
+    expect(updated?.birthPlace).toBe("Ankara");
+    expect(updated?.schoolOrOccupation).toBe("Filiz İlkokulu 4-B");
+    expect(updated?.communicationOptOut).toBe(true);
+  });
+
+  it("T.C. kimlik bu tooldan asla güncellenemez — şema alanı yok, gönderilse bile yok sayılır", async () => {
+    const before = await readData();
+    const target = before.students[0];
+
+    const result = await updateStudentProfileTool(ctx(), {
+      studentId: target.id,
+      phone: "0555 999 8877",
+      nationalIdCipher: "should-be-ignored",
+    });
+    expect(result.ok).toBe(true);
+
+    const after = await readData();
+    const updated = after.students.find((s) => s.id === target.id);
+    expect(updated?.nationalIdCipher).toBe(target.nationalIdCipher);
+  });
+
+  it("TEACHER/PARENT iletişim alanlarını güncelleyemez (RBAC)", async () => {
+    const before = await readData();
+    const target = before.students[0];
+
+    const teacherRes = await updateStudentProfileTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
+      studentId: target.id,
+      phone: "0555 000 0000",
+    });
+    expect(teacherRes.ok).toBe(false);
+
+    const parentRes = await updateStudentProfileTool(ctx({ role: "PARENT", studentId: target.id }), {
+      studentId: target.id,
+      phone: "0555 000 0000",
+    });
+    expect(parentRes.ok).toBe(false);
+  });
+});

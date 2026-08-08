@@ -335,6 +335,8 @@ export default async function OgrenciPortalPage({
                                   studentAttended={l.studentAttended}
                                   lessonProcessed={l.lessonProcessed}
                                   opsMakeupFlag={l.opsMakeupFlag}
+                                  studentAbsent={l.studentAbsent}
+                                  studentExcused={l.studentExcused}
                                   opsClosedFlag={l.opsClosedFlag}
                                 />
                               </div>
@@ -373,6 +375,8 @@ export default async function OgrenciPortalPage({
                       studentAttended={l.studentAttended}
                       lessonProcessed={l.lessonProcessed}
                       opsMakeupFlag={l.opsMakeupFlag}
+                      studentAbsent={l.studentAbsent}
+                      studentExcused={l.studentExcused}
                     />
                   </div>
                 </Card>

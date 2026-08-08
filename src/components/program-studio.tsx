@@ -1685,6 +1685,8 @@ export function ProgramStudio({
                           studentAttended={lesson.studentAttended}
                           lessonProcessed={lesson.lessonProcessed}
                           opsMakeupFlag={lesson.opsMakeupFlag}
+                          studentAbsent={lesson.studentAbsent}
+                          studentExcused={lesson.studentExcused}
                         />
                       ) : null}
                       {editable ? (
@@ -1756,6 +1758,8 @@ export function ProgramStudio({
                               studentAttended={lesson.studentAttended}
                               lessonProcessed={lesson.lessonProcessed}
                               opsMakeupFlag={lesson.opsMakeupFlag}
+                              studentAbsent={lesson.studentAbsent}
+                              studentExcused={lesson.studentExcused}
                             />
                           ) : null}
                         </button>
@@ -1838,6 +1842,8 @@ function DetailPanel({
             studentAttended={lesson.studentAttended}
             lessonProcessed={lesson.lessonProcessed}
             opsMakeupFlag={lesson.opsMakeupFlag}
+            studentAbsent={lesson.studentAbsent}
+            studentExcused={lesson.studentExcused}
           />
         </div>
         <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
@@ -1859,6 +1865,8 @@ function DetailPanel({
           studentAttended={lesson.studentAttended}
           lessonProcessed={lesson.lessonProcessed}
           opsMakeupFlag={lesson.opsMakeupFlag}
+          studentAbsent={lesson.studentAbsent}
+          studentExcused={lesson.studentExcused}
         />
         <Link
           href={`/panel/is-takip?newTaskLessonId=${lesson.id}${student ? `&newTaskStudentId=${student.id}` : ""}${

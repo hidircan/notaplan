@@ -273,6 +273,9 @@ export type StudentProfilePatch = Partial<
     | "targetExam"
     | "specialNotes"
     | "communicationOptOut"
+    | "phone"
+    | "parentName"
+    | "parentPhone"
     | "birthDate"
     | "address"
     | "educationMethod"
@@ -462,6 +465,17 @@ export interface Lesson {
   opsMakeupFlag?: boolean;
   opsMakeupFlagAt?: string;
   opsMakeupFlagBy?: string;
+  /**
+   * Yoklama kapanışı — Gelmedi (mazeretsiz) / Mazeretli. Geldi/İşlendi/
+   * Telafi ile AYNI birbirini dışlayan tek-statü mekanizmasının parçası
+   * (bkz. switchLessonOpsFlag) — hiçbiri mali sonuç doğurmaz (Package B).
+   */
+  studentAbsent?: boolean;
+  studentAbsentAt?: string;
+  studentAbsentBy?: string;
+  studentExcused?: boolean;
+  studentExcusedAt?: string;
+  studentExcusedBy?: string;
   /**
    * ÖNCELİK 4 — Yoklama Takvimi'nin 4. statüsü ("Kapalı", siyah). Telafi
    * gibi hiçbir mali sonuç doğurmaz. Yalnız Yoklama Takvimi ekranından set

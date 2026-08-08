@@ -11,11 +11,13 @@
  *
  * NASIL GENİŞLETİLİR: `RELIGIOUS_HOLIDAYS` tablosuna yeni yıl(lar) eklemek için
  * o yılın Ramazan Bayramı (3.5 gün, arefe dahil) ve Kurban Bayramı (4.5 gün, arefe
- * dahil) tarihlerini resmî bir takvimden alıp aynı formatta ekleyin. Aralık 2024–2030
- * makul bir ileri görüşle önceden doldurulmuştur; 2030 sonrası eklenmeden önce takvim
- * gösterimi o tarihe gelene kadar sorun yaratmaz (aşağıdaki tatiller yalnızca
- * "bulunanlar" listelenir, eksik yıl için sistem çökmez — sadece dini tatil günleri
- * kapalı olarak işaretlenmez, weekly/manual kurallar yine de geçerli olur).
+ * dahil) tarihlerini resmî/doğrulanmış bir takvimden (Diyanet İşleri Başkanlığı vb.)
+ * alıp aynı formatta ekleyin — Hicri takvim gözlem tabanlı kaydığı için buradan
+ * TAHMİN/hesaplama YAPILMAZ, yalnızca doğrulanmış kaynaktan girilir. Şu an yalnız
+ * 2024–2028 doldurulmuştur; 2029+ eklenmeden önce (ve genel olarak) eksik bir yıl
+ * sistemi çökertmez — aşağıdaki tatiller yalnızca "bulunanlar" listelenir, eksik
+ * yıl için dini tatil günleri kapalı olarak işaretlenmez, weekly/manual kurallar
+ * yine de geçerli olur.
  */
 
 import { turkeyFixedPublicHolidays } from "./closed-days";
