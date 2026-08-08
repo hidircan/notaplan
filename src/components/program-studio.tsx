@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { addMinutes, differenceInMinutes, format, isSameDay, parseISO, startOfDay } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -1859,6 +1860,14 @@ function DetailPanel({
           lessonProcessed={lesson.lessonProcessed}
           opsMakeupFlag={lesson.opsMakeupFlag}
         />
+        <Link
+          href={`/panel/is-takip?newTaskLessonId=${lesson.id}${student ? `&newTaskStudentId=${student.id}` : ""}${
+            teacher ? `&newTaskTeacherId=${teacher.id}` : ""
+          }&returnTo=${encodeURIComponent("/panel/program")}`}
+          className="mt-2 inline-block text-xs font-medium text-[var(--color-primary)] hover:underline"
+        >
+          Bu ders için görev oluştur →
+        </Link>
       </div>
 
       {isSeriesMember ? (

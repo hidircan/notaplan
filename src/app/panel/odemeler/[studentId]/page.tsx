@@ -51,12 +51,22 @@ export default async function StudentPaymentProfilePage({
             : `Veli: ${student.parentName}`
         }
         actions={
-          <Link
-            href="/panel/odemeler"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft className="h-4 w-4" /> Tüm ödemeler
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/panel/is-takip?newTaskStudentId=${student.id}&returnTo=${encodeURIComponent(
+                `/panel/odemeler/${student.id}`
+              )}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Bu kayıt için görev oluştur
+            </Link>
+            <Link
+              href="/panel/odemeler"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4" /> Tüm ödemeler
+            </Link>
+          </div>
         }
       />
 
