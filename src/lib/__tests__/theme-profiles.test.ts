@@ -8,6 +8,8 @@ import {
   FONT_COOKIE,
   DEFAULT_THEME_PROFILE,
   DEFAULT_FONT_CHOICE,
+  THEME_PROFILE_LABELS,
+  FONT_LABELS,
 } from "../theme";
 
 describe("normalizeThemeProfile — varsayılan Kurumsal Altın", () => {
@@ -18,20 +20,20 @@ describe("normalizeThemeProfile — varsayılan Kurumsal Altın", () => {
     expect(normalizeThemeProfile("neon-purple")).toBe("gold");
   });
 
-  it("geçerli dört profili aynen korur", () => {
+  it("geçerli yedi profili aynen korur", () => {
     for (const p of THEME_PROFILE_VALUES) {
       expect(normalizeThemeProfile(p)).toBe(p);
     }
   });
 });
 
-describe("normalizeFontChoice — varsayılan Kurumsal Sans", () => {
-  it("cookie yoksa/geçersizse 'corporate'a düşer", () => {
-    expect(normalizeFontChoice(undefined)).toBe("corporate");
-    expect(normalizeFontChoice("comic-sans")).toBe("corporate");
+describe("normalizeFontChoice — varsayılan Inter", () => {
+  it("cookie yoksa/geçersizse 'inter'e düşer", () => {
+    expect(normalizeFontChoice(undefined)).toBe("inter");
+    expect(normalizeFontChoice("comic-sans")).toBe("inter");
   });
 
-  it("geçerli üç font seçeneğini aynen korur", () => {
+  it("geçerli dört font seçeneğini aynen korur", () => {
     for (const f of FONT_VALUES) {
       expect(normalizeFontChoice(f)).toBe(f);
     }
@@ -39,22 +41,53 @@ describe("normalizeFontChoice — varsayılan Kurumsal Sans", () => {
 });
 
 describe("Sabitler", () => {
-  it("THEME_PROFILE_VALUES tam olarak dört profili içerir", () => {
-    expect(THEME_PROFILE_VALUES).toEqual(["gold", "navy", "forest", "burgundy"]);
+  it("THEME_PROFILE_VALUES tam olarak yedi profili içerir", () => {
+    expect(THEME_PROFILE_VALUES).toEqual(["gold", "obsidian", "navy", "forest", "burgundy", "ocean", "lavender"]);
   });
 
-  it("FONT_VALUES tam olarak üç fontu içerir", () => {
-    expect(FONT_VALUES).toEqual(["corporate", "modern", "classic"]);
+  it("FONT_VALUES tam olarak dört fontu içerir", () => {
+    expect(FONT_VALUES).toEqual(["roboto_serif", "playfair_display", "inter", "noto_sans"]);
   });
 
-  it("cookie isimleri kurum/oturum cookie'leriyle çakışmaz", () => {
+  it("cookie isimleri kurum/oturum cookie'leriyle çakışmaz (teknik identifier — marka geçişinden bağımsız)", () => {
     expect(THEME_PROFILE_COOKIE).toBe("notaplan_theme_profile");
     expect(FONT_COOKIE).toBe("notaplan_font");
   });
 
-  it("varsayılanlar Kurumsal Altın + Kurumsal Sans'tır", () => {
+  it("varsayılanlar Kurumsal Altın + Inter'dir", () => {
     expect(DEFAULT_THEME_PROFILE).toBe("gold");
-    expect(DEFAULT_FONT_CHOICE).toBe("corporate");
+    expect(DEFAULT_FONT_CHOICE).toBe("inter");
+  });
+
+  it("dört font seçeneğinin hepsi FARKLI değerlerdir (aynı fonta düşmüyor)", () => {
+    expect(new Set(FONT_VALUES).size).toBe(FONT_VALUES.length);
+  });
+
+  it("yedi tema profilinin hepsi FARKLI değerlerdir", () => {
+    expect(new Set(THEME_PROFILE_VALUES).size).toBe(THEME_PROFILE_VALUES.length);
+  });
+});
+
+describe("Gold + Obsidian — kritik profil sözleşmesi (bu sprint)", () => {
+  it("gold ve obsidian THEME_PROFILE_LABELS'ta doğru Türkçe etiketle eşleşir", () => {
+    expect(THEME_PROFILE_LABELS.gold).toBe("Kurumsal Altın");
+    expect(THEME_PROFILE_LABELS.obsidian).toBe("Gece Obsidyen");
+  });
+
+  it("obsidian geçerli bir tema profili olarak normalize edilir (fallback'e düşmez)", () => {
+    expect(normalizeThemeProfile("obsidian")).toBe("obsidian");
+  });
+
+  it("yedi temanın tamamı için etiket tanımlıdır (eksik/undefined yok)", () => {
+    for (const profile of THEME_PROFILE_VALUES) {
+      expect(typeof THEME_PROFILE_LABELS[profile]).toBe("string");
+      expect(THEME_PROFILE_LABELS[profile].length).toBeGreaterThan(0);
+    }
+  });
+
+  it("dört fontun tamamı için etiket tanımlıdır ve birbirinden farklıdır", () => {
+    const labels = FONT_VALUES.map((f) => FONT_LABELS[f]);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });
 

@@ -14,17 +14,23 @@ import {
 import { actionSetThemeProfile, actionSetFont, actionResetThemePreferences } from "@/lib/actions";
 import { Button, Card } from "@/components/ui";
 
-const PROFILE_SWATCH: Record<ThemeProfile, string> = {
-  gold: "#A56A00",
-  navy: "#1e3a5f",
-  forest: "#1f5c3f",
-  burgundy: "#6b1f2b",
+/** İkinci renk — koyu temalarda (obsidian) arka plan da gösterilir, yalnız vurgu rengi yeterli kontrast vermez. */
+const PROFILE_SWATCH: Record<ThemeProfile, { accent: string; bg?: string }> = {
+  gold: { accent: "#A56A00" },
+  obsidian: { accent: "#d4a017", bg: "#0b0b0d" },
+  navy: { accent: "#1e3a5f" },
+  forest: { accent: "#1f5c3f" },
+  burgundy: { accent: "#6b1f2b" },
+  ocean: { accent: "#0e7490" },
+  lavender: { accent: "#5b4b8a" },
 };
 
+/** Önizleme, globals.css'teki gerçek `[data-font]` eşlemesiyle BİREBİR aynı font ailesini kullanır. */
 const FONT_PREVIEW_STYLE: Record<FontChoice, string> = {
-  corporate: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
-  modern: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
-  classic: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+  roboto_serif: "var(--font-roboto-serif), Georgia, 'Times New Roman', serif",
+  playfair_display: "var(--font-playfair-display), Georgia, 'Times New Roman', serif",
+  inter: "var(--font-inter), Inter, 'Helvetica Neue', Arial, sans-serif",
+  noto_sans: "var(--font-noto-sans), 'Helvetica Neue', Arial, sans-serif",
 };
 
 export function ThemePreferencesForm({
@@ -80,10 +86,15 @@ export function ThemePreferencesForm({
               }`}
             >
               <span
-                className="mb-2 block h-8 w-full rounded-[var(--radius-md)]"
-                style={{ background: PROFILE_SWATCH[value] }}
+                className="mb-2 flex h-8 w-full items-center gap-1.5 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] px-1.5"
+                style={{ background: PROFILE_SWATCH[value].bg ?? "#ffffff" }}
                 aria-hidden
-              />
+              >
+                <span
+                  className="h-4 w-4 shrink-0 rounded-full"
+                  style={{ background: PROFILE_SWATCH[value].accent }}
+                />
+              </span>
               <span className="text-sm font-medium text-[var(--color-text)]">{THEME_PROFILE_LABELS[value]}</span>
             </button>
           ))}
@@ -92,7 +103,7 @@ export function ThemePreferencesForm({
 
       <Card>
         <p className="mb-3 text-sm font-semibold text-[var(--color-text)]">Yazı tipi</p>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {FONT_VALUES.map((value) => (
             <button
               key={value}

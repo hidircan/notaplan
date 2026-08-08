@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/ui";
 import { OpenAssistantCta } from "@/components/ai/open-assistant-cta";
 import { Bot } from "lucide-react";
+import { BRAND } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default function PanelChatPage() {
       <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/50">
         <Bot className="h-10 w-10 text-amber-400" />
         <p className="max-w-sm text-sm text-slate-600 dark:text-slate-300">
-          NotaPlan Asistan artık her ekranda kullanılabilir; hangi öğrenci, öğretmen veya
+          {BRAND.assistantName} artık her ekranda kullanılabilir; hangi öğrenci, öğretmen veya
           program sayfasındaysanız oradan da bağlam alır. Aşağıdaki butonla açabilirsiniz.
         </p>
         <OpenAssistantCta label="Asistanı aç" />

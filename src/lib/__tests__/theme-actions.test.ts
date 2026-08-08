@@ -45,16 +45,18 @@ describe("actionSetThemeProfile — oturumdan/kurumdan bağımsız", () => {
 });
 
 describe("actionSetFont — oturumdan/kurumdan bağımsız", () => {
-  it("geçerli üç fontu aynen kaydeder", async () => {
-    await actions.actionSetFont("modern");
-    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "modern" });
-    await actions.actionSetFont("classic");
-    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "classic" });
+  it("geçerli dört fontu aynen kaydeder", async () => {
+    await actions.actionSetFont("playfair_display");
+    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "playfair_display" });
+    await actions.actionSetFont("roboto_serif");
+    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "roboto_serif" });
+    await actions.actionSetFont("noto_sans");
+    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "noto_sans" });
   });
 
-  it("geçersiz bir değer sessizce 'corporate'a normalize edilir", async () => {
+  it("geçersiz bir değer sessizce 'inter'e normalize edilir", async () => {
     await actions.actionSetFont("comic-sans");
-    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "corporate" });
+    expect(setCalls.at(-1)).toEqual({ name: "notaplan_font", value: "inter" });
   });
 });
 

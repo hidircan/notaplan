@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Music2, Home, UserRound, Users, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Home, UserRound, Users, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
+import { BRAND } from "@/lib/brand";
 import {
   PANEL_MAIN_NAV,
   PANEL_OPS_NAV,
@@ -94,7 +96,7 @@ export function Sidebar({
   kurumSelection?: string;
   canSeeAllKurumlar?: boolean;
 }) {
-  const schoolNameSafe = schoolName ?? "NotaPlan";
+  const schoolNameSafe = schoolName ?? BRAND.name;
   void _kurumlar;
   void _kurumSelection;
   void _canSeeAllKurumlar;
@@ -138,12 +140,12 @@ export function Sidebar({
     >
       <div className="border-b border-stone-200 px-3 py-5">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#A56A00] text-white shadow-sm">
-            <Music2 className="h-5 w-5" aria-hidden />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
+            <Image src={BRAND.logoMarkPath} alt={BRAND.name} width={40} height={32} className="h-8 w-auto" priority />
           </div>
           {!collapsed ? (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-wide text-stone-900">NotaPlan</p>
+              <p className="truncate text-sm font-semibold tracking-wide text-stone-900">{BRAND.name}</p>
               <p className="text-[11px] text-stone-500">Kurum yönetimi</p>
             </div>
           ) : null}

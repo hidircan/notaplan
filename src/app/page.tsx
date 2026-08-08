@@ -1,15 +1,16 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import {
   CalendarDays,
   Check,
   MessageCircle,
-  Music2,
   RefreshCcw,
   Sparkles,
   ArrowRight,
 } from "lucide-react";
 import { getSessionContext, homePathForRole } from "@/lib/auth/session";
+import { BRAND } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -78,10 +79,10 @@ export default async function LandingPage() {
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-800">
-            <Music2 className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/95">
+            <Image src={BRAND.logoMarkPath} alt={BRAND.name} width={36} height={28} className="h-6 w-auto" />
           </div>
-          <span className="font-semibold tracking-wide">NotaPlan</span>
+          <span className="font-semibold tracking-wide">{BRAND.name}</span>
         </div>
         <nav className="hidden items-center gap-6 text-sm text-slate-300 sm:flex">
           <a href="#ozellikler" className="hover:text-white">
@@ -281,7 +282,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
-        NotaPlan · github.com/hidircan
+        {BRAND.name} · github.com/hidircan
       </footer>
     </div>
   );
