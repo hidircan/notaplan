@@ -4,7 +4,7 @@ import { getInstitutionContext, readScopedData } from "@/lib/institution/context
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { BackButton } from "@/components/back-button";
-import { getTaskDetailTool } from "@/lib/services";
+import { getTaskDetailTool, getDocumentInstanceTool } from "@/lib/services";
 import { TaskDetailPanel } from "@/components/task-detail-panel";
 import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
 
@@ -32,6 +32,14 @@ export default async function IsTakipDetailPage({
 
   const detailRes = await getTaskDetailTool(session, { taskId });
 
+  // İş Takip Faz 3B-1A — evrak bağlantısı, kırık link üretmemek için burada
+  // sunucu tarafında ÖNCEDEN doğrulanır (silinmiş/başka kuruma aitse `null`).
+  let documentContext: { id: string; reference: string } | null = null;
+  if (detailRes.ok && detailRes.data.task.documentId) {
+    const docRes = await getDocumentInstanceTool(session, { documentId: detailRes.data.task.documentId });
+    documentContext = docRes.ok ? { id: docRes.data.document.id, reference: docRes.data.document.reference } : null;
+  }
+
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
@@ -53,6 +61,7 @@ export default async function IsTakipDetailPage({
           isAdmin
           assigneeLabel={resolveStaffLabel(staff, detailRes.data.task.assigneeId)}
           currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
+          documentContext={documentContext}
         />
       )}
     </div>

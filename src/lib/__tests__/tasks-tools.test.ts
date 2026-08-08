@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { promises as fs } from "fs";
+import path from "path";
 import {
   createTaskTool,
   listTasksTool,
@@ -12,10 +13,17 @@ import {
   archiveTaskChecklistItemTool,
   addTaskCommentTool,
   getTaskKpiSummaryTool,
+  createDocumentInstanceTool,
+  listDocumentTemplatesTool,
+  getDocumentInstanceTool,
 } from "../services/tools";
 import { TASKS_FILE } from "../tasks";
+import { resolveDataDir } from "../config";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+
+const TPL_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "document-templates.json");
+const INST_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "document-instances.json");
 
 function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
   return {
@@ -29,7 +37,22 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
 
 beforeEach(async () => {
   await fs.rm(TASKS_FILE, { force: true });
+  await fs.rm(TPL_FILE, { force: true });
+  await fs.rm(INST_FILE, { force: true });
 });
+
+async function seedDocument(overrides?: Partial<ServiceContext>) {
+  const templates = await listDocumentTemplatesTool(ctx(overrides));
+  if (!templates.ok) throw new Error("templates failed");
+  const tpl = templates.data.templates[0]!;
+  const created = await createDocumentInstanceTool(ctx(overrides), {
+    templateId: tpl.id,
+    studentId: "s1",
+    fieldValues: {},
+  });
+  if (!created.ok) throw new Error(created.error.message);
+  return created.data.documentId;
+}
 
 async function createBasicTask(overrides?: Record<string, unknown>) {
   const res = await createTaskTool(ctx(), {
@@ -415,5 +438,88 @@ describe("İş Takip — liste/detay tutarlılığı ve audit izi (aktivite geç
       expect(listRow.priority).toBe(detail.data.task.priority);
       expect(listRow.status).toBe(detail.data.task.status);
     }
+  });
+});
+
+/**
+ * İş Takip Faz 3B-1A — Evrak detay ekranından bağlamlı görev oluşturma.
+ * `documentId` alanı, doğrulama (validateTaskLinks) ve UI kablolaması zaten
+ * mevcut altyapıdan gelen genel bağlam mekanizması — burada yalnızca bu
+ * spesifik akışı (evrak → görev, görev → evrak) hedefli olarak doğruluyoruz.
+ */
+describe("İş Takip — evrak bağlamından görev oluşturma (Faz 3B-1A)", () => {
+  it("yetkili yönetici, erişebildiği evraktan görev oluşturur; task doğru documentId ile kaydedilir", async () => {
+    const documentId = await seedDocument();
+    const res = await createTaskTool(ctx(), {
+      title: "Evrak — takip",
+      category: "Evrak",
+      priority: "MEDIUM",
+      documentId,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const detail = await getTaskDetailTool(ctx(), { taskId: res.data.taskId });
+    expect(detail.ok).toBe(true);
+    if (!detail.ok) return;
+    expect(detail.data.task.documentId).toBe(documentId);
+  });
+
+  it("aynı evrak için birden fazla görev oluşturulabilir (otomatik tekilleştirme yok)", async () => {
+    const documentId = await seedDocument();
+    const first = await createTaskTool(ctx(), { title: "Görev 1", category: "Evrak", priority: "MEDIUM", documentId });
+    const second = await createTaskTool(ctx(), { title: "Görev 2", category: "Evrak", priority: "MEDIUM", documentId });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(first.data.taskId).not.toBe(second.data.taskId);
+  });
+
+  it("başka tenant'ın evrağı için görev oluşturma reddedilir (VALIDATION_ERROR — IDOR'a kapalı)", async () => {
+    const otherTenantId = "other-tenant-x";
+    const foreignDocumentId = await seedDocument({ tenantId: otherTenantId });
+    const res = await createTaskTool(ctx(), {
+      title: "Yanlış tenant evrakı",
+      category: "Evrak",
+      priority: "MEDIUM",
+      documentId: foreignDocumentId,
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("başka tenant bağlamında bir görevden evrak bağlamı okunmaya çalışılınca erişim reddedilir", async () => {
+    const otherTenantId = "other-tenant-y";
+    const foreignDocumentId = await seedDocument({ tenantId: otherTenantId });
+    const docRes = await getDocumentInstanceTool(ctx(), { documentId: foreignDocumentId });
+    expect(docRes.ok).toBe(false);
+    if (docRes.ok) return;
+    expect(docRes.error.code).toBe("NOT_FOUND");
+  });
+
+  it("yetkisiz rol (TEACHER) evrak bağlamıyla görev oluşturamaz", async () => {
+    const documentId = await seedDocument();
+    const res = await createTaskTool(ctx({ role: "TEACHER" }), {
+      title: "Yetkisiz deneme",
+      category: "Evrak",
+      priority: "MEDIUM",
+      documentId,
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("var olmayan/silinmiş bir evrak ID'siyle görev oluşturma reddedilir", async () => {
+    const res = await createTaskTool(ctx(), {
+      title: "Olmayan evrak",
+      category: "Evrak",
+      priority: "MEDIUM",
+      documentId: "doc_does_not_exist",
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("VALIDATION_ERROR");
   });
 });

@@ -48,12 +48,30 @@ export default async function DocumentDetailPage({
 
   const auditEntries = await listAuditLogs(session.tenantId, { entityId: doc.id, entityType: "DocumentInstance", limit: 20 });
 
+  // İş Takip Faz 3B-1A — "cancelled"/"expired" evrak, işlevsel karşılığı
+  // arşivlenmiş belge sayılır: yeni görev bağlamı için eylem gizlenir.
+  const canCreateTask = doc.status !== "cancelled" && doc.status !== "expired";
+
   return (
     <div>
       <PageHeader
         title={doc.reference}
         description={documentKindLabel(doc.kind)}
-        actions={<Badge status={doc.status}>{doc.status}</Badge>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canCreateTask ? (
+              <Link
+                href={`/panel/is-takip?newTaskDocumentId=${doc.id}&returnTo=${encodeURIComponent(
+                  `/panel/evraklar/${doc.id}`
+                )}`}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Bu evrakla ilgili görev oluştur
+              </Link>
+            ) : null}
+            <Badge status={doc.status}>{doc.status}</Badge>
+          </div>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">

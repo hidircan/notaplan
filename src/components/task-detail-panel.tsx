@@ -62,6 +62,7 @@ export function TaskDetailPanel({
   isAdmin,
   assigneeLabel,
   currentActorIds = [],
+  documentContext,
 }: {
   task: Task;
   checklist: TaskChecklistItem[];
@@ -72,6 +73,15 @@ export function TaskDetailPanel({
   assigneeLabel?: string;
   /** Oturum sahibinin olası kimlikleri (userId + teacherId) — "bu benim yorumum mu" kontrolü için. */
   currentActorIds?: string[];
+  /**
+   * İş Takip Faz 3B-1A — `task.documentId` varsa çözülmüş evrak bağlamı.
+   * Sunucu tarafında (sayfa katmanında) `getDocumentInstanceTool` ile
+   * ÖNCEDEN doğrulanır: belge silinmiş/başka kuruma aitse `undefined`
+   * geçilir ve kırık link YERİNE hiçbir bağlantı gösterilmez. Yalnızca
+   * `isAdmin` true iken render edilir (evrak ekranı zaten admin-only) —
+   * TEACHER görünümüne bu prop hiç geçirilmez.
+   */
+  documentContext?: { id: string; reference: string } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -194,6 +204,18 @@ export function TaskDetailPanel({
             >
               Programa git →
             </a>
+          ) : null}
+          {task.documentId && isAdmin && documentContext ? (
+            <a
+              href={`/panel/evraklar/${documentContext.id}`}
+              className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
+            >
+              Evrağa git ({documentContext.reference}) →
+            </a>
+          ) : task.documentId && isAdmin ? (
+            <span className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-muted)]">
+              Bağlı evrak artık erişilemiyor.
+            </span>
           ) : null}
         </div>
       ) : null}

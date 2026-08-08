@@ -5,13 +5,14 @@ import { getInstitutionContext, readScopedData } from "@/lib/institution/context
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, Select } from "@/components/ui";
 import { StatCard } from "@/components/ui";
-import { getTaskKpiSummaryTool, listTasksTool } from "@/lib/services";
+import { getTaskKpiSummaryTool, listTasksTool, getDocumentInstanceTool } from "@/lib/services";
 import { TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, type TaskStatus } from "@/lib/types";
 import { actionCreateTaskForm } from "@/lib/actions";
 import { cn, formatDate } from "@/lib/utils";
 import { resolveSafeReturnTo } from "@/lib/safe-return-to";
 import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
 import { TaskReminderPreferencesModal } from "@/components/task-reminder-preferences-modal";
+import { documentKindLabel } from "@/lib/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export default async function IsTakipPage({
     newTaskTeacherId?: string;
     newTaskLessonId?: string;
     newTaskPaymentId?: string;
+    newTaskDocumentId?: string;
     returnTo?: string;
   }>;
 }) {
@@ -104,8 +106,23 @@ export default async function IsTakipPage({
   const prefillTeacherId = sp.newTaskTeacherId || "";
   const prefillLessonId = sp.newTaskLessonId || "";
   const prefillPaymentId = sp.newTaskPaymentId || "";
+  const prefillDocumentId = sp.newTaskDocumentId || "";
   const safeReturnTo = resolveSafeReturnTo(sp.returnTo);
-  const hasContext = Boolean(prefillStudentId || prefillTeacherId || prefillLessonId || prefillPaymentId);
+  const hasContext = Boolean(
+    prefillStudentId || prefillTeacherId || prefillLessonId || prefillPaymentId || prefillDocumentId
+  );
+
+  // İş Takip Faz 3B-1A — evrak bağlamından gelen başlık önerisi. Belge
+  // erişilemez/başka kuruma aitse (silinmiş, cross-tenant deneme vb.)
+  // sessizce boş kalır — sunucu tarafı validateTaskLinks zaten formu
+  // AYRICA reddedecektir, burada yalnızca öneri metni etkilenir.
+  let prefillTitle = "";
+  if (prefillDocumentId && canCreate) {
+    const docRes = await getDocumentInstanceTool(session, { documentId: prefillDocumentId });
+    if (docRes.ok) {
+      prefillTitle = `${documentKindLabel(docRes.data.document.kind)} — ${docRes.data.document.reference}`;
+    }
+  }
 
   const todayYmd = new Date().toISOString().slice(0, 10);
 
@@ -307,9 +324,15 @@ export default async function IsTakipPage({
               <input type="hidden" name="teacherId" value={prefillTeacherId} />
               <input type="hidden" name="lessonId" value={prefillLessonId} />
               <input type="hidden" name="paymentId" value={prefillPaymentId} />
+              <input type="hidden" name="documentId" value={prefillDocumentId} />
               <div>
                 <Label>Başlık</Label>
-                <Input name="title" required placeholder="Örn. Kayıt formunu güncelle" />
+                <Input
+                  name="title"
+                  required
+                  defaultValue={prefillTitle}
+                  placeholder="Örn. Kayıt formunu güncelle"
+                />
               </div>
               <div>
                 <Label>Açıklama (opsiyonel)</Label>
