@@ -154,6 +154,22 @@ export default async function StudentDetailPage({
             Öğretmen: {teacher?.name ?? "—"} · Kayıt: {student.enrollmentStartDate ? formatDate(student.enrollmentStartDate) : formatDate(student.createdAt)}
           </span>
         </div>
+        {/*
+          MT-003 — bu ekranda öğretmen/enstrüman DEĞİŞTİRİLEMEZ (mevcut
+          akış yalnızca oluşturmada seçim yapıyor); burada yalnızca kayıt
+          zamanında geçerli olan atamanın artık geçersiz hâle geldiğini
+          (öğretmen pasife alındı veya enstrüman kombinasyonu artık uyumsuz)
+          açık Türkçe uyarıyla göstererek sessiz veri kaybını/otomatik
+          değişimi önlüyoruz.
+        */}
+        {teacher && (!teacher.active || !student.instruments.some((i) => teacher.instruments.includes(i))) ? (
+          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+            {!teacher.active
+              ? `Uyarı: atanmış öğretmen "${teacher.name}" artık pasif.`
+              : `Uyarı: atanmış öğretmen "${teacher.name}" artık "${student.instruments.join(", ")}" enstrümanını öğretmiyor.`}{" "}
+            Devam etmeden önce Öğretmenler ekranından uygunluğu kontrol edin.
+          </p>
+        ) : null}
       </Card>
 
       <nav aria-label="Bölümler" className="mb-6 flex flex-wrap gap-2">

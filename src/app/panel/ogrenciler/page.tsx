@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { actionAddStudent } from "@/lib/actions";
 import { Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
 import { StudentsTable, type StudentRow } from "@/components/students-table";
+import { StudentInstrumentTeacherFields } from "@/components/student-instrument-teacher-fields";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
@@ -184,29 +185,21 @@ export default async function OgrencilerPage() {
                 ))}
               </Select>
             </div>
-            <div>
-              <Label>Enstrüman</Label>
-              <Select name="instrument" defaultValue="Piyano">
-                {["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"].map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              {/* Öğretmen seçimi — yalnız aynı tenant içindeki AKTİF öğretmenler. */}
-              <Label>Öğretmen</Label>
-              <Select name="teacherId" defaultValue={data.teachers.find((t) => t.active)?.id}>
-                {data.teachers
-                  .filter((t) => t.active)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.instruments.join(", ")})
-                    </option>
-                  ))}
-              </Select>
-            </div>
+            {/*
+              MT-003 — enstrüman seçimine göre öğretmen listesi anlık
+              filtrelenir (yalnız o enstrümanı öğretebilen AKTİF öğretmenler).
+              Sunucu tarafı doğrulama (aktif+tenant+enstrüman uyumu)
+              createStudentTool'da AYRICA yapılır — bu yalnız UX.
+            */}
+            <StudentInstrumentTeacherFields
+              instrumentOptions={["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]}
+              teachers={data.teachers.map((t) => ({
+                id: t.id,
+                name: t.name,
+                active: t.active,
+                instruments: t.instruments,
+              }))}
+            />
             <div>
               <Label>Paket (serbest metin — geçmişle uyum için)</Label>
               <Input name="packageName" defaultValue="Bireysel Aylık — 4 ders" />

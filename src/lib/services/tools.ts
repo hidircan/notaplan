@@ -879,6 +879,25 @@ export async function createStudentTool(
 
   try {
     const before = await readData();
+    // MT-003 — seçilen öğretmenin AKTİF, AYNI TENANT'ta (`before.teachers`
+    // zaten tenant-scoped — cross-tenant bir ID burada asla bulunamaz) ve
+    // seçilen enstrümana yetkin olduğu sunucuda doğrulanır; filtre yalnız
+    // UI'da kalmaz. Öğretmenin birden fazla enstrümanı varsa eşleşen
+    // herhangi biri yeterlidir.
+    const teacher = before.teachers.find((t) => t.id === v.data.teacherId);
+    if (!teacher) {
+      return fail("VALIDATION_ERROR", "Seçilen öğretmen bulunamadı veya bu kuruma ait değil.");
+    }
+    if (!teacher.active) {
+      return fail("VALIDATION_ERROR", `"${teacher.name}" pasif — aktif bir öğretmen seçin.`);
+    }
+    if (!teacher.instruments.includes(v.data.instrument as Instrument)) {
+      return fail(
+        "VALIDATION_ERROR",
+        `"${teacher.name}" "${v.data.instrument}" enstrümanını öğretmiyor. Bu enstrümanı öğreten aktif bir öğretmen seçin.`
+      );
+    }
+
     const ids = new Set(before.students.map((s) => s.id));
     await addStudent({
       ...v.data,

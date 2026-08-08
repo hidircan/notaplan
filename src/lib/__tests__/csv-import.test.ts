@@ -466,4 +466,34 @@ describe("validateStudentRows (ÖNCELİK 4 devam — CSV şablon revizyonu)", ()
     // Commit katmanı errorCount > 0 olduğu sürece HİÇBİR kaydı yazmamalı —
     // bu kural store/action seviyesinde ayrıca test edilir.
   });
+
+  // MT-003 — enstrüman + öğretmen kombinasyonu. Seed'de t1 = Piyano/Şan, t2 = Gitar.
+  it("MT-003: öğretmenin öğretmediği enstrüman satırı anlaşılır hata ile reddedilir", () => {
+    const t1 = t1Name;
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, ogretmen: t1, enstruman: "Gitar" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errorCount).toBeGreaterThan(0);
+    const err = result.errors.find((e) => e.field === "ogretmen");
+    expect(err).toBeDefined();
+    expect(err?.message).toContain("Gitar");
+    expect(result.validCount).toBe(0);
+  });
+
+  it("MT-003: çoklu enstrümanlı öğretmenin ikinci enstrümanıyla satır geçerli sayılır", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, ogretmen: t1Name, enstruman: "Şan" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errorCount).toBe(0);
+    expect(result.valid[0].teacherId).toBe("t1");
+    expect(result.valid[0].instrument).toBe("Şan");
+  });
+
+  it("MT-003: doğru enstrümanı öğreten öğretmenle satır geçerli kalır (regresyon)", () => {
+    const csv = HEADER + "\n" + buildRow({ ...baseFields, ogretmen: t1Name, enstruman: "Piyano" }) + "\n";
+    const { records } = rowsToRecords(parseCsv(csv));
+    const result = validateStudentRows(data, records);
+    expect(result.errorCount).toBe(0);
+    expect(result.validCount).toBe(1);
+  });
 });

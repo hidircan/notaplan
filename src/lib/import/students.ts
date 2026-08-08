@@ -82,8 +82,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const STUDENT_CSV_SAMPLE = `ad_soyad,veli_ad_soyad,veli_telefon,ogrenci_telefon,sube,enstruman,ogretmen,paket,ders_suresi,haftalik_ders_sayisi,aylik_ucret,tc_kimlik_no,dogum_tarihi,dogum_yeri,okul_meslek,ev_adresi,sosyal_medya_izni,kayit_tarihi,notlar
 Deniz Ak,Ayşe Ak,0555 222 2222,0555 222 2223,Erzene,Piyano,Nilüfer Acar,Bireysel Aylık — 4 ders,30,1,3000,,2015-03-22,İzmir,Erzene İlkokulu 4-A,Bornova Mah. No:12,Evet,2026-09-01,
-Ece Yılmaz,Merve Yılmaz,0555 333 3333,0555 333 3334,Erzene,Keman,Nilüfer Acar,Bireysel Aylık — 8 ders,40,2,5800,,2013-11-08,Ankara,Konak Ortaokulu 6-B,Konak Mah. No:45,Hayır,2026-09-01,Grup dersine de katılıyor
-Kerem Doğan,Fatma Doğan,0555 444 4444,0555 444 4445,Evka 3,Gitar,Nilüfer Acar,Bireysel Aylık — 4 ders,50,1,4200,,2010-05-14,İstanbul,Lise 11. sınıf,Evka 3 Mah. No:7,Evet,2026-09-01,
+Ece Yılmaz,Merve Yılmaz,0555 333 3333,0555 333 3334,Evka 3,Keman,Elif Kaya,Bireysel Aylık — 8 ders,40,2,5800,,2013-11-08,Ankara,Konak Ortaokulu 6-B,Konak Mah. No:45,Hayır,2026-09-01,Grup dersine de katılıyor
+Kerem Doğan,Fatma Doğan,0555 444 4444,0555 444 4445,Erzene,Gitar,Can Yılmaz,Bireysel Aylık — 4 ders,50,1,4200,,2010-05-14,İstanbul,Lise 11. sınıf,Evka 3 Mah. No:7,Evet,2026-09-01,
 `;
 
 const PHONE_RE = /^[0-9()+\-\s]{7,}$/;
@@ -200,8 +200,27 @@ export function validateStudentRows(
       errors.push({ row, field: "ogretmen", message: "Öğretmen adı boş olamaz." });
     } else {
       const resolved = resolveTeacherIdByName(data, teacherValue);
-      if (!resolved.ok) errors.push({ row, field: "ogretmen", message: resolved.message });
-      else teacherId = resolved.teacherId;
+      if (!resolved.ok) {
+        errors.push({ row, field: "ogretmen", message: resolved.message });
+      } else if (instrumentValue && isInstrument(instrumentValue, activeInstrumentNames)) {
+        // MT-003 — enstrüman + öğretmen kombinasyonu uyumsuzsa satır reddedilir
+        // (öğretmenin BİRDEN FAZLA enstrümanı varsa eşleşen herhangi biri yeterli).
+        const teacher = data.teachers.find((t) => t.id === resolved.teacherId);
+        if (!teacher || !teacher.instruments.includes(instrumentValue as Instrument)) {
+          errors.push({
+            row,
+            field: "ogretmen",
+            message: `"${teacherValue}" öğretmeni "${instrumentValue}" enstrümanını öğretmiyor.`,
+          });
+        } else {
+          teacherId = resolved.teacherId;
+        }
+      } else {
+        // Enstrüman kendi başına zaten geçersiz/boş — o alanda ayrı bir hata
+        // zaten üretiliyor, burada tekrar aynı satırı ikinci bir hatayla
+        // boğmayalım; yalnızca teacherId'yi geçerli SAYMA (valid'e girmesin).
+        teacherId = null;
+      }
     }
 
     if (!packageName) errors.push({ row, field: "paket", message: "Paket boş olamaz." });
