@@ -69,6 +69,17 @@ export const studentSchema = z.object({
   lessonDurationMinutes: z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
     message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
   }).optional(),
+  /** Package C — paket seçildiğinde uygulanacak indirim + ödeme profili. Hepsi opsiyonel — legacy akış kırılmaz. */
+  discountType: z.enum(["percent", "amount"]).optional(),
+  discountValue: z.coerce.number().min(0).optional(),
+  paymentMethod: z.enum(["credit_card", "cash", "transfer"]).optional(),
+  paymentDueDay: z.coerce.number().int().min(1).max(31).optional(),
+  /** Yalnız yetkili yönetici (tool RBAC'ı) elle nihai ücret girebilir — verilirse gerekçe zorunludur. */
+  monthlyFeeOverrideAmount: z.coerce.number().int().min(0).optional(),
+  monthlyFeeOverrideReason: optionalTrimmed,
+}).refine((v) => v.monthlyFeeOverrideAmount === undefined || !!v.monthlyFeeOverrideReason, {
+  message: "Manuel ücret girildiyse gerekçe zorunludur.",
+  path: ["monthlyFeeOverrideReason"],
 });
 
 export const updateStudentProfileSchema = z.object({
@@ -82,6 +93,30 @@ export const updateStudentProfileSchema = z.object({
   /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
   termType: z.enum(["guz", "yaz"]).optional(),
 });
+
+/**
+ * Package C — öğrenci paket/süre/indirim/ödeme günü/türü ve (yetkili
+ * yöneticiyse) manuel nihai ücret override'ı TEK bu şema/tool üzerinden
+ * güncellenir — RBAC (SCHOOL_ADMIN/SUPER_ADMIN) tool katmanında.
+ */
+export const updateStudentPaymentProfileSchema = z
+  .object({
+    studentId: z.string().min(1),
+    packageId: z.string().min(1).optional(),
+    lessonDurationMinutes: z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+      message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+    }).optional(),
+    discountType: z.enum(["percent", "amount"]).optional(),
+    discountValue: z.coerce.number().min(0).optional(),
+    paymentMethod: z.enum(["credit_card", "cash", "transfer"]).optional(),
+    paymentDueDay: z.coerce.number().int().min(1).max(31).optional(),
+    monthlyFeeOverrideAmount: z.coerce.number().int().min(0).optional(),
+    monthlyFeeOverrideReason: optionalTrimmed,
+  })
+  .refine((v) => v.monthlyFeeOverrideAmount === undefined || !!v.monthlyFeeOverrideReason, {
+    message: "Manuel ücret girildiyse gerekçe zorunludur.",
+    path: ["monthlyFeeOverrideReason"],
+  });
 
 const TEACHER_INSTRUMENT_ENUM = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
 const INSTRUMENT_LEVEL_ENUM = ["Başlangıç", "Orta", "İleri"] as const;

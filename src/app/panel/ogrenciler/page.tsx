@@ -3,6 +3,7 @@ import { actionAddStudent } from "@/lib/actions";
 import { Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
 import { StudentsTable, type StudentRow } from "@/components/students-table";
 import { StudentInstrumentTeacherFields } from "@/components/student-instrument-teacher-fields";
+import { StudentPackagePricingFields } from "@/components/student-package-pricing-fields";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
@@ -205,38 +206,37 @@ export default async function OgrencilerPage() {
               <Input name="packageName" defaultValue="Bireysel Aylık — 4 ders" />
             </div>
             <div>
-              {/* ÖNCELİK 4 (devam) — Paket Yönetimi'nden AKTİF paket seçimi (opsiyonel,
-                  additive; legacy `packageName` metin alanının yerini almaz). */}
-              <Label>Paket Yönetimi paketi (opsiyonel)</Label>
-              <Select name="packageId" defaultValue="">
-                <option value="">Seçilmedi (yalnızca yukarıdaki serbest metin paket kullanılır)</option>
-                {(data.packages ?? [])
-                  .filter((p) => p.status === "active")
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} — 30dk {p.price30Min.toLocaleString("tr-TR")} TL / 40dk{" "}
-                      {p.price40Min.toLocaleString("tr-TR")} TL / 50dk {p.price50Min.toLocaleString("tr-TR")} TL
-                    </option>
-                  ))}
-              </Select>
+              <Label>Haftalık ders</Label>
+              <Input name="weeklyLessonCount" type="number" defaultValue={1} min={1} />
             </div>
+            {/* Package C — paket + süre + indirim + canlı nihai ücret önizlemesi.
+                Paket seçilmezse eski serbest "Aylık ücret" alanı (legacy) kullanılır —
+                iki çelişkili fiyat alanı asla aynı anda görünmez. */}
+            <StudentPackagePricingFields
+              packages={(data.packages ?? [])
+                .filter((p) => p.status === "active")
+                .map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  price30Min: p.price30Min,
+                  price40Min: p.price40Min,
+                  price50Min: p.price50Min,
+                }))}
+            />
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Haftalık ders</Label>
-                <Input name="weeklyLessonCount" type="number" defaultValue={1} min={1} />
+                <Label>Ödeme türü (opsiyonel)</Label>
+                <Select name="paymentMethod" defaultValue="">
+                  <option value="">Belirtilmemiş</option>
+                  <option value="cash">Nakit</option>
+                  <option value="transfer">Havale</option>
+                  <option value="credit_card">Kredi Kartı</option>
+                </Select>
               </div>
               <div>
-                <Label>Aylık ücret</Label>
-                <Input name="monthlyFee" type="number" defaultValue={3000} min={0} />
+                <Label>Ödeme günü (1–31, opsiyonel)</Label>
+                <Input name="paymentDueDay" type="number" min={1} max={31} />
               </div>
-            </div>
-            <div>
-              <Label>Ders süresi</Label>
-              <Select name="lessonDurationMinutes" defaultValue="40">
-                <option value="30">30 dk</option>
-                <option value="40">40 dk</option>
-                <option value="50">50 dk</option>
-              </Select>
             </div>
             <div>
               <Label>Yoklama Takvimi dönemi</Label>

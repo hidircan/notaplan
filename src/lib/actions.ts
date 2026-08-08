@@ -20,6 +20,7 @@ import {
   createPaymentTool,
   createStudentTool,
   updateStudentProfileTool,
+  updateStudentPaymentProfileTool,
   archiveStudentTool,
   createTeacherTool,
   createBranchTool,
@@ -394,6 +395,23 @@ export async function actionAddStudent(formData: FormData) {
             const raw = Number(formData.get("lessonDurationMinutes") || 0);
             return raw === 30 || raw === 40 || raw === 50 ? raw : undefined;
           })(),
+          // Package C — paket seçildiyse indirim/ödeme profili; paketsizse hiçbiri gönderilmez.
+          discountType: (() => {
+            const raw = String(formData.get("discountType") || "");
+            return raw === "percent" || raw === "amount" ? raw : undefined;
+          })(),
+          discountValue: (() => {
+            const raw = String(formData.get("discountValue") || "");
+            return raw ? Number(raw) : undefined;
+          })(),
+          paymentMethod: (() => {
+            const raw = String(formData.get("paymentMethod") || "");
+            return raw === "cash" || raw === "transfer" || raw === "credit_card" ? raw : undefined;
+          })(),
+          paymentDueDay: (() => {
+            const raw = String(formData.get("paymentDueDay") || "");
+            return raw ? Number(raw) : undefined;
+          })(),
         })
       );
 
@@ -451,6 +469,40 @@ export async function actionUpdateStudentProfile(input: {
     logger.error("actionUpdateStudentProfile failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Öğrenci profili güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateStudentPaymentProfileActionResult =
+  | { ok: true; monthlyFee: number }
+  | { ok: false; message: string };
+
+/**
+ * Package C — paket/süre/indirim/ödeme günü/türü + (yalnızca yetkili
+ * yönetici) manuel nihai ücret override'ı. RBAC/hesap tek kaynağı
+ * `updateStudentPaymentProfileTool`'dadır — bu action yalnız ince bir sarmalayıcı.
+ */
+export async function actionUpdateStudentPaymentProfile(input: {
+  studentId: string;
+  packageId?: string;
+  lessonDurationMinutes?: number;
+  discountType?: "percent" | "amount";
+  discountValue?: number;
+  paymentMethod?: "cash" | "transfer" | "credit_card";
+  paymentDueDay?: number;
+  monthlyFeeOverrideAmount?: number;
+  monthlyFeeOverrideReason?: string;
+}): Promise<UpdateStudentPaymentProfileActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateStudentPaymentProfile", (ctx) =>
+      updateStudentPaymentProfileTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, monthlyFee: result.data.monthlyFee };
+  } catch (error) {
+    logger.error("actionUpdateStudentPaymentProfile failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ödeme profili güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

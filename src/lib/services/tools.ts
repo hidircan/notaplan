@@ -73,6 +73,8 @@ import {
 } from "../makeup-engine";
 import { suggestLessonSlots, type LessonSlotSuggestion } from "../lesson-scheduling";
 import { DEFAULT_LESSON_DURATION_MINUTES } from "../lesson-duration";
+import { computeMonthlyFee } from "../packages";
+import type { LessonDurationMinutes } from "../lesson-duration";
 import {
   buildSeriesPreviewText,
   checkSeriesOccurrences,
@@ -209,6 +211,7 @@ import {
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
   updateStudentProfileSchema,
+  updateStudentPaymentProfileSchema,
   updateTeacherInstrumentsSchema,
   createPackageSchema,
   updatePackageSchema,
@@ -246,6 +249,7 @@ import {
   type MakeupSlot,
   type Notification,
   type Student,
+  type StudentProfilePatch,
   type Teacher,
   type TeacherAvailabilityRequest,
   type TeacherFeedback,
@@ -908,17 +912,65 @@ export async function createStudentTool(
       );
     }
 
+    // Package C — paket seçildiyse aylık ücret HER ZAMAN sunucuda, tek
+    // merkez helper (computeMonthlyFee) ile hesaplanır; istemciden gelen
+    // `monthlyFee` paket akışında YOK SAYILIR (iki çelişkili fiyat kaynağı
+    // olmasın diye). Paket seçilmediyse legacy serbest `monthlyFee` girişi
+    // aynen korunur.
+    let pricing: {
+      monthlyFee: number;
+      packageBaseMonthlyFee?: number;
+      discountType?: Student["discountType"];
+      discountValue?: number;
+      monthlyFeeManualOverride: boolean;
+      monthlyFeeOverrideReason?: string;
+    } = { monthlyFee: v.data.monthlyFee, monthlyFeeManualOverride: false };
+
+    if (!v.data.packageId && (v.data.discountType || v.data.discountValue !== undefined || v.data.monthlyFeeOverrideAmount !== undefined)) {
+      return fail("VALIDATION_ERROR", "İndirim/manuel ücret yalnızca bir paket seçildiğinde uygulanabilir.");
+    }
+
+    if (v.data.packageId) {
+      const pkg = before.packages?.find((p) => p.id === v.data.packageId && p.status === "active");
+      if (!pkg) return fail("VALIDATION_ERROR", "Seçilen paket bulunamadı veya aktif değil.");
+      if (!v.data.lessonDurationMinutes) {
+        return fail("VALIDATION_ERROR", "Paket seçildiğinde ders süresi (30/40/50 dk) zorunludur.");
+      }
+      if (v.data.monthlyFeeOverrideAmount !== undefined && ctx.role !== "SCHOOL_ADMIN" && ctx.role !== "SUPER_ADMIN") {
+        return fail("FORBIDDEN", "Aylık ücreti yalnızca yetkili yönetici elle değiştirebilir.");
+      }
+      const computation = computeMonthlyFee({
+        pkg,
+        durationMinutes: v.data.lessonDurationMinutes as LessonDurationMinutes,
+        discountType: v.data.discountType,
+        discountValue: v.data.discountValue,
+        overrideAmount: v.data.monthlyFeeOverrideAmount,
+      });
+      pricing = {
+        monthlyFee: computation.finalMonthlyFee,
+        packageBaseMonthlyFee: computation.baseMonthlyFee,
+        discountType: v.data.discountType,
+        discountValue: v.data.discountValue,
+        monthlyFeeManualOverride: computation.source === "override",
+        monthlyFeeOverrideReason: computation.source === "override" ? v.data.monthlyFeeOverrideReason : undefined,
+      };
+    }
+
+    const { monthlyFeeOverrideAmount: _ignoredOverrideAmount, ...studentInput } = v.data;
     const ids = new Set(before.students.map((s) => s.id));
     await addStudent({
-      ...v.data,
+      ...studentInput,
       instruments: [v.data.instrument as Instrument],
       email: v.data.email ?? "",
       notes: v.data.notes ?? "",
       lessonDurationMinutes: v.data.lessonDurationMinutes as Student["lessonDurationMinutes"],
+      ...pricing,
     });
     const after = await readData();
     const created = after.students.find((s) => !ids.has(s.id));
-    if (created) audit(ctx, "student.create", "Student", created.id);
+    if (created) {
+      audit(ctx, "student.create", "Student", created.id, v.data.packageId ? { pricing } : undefined);
+    }
     return ok({ studentId: created?.id ?? "unknown" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createStudent failed");
@@ -947,6 +999,101 @@ export async function updateStudentProfileTool(
     return ok({ studentId });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateStudentProfile failed");
+  }
+}
+
+/**
+ * Package C — öğrencinin paket/süre/indirim/ödeme günü/ödeme türünü ve
+ * (yalnızca yetkili yönetici) nihai aylık ücretin manuel override'ını TEK
+ * bu tooldan günceller. Aylık ücret HER ZAMAN sunucuda `computeMonthlyFee`
+ * ile yeniden hesaplanır — istemciden gelen bir "final tutar" asla doğrudan
+ * güvenilip kaydedilmez (override hariç, o da yalnızca bu RBAC ile).
+ */
+export async function updateStudentPaymentProfileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ studentId: string; monthlyFee: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateStudentPaymentProfileSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const data = await readData();
+    const student = data.students.find((s) => s.id === v.data.studentId);
+    if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı.");
+
+    const effectivePackageId = v.data.packageId ?? student.packageId;
+    const effectiveDuration = v.data.lessonDurationMinutes ?? student.lessonDurationMinutes;
+    const effectiveDiscountType = v.data.discountType ?? student.discountType;
+    const effectiveDiscountValue = v.data.discountValue ?? student.discountValue;
+
+    if (!effectivePackageId && (v.data.discountType || v.data.discountValue !== undefined)) {
+      return fail("VALIDATION_ERROR", "İndirim yalnızca bir paket seçildiğinde uygulanabilir.");
+    }
+
+    const patch: StudentProfilePatch = {};
+    if (v.data.paymentMethod !== undefined) patch.paymentMethod = v.data.paymentMethod;
+    if (v.data.paymentDueDay !== undefined) patch.paymentDueDay = v.data.paymentDueDay;
+    if (v.data.lessonDurationMinutes !== undefined) {
+      patch.lessonDurationMinutes = v.data.lessonDurationMinutes as Student["lessonDurationMinutes"];
+    }
+    if (v.data.packageId !== undefined) patch.packageId = v.data.packageId;
+
+    const before = {
+      monthlyFee: student.monthlyFee,
+      discountType: student.discountType,
+      discountValue: student.discountValue,
+      monthlyFeeManualOverride: student.monthlyFeeManualOverride ?? false,
+    };
+
+    if (effectivePackageId) {
+      // Paket değiştiriliyorsa yeni paket aktif olmalı; öğrencide zaten
+      // atanmış (ve sonradan arşivlenmiş olabilecek) bir paket dokunulmadan
+      // korunuyorsa (v.data.packageId verilmediyse) durum sorgulanmaz —
+      // geçmiş fiyatlandırma bozulmaz.
+      const pkg = v.data.packageId
+        ? data.packages?.find((p) => p.id === v.data.packageId && p.status === "active")
+        : data.packages?.find((p) => p.id === effectivePackageId);
+      if (!pkg) return fail("VALIDATION_ERROR", "Seçilen paket bulunamadı veya aktif değil.");
+      if (!effectiveDuration) {
+        return fail("VALIDATION_ERROR", "Paket için ders süresi (30/40/50 dk) zorunludur.");
+      }
+      const computation = computeMonthlyFee({
+        pkg,
+        durationMinutes: effectiveDuration as LessonDurationMinutes,
+        discountType: effectiveDiscountType,
+        discountValue: effectiveDiscountValue,
+        overrideAmount: v.data.monthlyFeeOverrideAmount,
+      });
+      patch.monthlyFee = computation.finalMonthlyFee;
+      patch.packageBaseMonthlyFee = computation.baseMonthlyFee;
+      patch.discountType = effectiveDiscountType;
+      patch.discountValue = effectiveDiscountValue;
+      patch.monthlyFeeManualOverride = computation.source === "override";
+      patch.monthlyFeeOverrideReason = computation.source === "override" ? v.data.monthlyFeeOverrideReason : undefined;
+    } else if (v.data.monthlyFeeOverrideAmount !== undefined) {
+      // Paketsiz (legacy serbest ücret) öğrenci — manuel tutar doğrudan nihai ücrettir.
+      patch.monthlyFee = v.data.monthlyFeeOverrideAmount;
+      patch.monthlyFeeManualOverride = true;
+      patch.monthlyFeeOverrideReason = v.data.monthlyFeeOverrideReason;
+    }
+
+    await updateStudentProfile(v.data.studentId, patch);
+    audit(ctx, "student.payment_profile_update", "Student", v.data.studentId, {
+      before,
+      after: {
+        monthlyFee: patch.monthlyFee ?? before.monthlyFee,
+        discountType: patch.discountType,
+        discountValue: patch.discountValue,
+        monthlyFeeManualOverride: patch.monthlyFeeManualOverride ?? before.monthlyFeeManualOverride,
+      },
+      reason: v.data.monthlyFeeOverrideReason,
+    });
+    return ok({ studentId: v.data.studentId, monthlyFee: patch.monthlyFee ?? student.monthlyFee });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateStudentPaymentProfile failed");
   }
 }
 

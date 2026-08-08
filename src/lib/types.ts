@@ -158,8 +158,22 @@ export interface Student {
   lessonDurationMinutes?: LessonDurationPreference;
   paymentMethod?: StudentPaymentMethod;
   paymentAmount?: number;
-  /** Ayın günü (1–28) vade hedefi */
+  /** Ayın günü (1–31) vade hedefi — ay sonu taşması mevcut ödeme motoru (dueWindowForPaymentMethod) davranışıyla çözülür. */
   paymentDueDay?: number;
+  /**
+   * Package C — paket+süre indirim öncesi liste fiyatı (Package.priceXMin,
+   * `computeMonthlyFee` ile hesaplanır). Yalnız bilgi/audit amaçlı; paket
+   * seçilmemişse (legacy serbest ücret) set edilmez. `monthlyFee` HER ZAMAN
+   * nihai (indirim/override uygulanmış) ücrettir — tek gerçek kaynak odur.
+   */
+  packageBaseMonthlyFee?: number;
+  discountType?: DiscountType;
+  /** discountType="percent" ise 0–100 arası yüzde, "amount" ise TL tutar. */
+  discountValue?: number;
+  /** true ise `monthlyFee` hesaplanan (taban - indirim) değerden FARKLI, admin tarafından elle girilmiştir. */
+  monthlyFeeManualOverride?: boolean;
+  /** Override yapıldıysa zorunlu gerekçe metni — audit'te de ayrıca saklanır. */
+  monthlyFeeOverrideReason?: string;
   firstLessonAt?: string;
   /** Soft-archive; hard delete yok */
   archivedAt?: string;
@@ -229,6 +243,12 @@ export type StudentProfilePatch = Partial<
     | "packageId"
     | "birthPlace"
     | "schoolOrOccupation"
+    | "monthlyFee"
+    | "packageBaseMonthlyFee"
+    | "discountType"
+    | "discountValue"
+    | "monthlyFeeManualOverride"
+    | "monthlyFeeOverrideReason"
   >
 >;
 
@@ -762,6 +782,9 @@ export const EDUCATION_METHODS: EducationMethod[] = [
 export type LessonDurationPreference = 30 | 40 | 50;
 
 export type StudentPaymentMethod = "credit_card" | "cash" | "transfer";
+
+/** Package C — paket fiyatına uygulanan indirim türü: yüzde veya sabit TL tutar. */
+export type DiscountType = "percent" | "amount";
 
 export type InstrumentLevel = "Başlangıç" | "Orta" | "İleri";
 

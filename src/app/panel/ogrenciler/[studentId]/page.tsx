@@ -28,6 +28,7 @@ import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentTermTypeEditor } from "@/components/student-term-type-editor";
+import { StudentPaymentProfileEditor } from "@/components/student-payment-profile-editor";
 import { StudentArchiveToggle } from "@/components/student-archive-toggle";
 import { BackButton } from "@/components/back-button";
 import { NationalIdReveal } from "@/components/national-id-reveal";
@@ -399,6 +400,33 @@ export default async function StudentDetailPage({
           <MiniStat label="Kalan" value={formatMoney(paymentSummary.remaining)} />
           <MiniStat label="Gecikmiş kalan" value={formatMoney(paymentSummary.overdueRemaining)} />
         </div>
+        {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
+          <div className="mb-4">
+            <h3 className="mb-2 text-xs font-semibold text-[var(--color-text-muted)]">Paket / Ödeme Profili</h3>
+            <StudentPaymentProfileEditor
+              studentId={student.id}
+              packages={packages
+                .filter((p) => p.status === "active" || p.id === student.packageId)
+                .map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  price30Min: p.price30Min,
+                  price40Min: p.price40Min,
+                  price50Min: p.price50Min,
+                }))}
+              initial={{
+                packageId: student.packageId,
+                lessonDurationMinutes: student.lessonDurationMinutes,
+                discountType: student.discountType,
+                discountValue: student.discountValue,
+                paymentMethod: student.paymentMethod,
+                paymentDueDay: student.paymentDueDay,
+                monthlyFee: student.monthlyFee,
+                monthlyFeeManualOverride: student.monthlyFeeManualOverride,
+              }}
+            />
+          </div>
+        ) : null}
         {payments.length === 0 ? (
           <EmptyState title="Ödeme kaydı yok" />
         ) : (

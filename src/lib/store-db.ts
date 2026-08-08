@@ -177,6 +177,29 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       packageId: (student as { packageId?: string | null }).packageId ?? undefined,
       birthPlace: (student as { birthPlace?: string | null }).birthPlace ?? undefined,
       schoolOrOccupation: (student as { schoolOrOccupation?: string | null }).schoolOrOccupation ?? undefined,
+      // Package C — ödeme profili + paket fiyatlandırma. Bu alanlar
+      // öncesinde db modunda hiç OKUNMUYORDU (yalnızca updateStudentProfile
+      // parametresi olarak kabul ediliyordu, satıra hiç yazılmıyordu/geri
+      // dönmüyordu) — parity için burada eklendi.
+      lessonDurationMinutes:
+        (student as { lessonDurationMinutes?: number | null }).lessonDurationMinutes as
+          | import("./types").LessonDurationPreference
+          | undefined ?? undefined,
+      paymentMethod: (student as { paymentMethod?: string | null }).paymentMethod as
+        | import("./types").StudentPaymentMethod
+        | undefined ?? undefined,
+      paymentAmount: (student as { paymentAmount?: number | null }).paymentAmount ?? undefined,
+      paymentDueDay: (student as { paymentDueDay?: number | null }).paymentDueDay ?? undefined,
+      packageBaseMonthlyFee:
+        (student as { packageBaseMonthlyFee?: number | null }).packageBaseMonthlyFee ?? undefined,
+      discountType: (student as { discountType?: string | null }).discountType as
+        | import("./types").DiscountType
+        | undefined ?? undefined,
+      discountValue: (student as { discountValue?: number | null }).discountValue ?? undefined,
+      monthlyFeeManualOverride:
+        (student as { monthlyFeeManualOverride?: boolean | null }).monthlyFeeManualOverride ?? undefined,
+      monthlyFeeOverrideReason:
+        (student as { monthlyFeeOverrideReason?: string | null }).monthlyFeeOverrideReason ?? undefined,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -978,6 +1001,19 @@ export async function updateStudentProfile(
       packageId: patch.packageId,
       birthPlace: patch.birthPlace,
       schoolOrOccupation: patch.schoolOrOccupation,
+      // Package C — ödeme profili + paket fiyatlandırma alanları. Bu
+      // mapping öncesinde paymentMethod/paymentAmount/paymentDueDay hiçbir
+      // DB-mode yazma yoluna sahip değildi (JSON/memory store generic
+      // spread ile zaten destekliyordu) — burada eklenerek parity kapatıldı.
+      paymentMethod: patch.paymentMethod,
+      paymentAmount: patch.paymentAmount,
+      paymentDueDay: patch.paymentDueDay,
+      monthlyFee: patch.monthlyFee,
+      packageBaseMonthlyFee: patch.packageBaseMonthlyFee,
+      discountType: patch.discountType,
+      discountValue: patch.discountValue,
+      monthlyFeeManualOverride: patch.monthlyFeeManualOverride,
+      monthlyFeeOverrideReason: patch.monthlyFeeOverrideReason,
     },
   });
   if (result.count === 0) throw new Error("Öğrenci bulunamadı");

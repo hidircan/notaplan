@@ -4,7 +4,8 @@
  * yok, yalnızca AppData -> AppData dönüşümü + doğrulama.
  */
 
-import type { AppData, Package, PackageStatus, StudentTermType } from "./types";
+import type { AppData, DiscountType, Package, PackageStatus, StudentTermType } from "./types";
+import type { LessonDurationMinutes } from "./lesson-duration";
 import { uid } from "./utils";
 
 export type PackageInput = {
@@ -117,4 +118,57 @@ export function priceForDuration(pkg: Package, durationMinutes: 30 | 40 | 50): n
 
 export function packageStatusLabel(status: PackageStatus): string {
   return status === "archived" ? "Arşivlendi" : "Aktif";
+}
+
+/**
+ * Package C — süre + indirim + (varsa) manuel override'a göre nihai aylık
+ * ücret. Tek merkez hesap: hem sunucu (createStudentTool/
+ * updateStudentPaymentProfileTool) hem istemci (canlı önizleme) BU
+ * fonksiyonu çağırır — iki ayrı fiyat mantığı YOK. Saf fonksiyon, I/O yok.
+ */
+export type MonthlyFeeComputation = {
+  /** Paketin seçilen süre için liste fiyatı — indirim/override öncesi. */
+  baseMonthlyFee: number;
+  /** İndirimin TL karşılığı (yüzdeyse tabana göre hesaplanır, tam TL'ye yuvarlanır). */
+  discountAmount: number;
+  /** Kaydedilecek/gösterilecek nihai aylık ücret — asla negatif değil. */
+  finalMonthlyFee: number;
+  /** "override" ise finalMonthlyFee admin tarafından elle girilmiştir (taban/indirim yalnız bilgi amaçlı). */
+  source: "computed" | "override";
+};
+
+/** İndirimin TL karşılığı — negatif olamaz, tabanı aşamaz, yüzde 100'ü aşamaz. */
+export function computeDiscountAmount(
+  baseMonthlyFee: number,
+  discountType: DiscountType | undefined,
+  discountValue: number | undefined
+): number {
+  if (!discountType || !discountValue || discountValue <= 0) return 0;
+  if (discountType === "percent") {
+    const cappedPercent = Math.min(discountValue, 100);
+    return Math.round((baseMonthlyFee * cappedPercent) / 100);
+  }
+  return Math.min(Math.round(discountValue), baseMonthlyFee);
+}
+
+export function computeMonthlyFee(params: {
+  pkg: Pick<Package, "price30Min" | "price40Min" | "price50Min">;
+  durationMinutes: LessonDurationMinutes;
+  discountType?: DiscountType;
+  discountValue?: number;
+  /** Verilirse hesaplanan değerin yerine geçer (yalnız yetkili yönetici çağırabilmeli — RBAC çağıran katmanda). */
+  overrideAmount?: number;
+}): MonthlyFeeComputation {
+  const baseMonthlyFee = priceForDuration(params.pkg as Package, params.durationMinutes);
+  const discountAmount = computeDiscountAmount(baseMonthlyFee, params.discountType, params.discountValue);
+  const computedFinal = Math.max(baseMonthlyFee - discountAmount, 0);
+  if (params.overrideAmount !== undefined) {
+    return {
+      baseMonthlyFee,
+      discountAmount,
+      finalMonthlyFee: Math.max(Math.round(params.overrideAmount), 0),
+      source: "override",
+    };
+  }
+  return { baseMonthlyFee, discountAmount, finalMonthlyFee: computedFinal, source: "computed" };
 }

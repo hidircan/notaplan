@@ -229,7 +229,18 @@ model Student {
   lessonDurationMinutes  Int?
   paymentMethod          String?
   paymentAmount          Int?
+  /// Ayın günü (1–31) vade hedefi — ay sonu taşması mevcut ödeme motoru
+  /// (dueWindowForPaymentMethod) davranışıyla çözülür, burada özel bir hack yok.
   paymentDueDay          Int?
+  /// Package C — paket+süre indirim ÖNCESİ liste fiyatı (bilgi/audit amaçlı).
+  /// `monthlyFee` HER ZAMAN nihai (indirim/override uygulanmış) ücrettir.
+  packageBaseMonthlyFee  Int?
+  /// "percent" | "amount" — bkz. src/lib/packages.ts computeMonthlyFee.
+  discountType           String?
+  discountValue          Float?
+  /// true ise monthlyFee hesaplanan değerden farklı, admin tarafından elle girilmiştir.
+  monthlyFeeManualOverride Boolean @default(false)
+  monthlyFeeOverrideReason String? @db.Text
   firstLessonAt          DateTime?
   archivedAt             DateTime?
   /// ÖNCELİK 4 — "guz" (Eylül-Haziran) | "yaz" (Temmuz-Ağustos). Boşsa "guz"

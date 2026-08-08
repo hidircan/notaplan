@@ -254,6 +254,7 @@ describe("ÖNCELİK 4 (devam) — Paket Yönetimi", () => {
       monthlyFee: 1000,
       notes: "",
       packageId: pkgRes.data.packageId,
+      lessonDurationMinutes: 30,
     });
     expect(studentRes.ok).toBe(true);
     if (!studentRes.ok) return;
@@ -262,7 +263,8 @@ describe("ÖNCELİK 4 (devam) — Paket Yönetimi", () => {
 
     const data = await readData();
     const student = data.students.find((s) => s.id === studentRes.data.studentId)!;
-    // Öğrencinin kendi monthlyFee'si paket fiyat revizyonundan ETKİLENMEDİ.
+    // Öğrencinin kendi monthlyFee'si (kayıt anında paketin fiyatından hesaplandı: 1000)
+    // paket fiyat revizyonundan (9999) ETKİLENMEDİ — donmuş snapshot korunur.
     expect(student.monthlyFee).toBe(1000);
   });
 });
