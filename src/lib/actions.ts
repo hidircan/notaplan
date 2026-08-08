@@ -585,7 +585,6 @@ export type UpdateCollectionsSettingsActionResult = { ok: true } | { ok: false; 
 export async function actionUpdateCollectionsSettings(input: {
   frequencyLimitDays: number;
   autoSendEnabled: boolean;
-  telafiChargesOnFlag?: boolean;
 }): Promise<UpdateCollectionsSettingsActionResult> {
   try {
     const result = await withAuthContext("actionUpdateCollectionsSettings", (ctx) =>

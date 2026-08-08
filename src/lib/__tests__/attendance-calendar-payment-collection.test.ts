@@ -13,6 +13,7 @@ import { readData } from "../store";
 import { writeData } from "../store-json";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+import type { Payment } from "../types";
 import { findOpenLessonSlot } from "./helpers/lesson-slot";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
@@ -46,18 +47,69 @@ async function createTestLesson(): Promise<string> {
 }
 
 /**
- * ÖNCELİK 4 (devam) — Yoklama Takvimi'nden tahsilat. Bu testler, takvimin
- * yeni döndürdüğü `paymentId` alanının Ödemeler ekranının kullandığı AYNI
- * `createPaymentTool` ile eşleştiğini, iki yönlü senkronu (takvimden alınan
- * ödeme "paid" statüsüyle takvimde de anında görünür) ve çift tahsilat/iptal
- * davranışını doğrular. Yeni bir ödeme yolu/tool'u YOK — yalnızca mevcut
- * `createPaymentTool` (markPaymentPaid) çağrılıyor, tıpkı
- * `/api/v1/payments/:paymentId/pay` route'unun yaptığı gibi.
+ * Package B — yoklama (Geldi/İşlendi/Telafi) artık hiçbir Payment
+ * oluşturmaz. Bu dosyanın testleri Yoklama Takvimi'nin GEÇMİŞ bir
+ * `lesson_ops` Payment'ı (Package B öncesi otomatik oluşmuş olabilecek türde,
+ * burada `writeData` ile simüle edilir) nasıl gösterdiğini/tahsil ettiğini
+ * doğrular — takvimin "Tahsil Et" akışı hâlâ Ödemeler ekranıyla AYNI
+ * `createPaymentTool`/`markPaymentPaid` yolunu kullanır, yeni bir tahsilat
+ * yolu YOK. Yeni yoklama işlemlerinin Payment ÜRETMEDİĞİ ayrıca burada da
+ * tekrar doğrulanır.
  */
-describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki yönlü senkron", () => {
-  it("takvimden dönen paymentId, aynı öğrenci/tenant/kaynak derse bağlı gerçek bir Payment'tır", async () => {
+async function seedLessonPayment(lessonId: string, studentId: string, amount = 500): Promise<Payment> {
+  const data = await readData();
+  const lesson = data.lessons.find((l) => l.id === lessonId)!;
+  const payment: Payment = {
+    id: `pay_seed_${lessonId}`,
+    studentId,
+    amount,
+    paidAmount: 0,
+    status: "pending",
+    dueDate: new Date(lesson.startAt).toISOString(),
+    description: "Ders ücreti — tarihsel (Package B öncesi simülasyon)",
+    lessonId,
+    source: "lesson_ops",
+    createdAt: new Date().toISOString(),
+  };
+  await writeData({ ...data, payments: [...data.payments, payment] });
+  return payment;
+}
+
+describe("Yoklama Takvimi — yeni Geldi/İşlendi/Telafi işlemleri artık Payment üretmez (Package B)", () => {
+  it("Geldi işaretlenince takvimde payments boş kalır", async () => {
     const lessonId = await createTestLesson();
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments).toHaveLength(0);
+  });
+
+  it("Telafi tek başına tahsilat oluşturmaz — takvimde payments boş kalır", async () => {
+    const lessonId = await createTestLesson();
+    const res = await setLessonOpsFlagTool(ctx(), { lessonId, flag: "makeup" });
+    expect(res.ok).toBe(true);
+
+    const data = await readData();
+    const lesson = data.lessons.find((l) => l.id === lessonId)!;
+    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
+    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
+    expect(monthRes.ok).toBe(true);
+    if (!monthRes.ok) return;
+    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
+    expect(day.payments).toHaveLength(0);
+  });
+});
+
+describe("Yoklama Takvimi'nden tahsilat — GEÇMİŞ lesson_ops kaydı üzerinde mevcut Payment altyapısıyla iki yönlü senkron", () => {
+  it("takvimden dönen paymentId, aynı öğrenci/tenant/kaynak derse bağlı gerçek bir Payment'tır", async () => {
+    const lessonId = await createTestLesson();
+    const seeded = await seedLessonPayment(lessonId, "s1");
 
     const data = await readData();
     const lesson = data.lessons.find((l) => l.id === lessonId)!;
@@ -73,13 +125,14 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
 
     const realPayment = data.payments.find((p) => p.id === calendarPayment.paymentId);
     expect(realPayment).toBeDefined();
+    expect(realPayment?.id).toBe(seeded.id);
     expect(realPayment?.studentId).toBe("s1");
     expect(realPayment?.lessonId).toBe(lessonId);
   });
 
   it("takvimdeki paymentId üzerinden createPaymentTool (Ödemeler ekranıyla AYNI tool) çağrılınca takvim anında 'paid' gösterir", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    await seedLessonPayment(lessonId, "s1");
 
     const data = await readData();
     const lesson = data.lessons.find((l) => l.id === lessonId)!;
@@ -101,9 +154,7 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
 
   it("aynı paymentId ile ikinci kez tahsil çağrısı çift tahsilata yol açmaz (idempotent — tutar iki katına çıkmaz)", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const payment = await seedLessonPayment(lessonId, "s1");
 
     const first = await createPaymentTool(ctx(), { paymentId: payment.id });
     expect(first.ok).toBe(true);
@@ -118,7 +169,7 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
 
   it("iptal edilen (voided) bir ders için mevcut otomatik void korunur — takvimde 'voided' görünür, yeniden tahsil edilemez görünmeli", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    await seedLessonPayment(lessonId, "s1");
     const data = await readData();
     const lesson = data.lessons.find((l) => l.id === lessonId)!;
 
@@ -133,26 +184,9 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
     expect(day.payments[0]!.status).toBe("voided");
   });
 
-  it("Telafi tek başına (varsayılan ayar) tahsilat oluşturmaz — takvimde payments boş kalır", async () => {
-    const lessonId = await createTestLesson();
-    const res = await setLessonOpsFlagTool(ctx(), { lessonId, flag: "makeup" });
-    expect(res.ok).toBe(true);
-
-    const data = await readData();
-    const lesson = data.lessons.find((l) => l.id === lessonId)!;
-    const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
-    const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
-    expect(monthRes.ok).toBe(true);
-    if (!monthRes.ok) return;
-    const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
-    expect(day.payments).toHaveLength(0);
-  });
-
   it("TEACHER/PARENT rolü tahsilat işaretleyemez (RBAC — mevcut finans yetki modeli)", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const payment = await seedLessonPayment(lessonId, "s1");
 
     const teacherRes = await createPaymentTool(ctx({ role: "TEACHER", teacherId: "t1" }), { paymentId: payment.id });
     expect(teacherRes.ok).toBe(false);
@@ -168,7 +202,9 @@ describe("Yoklama Takvimi'nden tahsilat — mevcut Payment altyapısıyla iki y�
  * "Tahsil Et" akışı Ödemeler ekranıyla AYNI `createPaymentTool`/`markPaymentPaid`
  * yolunu kullanır; burada yalnızca `method` girdisinin doğru yazıldığını ve
  * girilmediğinde mevcut güvenli varsayılan zincirinin (payment.method ??
- * student.paymentMethod ?? "Havale") bozulmadığını doğruluyoruz.
+ * student.paymentMethod ?? "Havale") bozulmadığını doğruluyoruz. Payment,
+ * Geldi/İşlendi'den değil (Package B) `seedLessonPayment` ile (geçmiş kayıt
+ * simülasyonu) üretilir.
  */
 describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
   async function setStudentPaymentMethod(studentId: string, method: string) {
@@ -180,7 +216,7 @@ describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
   it("öğrencinin kayıtlı paymentMethod değeri, takvimin döndürdüğü ödeme bilgisinde varsayılan olarak görünür", async () => {
     await setStudentPaymentMethod("s1", "cash");
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    await seedLessonPayment(lessonId, "s1");
 
     const data = await readData();
     const lesson = data.lessons.find((l) => l.id === lessonId)!;
@@ -196,9 +232,7 @@ describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
   it("kullanıcının seçtiği ödeme yöntemi tahsilat kaydına yazılır", async () => {
     await setStudentPaymentMethod("s1", "cash");
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const payment = await seedLessonPayment(lessonId, "s1");
 
     const res = await createPaymentTool(ctx(), { paymentId: payment.id, method: "credit_card" });
     expect(res.ok).toBe(true);
@@ -212,9 +246,7 @@ describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
   it("kullanıcı yöntem seçmeden kaydederse öğrencinin varsayılanı kullanılır", async () => {
     await setStudentPaymentMethod("s1", "transfer");
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const payment = await seedLessonPayment(lessonId, "s1");
 
     const res = await createPaymentTool(ctx(), { paymentId: payment.id });
     expect(res.ok).toBe(true);
@@ -226,9 +258,8 @@ describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
 
   it("öğrencinin varsayılan yöntemi yoksa mevcut güvenli davranış (fallback) korunur", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+    const payment = await seedLessonPayment(lessonId, "s1");
     const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
     expect(data.students.find((s) => s.id === "s1")?.paymentMethod).toBeUndefined();
 
     const res = await createPaymentTool(ctx(), { paymentId: payment.id });
@@ -241,9 +272,7 @@ describe("Yoklama Takvimi'nden tahsilat — ödeme yöntemi seçimi", () => {
 
   it("geçersiz bir ödeme yöntemi değeri reddedilir", async () => {
     const lessonId = await createTestLesson();
-    await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    const data = await readData();
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    const payment = await seedLessonPayment(lessonId, "s1");
 
     const res = await createPaymentTool(ctx(), { paymentId: payment.id, method: "bitcoin" });
     expect(res.ok).toBe(false);

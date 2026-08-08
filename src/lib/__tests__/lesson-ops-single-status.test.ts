@@ -4,8 +4,10 @@ import path from "path";
 import { resolveDataDir } from "../config";
 import { createLessonTool, setLessonOpsFlagTool } from "../services/tools";
 import { readData } from "../store";
+import { writeData } from "../store-json";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
+import type { Payment } from "../types";
 import { validateLessonSlot } from "../makeup-engine";
 import { effectiveLessonOpsStatus } from "../lesson-ops";
 
@@ -116,20 +118,35 @@ describe("ÖNCELİK 4 (devam) — Geldi/İşlendi/Telafi tek, dışlayan statü 
     expect(effectiveLessonOpsStatus(lesson)).toBe("processed");
   });
 
-  it("statü değişse bile daha önce oluşan Payment (lesson_ops) void/silinmez — mevcut tahsilat akışı korunur", async () => {
+  it("statü değişse bile GEÇMİŞ bir Payment (lesson_ops, Package B öncesi simüle) void/silinmez — yeni de üretilmez", async () => {
     const lessonId = await createTestLesson();
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
+
+    // Package B'de Geldi/İşlendi/Telafi artık Payment üretmiyor — bu test,
+    // ÖNCEDEN (Package B öncesi) var olmuş olabilecek tarihsel bir kaydın
+    // statü geçişlerinden etkilenmediğini doğrular.
     const beforeSwitch = await readData();
-    const paymentBefore = beforeSwitch.payments.find((p) => p.lessonId === lessonId);
-    expect(paymentBefore).toBeDefined();
+    const seeded: Payment = {
+      id: "pay_seed_single_status",
+      studentId: "s1",
+      amount: 500,
+      paidAmount: 0,
+      status: "pending",
+      dueDate: new Date().toISOString(),
+      description: "Ders ücreti — tarihsel (Package B öncesi simülasyon)",
+      lessonId,
+      source: "lesson_ops",
+      createdAt: new Date().toISOString(),
+    };
+    await writeData({ ...beforeSwitch, payments: [...beforeSwitch.payments, seeded] });
 
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "processed", confirmSwitch: true });
 
     const after = await readData();
     const paymentsForLesson = after.payments.filter((p) => p.lessonId === lessonId);
-    // Hâlâ tam olarak aynı tek kayıt — ne yeni bir tahsilat ne de void.
+    // Hâlâ tam olarak aynı tek (tarihsel) kayıt — ne yeni bir tahsilat ne de void.
     expect(paymentsForLesson).toHaveLength(1);
-    expect(paymentsForLesson[0]!.id).toBe(paymentBefore!.id);
+    expect(paymentsForLesson[0]!.id).toBe(seeded.id);
     expect(paymentsForLesson[0]!.status).not.toBe("voided");
   });
 });

@@ -1650,9 +1650,11 @@ async function persistLessonOpsResult(
     }
   }
 
-  // Ders bazlı otomatik tahsilat (ÖNCELİK 3) — pure sonuçtaki payments dizisi
-  // bu lessonId için en fazla bir yeni satır içerebilir (createLessonPaymentIfMissing
-  // zaten çift oluşturmayı engelliyor); burada yalnızca DB'de henüz yoksa yazılır.
+  // Package B — yoklama (Geldi/İşlendi/Telafi) artık Payment üretmez, bu
+  // yüzden `result.data.payments`'ta bu lessonId için normalde yeni bir satır
+  // OLMAZ. Genel amaçlı kalır (ör. gelecekte tool başka bir yoldan pure
+  // sonuca bir Payment eklerse burada yine DB'ye yazılır); yalnızca DB'de
+  // henüz yoksa yazar.
   const payment = result.data.payments.find((p) => p.lessonId === lessonId);
   if (payment) {
     const exists = await prisma.payment.findFirst({ where: { lessonId, tenantId: tid } });

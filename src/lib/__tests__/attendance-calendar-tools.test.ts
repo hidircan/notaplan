@@ -139,7 +139,7 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
     expect(row?.paidAmount).toBe(0);
   });
 
-  it("aylık plan ve lesson_ops kaynakları birbirinden ayrışır, mükerrer sayılmaz", async () => {
+  it("Package B — Geldi/İşlendi/Telafi artık lesson_ops kaydı üretmez; aylık plan bundan bağımsız çalışır", async () => {
     const lessonId = await createTestLesson();
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
     await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
@@ -147,9 +147,8 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
     const data = await readData();
     const lessonOpsRows = data.payments.filter((p) => p.studentId === "s1" && p.source === "lesson_ops");
     const planRows = data.payments.filter((p) => p.studentId === "s1" && p.source === "monthly_plan");
-    expect(lessonOpsRows).toHaveLength(1);
+    expect(lessonOpsRows).toHaveLength(0);
     expect(planRows).toHaveLength(1);
-    expect(lessonOpsRows[0]!.id).not.toBe(planRows[0]!.id);
   });
 
   it("TEACHER/PARENT rolü aylık plan tutarını değiştiremez (RBAC)", async () => {
@@ -261,26 +260,22 @@ describe("ÖNCELİK 4 — veli (PARENT) salt-okunur takvim erişimi", () => {
   });
 });
 
-describe("ÖNCELİK 4 (devam) — Yoklama takviminde tutar/ödeme bilgisi", () => {
-  it("Geldi işaretlenen dersin günü, tutar + kayıt tarihi + ödeme şekli döner (tek kaynak, mevcut Payment)", async () => {
+describe("ÖNCELİK 4 (devam) / Package B — Yoklama takviminde tutar/ödeme bilgisi artık yoklamadan üretilmez", () => {
+  it("Geldi işaretlenen dersin günü artık hiçbir tahsilat üretmez (Package B)", async () => {
     const lessonId = await createTestLesson();
     const flagRes = await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
     expect(flagRes.ok).toBe(true);
 
     const data = await readData();
     const lesson = data.lessons.find((l) => l.id === lessonId)!;
-    const payment = data.payments.find((p) => p.lessonId === lessonId)!;
+    expect(data.payments.filter((p) => p.lessonId === lessonId)).toHaveLength(0);
     const [y, m] = lesson.startAt.slice(0, 7).split("-").map(Number);
 
     const monthRes = await getAttendanceCalendarMonthTool(ctx(), { studentId: "s1", year: y!, month: m! });
     expect(monthRes.ok).toBe(true);
     if (!monthRes.ok) return;
     const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
-    expect(day.payments).toHaveLength(1);
-    expect(day.payments[0]!.lessonId).toBe(lessonId);
-    expect(day.payments[0]!.amount).toBe(payment.amount);
-    expect(day.payments[0]!.recordedAt).toBeTruthy();
-    expect(day.payments[0]!.source).toBe("lesson_ops");
+    expect(day.payments).toHaveLength(0);
   });
 
   it("ders için hiç tahsilat yoksa (henüz Geldi/İşlendi işaretlenmemiş) payments boş döner — sahte kayıt yok", async () => {
@@ -296,7 +291,7 @@ describe("ÖNCELİK 4 (devam) — Yoklama takviminde tutar/ödeme bilgisi", () =
     expect(day.payments).toHaveLength(0);
   });
 
-  it("statü değişse bile (confirmSwitch) o günün tutar bilgisi mükerrerleşmez — hâlâ tek kayıt", async () => {
+  it("statü değişse bile (confirmSwitch) hiç tahsilat üretilmez", async () => {
     const lessonId = await createTestLesson();
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "processed", confirmSwitch: true });
@@ -308,7 +303,7 @@ describe("ÖNCELİK 4 (devam) — Yoklama takviminde tutar/ödeme bilgisi", () =
     expect(monthRes.ok).toBe(true);
     if (!monthRes.ok) return;
     const day = monthRes.data.days.find((d) => d.date === lesson.startAt.slice(0, 10))!;
-    expect(day.payments).toHaveLength(1);
+    expect(day.payments).toHaveLength(0);
   });
 });
 

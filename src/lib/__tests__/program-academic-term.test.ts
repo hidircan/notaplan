@@ -181,7 +181,7 @@ describe("ÖNCELİK 4 (devam) — Program ekranı akademik dönem/yıl etiketi",
     expect(lessonMatchesAcademicPeriod(lesson, period.term, period.academicYearStart, "guz")).toBe(true);
   });
 
-  it("ÖNCELİK 3 mali tahakkuk (lesson_ops), term etiketli bir dersle çalışmaya devam eder — regresyon yok", async () => {
+  it("Package B — term etiketli bir derste Geldi işaretlenmesi hiçbir Payment (lesson_ops) üretmez", async () => {
     const res = await createLessonSeriesTool(ctx(), {
       studentId: "s1",
       teacherId: "t1",
@@ -208,8 +208,7 @@ describe("ÖNCELİK 4 (devam) — Program ekranı akademik dönem/yıl etiketi",
 
     const after = await readData();
     const payment = after.payments.find((p) => p.lessonId === lesson.id);
-    expect(payment).toBeDefined();
-    expect(payment?.source).toBe("lesson_ops");
+    expect(payment).toBeUndefined();
   });
 
   it("dönem/yıl parametreleri ile yetkisiz erişim mümkün değildir — RBAC yine service katmanında uygulanır", async () => {

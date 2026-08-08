@@ -299,7 +299,6 @@ export const updateCommunicationPreferenceSchema = z.object({
 export const updateCollectionsSettingsSchema = z.object({
   frequencyLimitDays: z.number().int().min(1).max(30),
   autoSendEnabled: z.boolean(),
-  telafiChargesOnFlag: z.boolean().optional(),
 });
 
 export const markNotificationReadSchema = z.object({

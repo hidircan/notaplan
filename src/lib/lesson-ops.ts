@@ -4,92 +4,19 @@
  * - İşlendi: ders fiilen işlendi → hakediş kaynağı (status completed)
  * - Telafi: telafi akışına alındı (kırmızı)
  *
- * Mali entegrasyon (ÖNCELİK 3): Geldi VEYA İşlendi ilk kez işaretlendiğinde
- * (`alreadySet:false`), o dersin KENDİ lessonId'si için — henüz yoksa —
- * otomatik bir öğrenci tahsilatı (Payment, source:"lesson_ops") oluşturulur.
- * Aynı ders için ikinci bir tetik (ör. önce Geldi, sonra İşlendi, ya da
- * tekrar tıklama) `data.payments`'ta o lessonId için zaten bir kayıt olup
- * olmadığını kontrol ederek mükerrer tahsilatı engeller. Öğretmen hakedişi
- * tarafı zaten `isLessonProcessedForPayout` + `computeTeacherEarningsForPeriod`
- * üzerinden dersin kendi lessonId'sine göre TEK SEFER hesaplanıyor — o
- * mekanizmaya dokunulmadı, yalnızca öğrenci tahsilatı tarafı eklendi.
- * Telafi (`opsMakeupFlag`) TEK BAŞINA hiçbir mali kayıt yaratmaz (varsayılan
- * `collectionsSettings.telafiChargesOnFlag=false`); yeni bir telafi dersi
- * fiilen gerçekleştiğinde o dersin KENDİ Geldi/İşlendi işaretlemesi aynı
- * mekanizmadan geçer — özel bir kod yolu gerekmez.
+ * Mali ayrım (Package B): öğrenciler ders başına değil aylık paket ücretiyle
+ * ödeme yapar. Geldi/İşlendi/Telafi hiçbir zaman Payment oluşturmaz veya
+ * mevcut aylık tutarı değiştirmez — yalnız katılım/telafi operasyonunu
+ * yönetir. Aylık ücret `monthly_plan` kaynağıyla (bkz.
+ * `setMonthlyPlanAmountTool`) ayrı, bağımsız olarak yönetilir. Daha önce
+ * (Package B öncesi) otomatik oluşmuş `source:"lesson_ops"` Payment kayıtları
+ * geçmiş/muhasebe verisi olarak DOKUNULMADAN okunabilir kalır; bu dosya
+ * artık yeni böyle bir kayıt YARATMAZ.
  */
 
-import type { AppData, Attendance, Lesson, MakeupRequest, Payment, Student } from "./types";
-import { uid, formatMoney } from "./utils";
+import type { AppData, Attendance, Lesson, MakeupRequest } from "./types";
+import { uid } from "./utils";
 import { addDays, formatISO } from "date-fns";
-import { dueWindowForPaymentMethod } from "./collections-due";
-
-/** Yıllık ortalama hafta sayısı (52/12) — aylık ücreti haftalık/ders başı tutara çevirmek için. */
-const AVG_WEEKS_PER_MONTH = 52 / 12;
-
-/**
- * Bir dersin öğrenciye yansıyacak ücreti — öğrencinin aylık paket ücreti,
- * haftalık ders sayısına ve ortalama ay-başına-hafta sayısına bölünerek
- * türetilir (kayıt sırasında girilen aylık ücret esas alınır; derse özel
- * ayrı bir ücret alanı yok). Tam TL'ye yuvarlanır (kuruş hassasiyeti yok —
- * mevcut Payment.amount zaten integer TL).
- */
-export function computeLessonChargeAmount(
-  student: Pick<Student, "monthlyFee" | "weeklyLessonCount">
-): number {
-  if (!student.weeklyLessonCount || student.weeklyLessonCount <= 0) return Math.round(student.monthlyFee);
-  const perLesson = student.monthlyFee / (student.weeklyLessonCount * AVG_WEEKS_PER_MONTH);
-  return Math.max(Math.round(perLesson), 0);
-}
-
-/**
- * Ders bazlı otomatik tahsilatın vadesi — öğrencinin ödeme yöntemine göre
- * mevcut vade penceresi kuralı (PRODUCT_BACKLOG §2.1), dersin gerçekleştiği
- * ayın içinde uygulanır. `paymentDueDay` set edilmişse (ve pencere içindeyse)
- * o gün kullanılır; yoksa pencerenin son günü.
- */
-function resolveLessonPaymentDueDate(
-  student: Pick<Student, "paymentMethod" | "paymentDueDay">,
-  lessonStartAt: string
-): string {
-  const lessonDate = new Date(lessonStartAt);
-  const window = dueWindowForPaymentMethod(student.paymentMethod);
-  const day =
-    student.paymentDueDay && student.paymentDueDay >= window.minDay && student.paymentDueDay <= window.maxDay
-      ? student.paymentDueDay
-      : window.maxDay;
-  const due = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), day, 12, 0, 0);
-  return due.toISOString();
-}
-
-/**
- * Geldi/İşlendi ile tetiklenen otomatik öğrenci tahsilatı — bu dersin
- * lessonId'si için `data.payments`'ta ZATEN bir kayıt varsa (source fark
- * etmeksizin) hiçbir şey yapmaz (çift tahsilat engeli). Öğrenci bulunamazsa
- * sessizce atlar (yoklama akışını asla bloklamaz — mali kayıt ikincil bir
- * yan etkidir, ana işlemi asla başarısız kılmamalı).
- */
-function createLessonPaymentIfMissing(data: AppData, lesson: Lesson, now: Date): AppData {
-  if (data.payments.some((p) => p.lessonId === lesson.id)) return data;
-  const student = data.students.find((s) => s.id === lesson.studentId);
-  if (!student) return data;
-
-  const amount = computeLessonChargeAmount(student);
-  const dueDate = resolveLessonPaymentDueDate(student, lesson.startAt);
-  const payment: Payment = {
-    id: uid("pay"),
-    studentId: student.id,
-    amount,
-    paidAmount: 0,
-    status: new Date(dueDate) < now ? "overdue" : "pending",
-    dueDate,
-    description: `Ders ücreti — ${formatMoney(amount)} (${new Date(lesson.startAt).toLocaleDateString("tr-TR")})`,
-    lessonId: lesson.id,
-    source: "lesson_ops",
-    createdAt: now.toISOString(),
-  };
-  return { ...data, payments: [...data.payments, payment] };
-}
 
 export type LessonOpsFlag = "attended" | "processed" | "makeup";
 
@@ -165,9 +92,8 @@ export function applyLessonOpsFlag(
     };
     attendances = [...attendances, attendance];
     const lessons = data.lessons.map((l) => (l.id === lessonId ? { ...l, ...patch } : l));
-    let next = { ...data, lessons, attendances };
+    const next = { ...data, lessons, attendances };
     const nextLesson = lessons.find((l) => l.id === lessonId)!;
-    next = createLessonPaymentIfMissing(next, nextLesson, now);
     return {
       ok: true,
       alreadySet: false,
@@ -195,9 +121,8 @@ export function applyLessonOpsFlag(
       actualEndAt: lesson.actualEndAt ?? nowIso,
     };
     const lessons = data.lessons.map((l) => (l.id === lessonId ? { ...l, ...patch } : l));
-    let next = { ...data, lessons };
+    const next = { ...data, lessons };
     const nextLesson = lessons.find((l) => l.id === lessonId)!;
-    next = createLessonPaymentIfMissing(next, nextLesson, now);
     return {
       ok: true,
       alreadySet: false,
@@ -248,15 +173,10 @@ export function applyLessonOpsFlag(
     makeupRequests = [...makeupRequests, req];
   }
 
-  let next = { ...data, lessons, makeupRequests };
+  const next = { ...data, lessons, makeupRequests };
   const nextLesson = lessons.find((l) => l.id === lessonId)!;
-  // Varsayılan: Telafi işareti TEK BAŞINA mali sonuç doğurmaz. Yönetici bu
-  // davranışı sistem ayarından (Ücret Kuralları > Tahsilat Otomasyonu)
-  // bilinçli olarak açtıysa, telafi işaretinin kendisi de bu dersin
-  // lessonId'si için hemen bir tahsilat oluşturur.
-  if (data.settings.collectionsSettings?.telafiChargesOnFlag) {
-    next = createLessonPaymentIfMissing(next, nextLesson, now);
-  }
+  // Telafi işareti hiçbir zaman mali sonuç doğurmaz (Package B) — öğrenci
+  // aylık paket ücretiyle öder, ders/telafi bazlı otomatik tahsilat yok.
   return {
     ok: true,
     alreadySet: false,
@@ -281,13 +201,10 @@ export function effectiveLessonOpsStatus(
  * statü olarak davranmasını sağlar. Halihazırda farklı bir statü etkinse
  * (`effectiveLessonOpsStatus` ile), önce O statünün bayrağını (ve varsa
  * diğerlerini) TEMİZLER, sonra istenen bayrağı `applyLessonOpsFlag` ile —
- * DEĞİŞMEDEN, aynı mali entegrasyon davranışıyla — set eder. Bilinçli
- * tasarım kararı: daha önce oluşmuş bir Payment (`source:"lesson_ops"`)
- * asla burada iptal/void EDİLMEZ — yalnızca ders iptali (`applyLessonCancel`)
- * ödemeyi void yapar. Statü değişince eski ödeme öylece kalır (çift kayıt
- * oluşturulmaz — `createLessonPaymentIfMissing` lessonId üzerinden zaten
- * idempotent); bu, mevcut tahsilat/void/audit akışını bozmadan en güvenli
- * davranıştır.
+ * DEĞİŞMEDEN — set eder. Hiçbir dal Payment oluşturmaz/değiştirmez (Package
+ * B); daha önce (Package B öncesi) oluşmuş `source:"lesson_ops"` geçmiş
+ * kayıtlar burada asla dokunulmaz — yalnızca ders iptali
+ * (`applyLessonCancel`) hâlâ ödenmemiş geçmiş bir kaydı void'e çevirebilir.
  */
 export function switchLessonOpsFlag(
   data: AppData,

@@ -8,16 +8,13 @@ import { actionUpdateCollectionsSettings } from "@/lib/actions";
 export function CollectionsSettingsForm({
   frequencyLimitDays,
   autoSendEnabled,
-  telafiChargesOnFlag,
 }: {
   frequencyLimitDays: number;
   autoSendEnabled: boolean;
-  telafiChargesOnFlag: boolean;
 }) {
   const router = useRouter();
   const [days, setDays] = useState(frequencyLimitDays);
   const [autoSend, setAutoSend] = useState(autoSendEnabled);
-  const [telafiCharges, setTelafiCharges] = useState(telafiChargesOnFlag);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -30,7 +27,6 @@ export function CollectionsSettingsForm({
     const result = await actionUpdateCollectionsSettings({
       frequencyLimitDays: days,
       autoSendEnabled: autoSend,
-      telafiChargesOnFlag: telafiCharges,
     });
     setBusy(false);
     if (!result.ok) {
@@ -68,20 +64,6 @@ export function CollectionsSettingsForm({
       <p className="text-xs text-slate-400">
         Otomatik onay açık olsa bile WhatsApp gönderimi (wa.me) her zaman bir kişinin linke
         tıklamasını gerektirir — hiçbir mesaj sistem tarafından otomatik gönderilmez.
-      </p>
-      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-        <input
-          type="checkbox"
-          checked={telafiCharges}
-          onChange={(event) => setTelafiCharges(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300"
-        />
-        Telafi işaretlenince hemen tahsilat/hakediş oluştur (varsayılan: kapalı)
-      </label>
-      <p className="text-xs text-slate-400">
-        Kapalıyken Telafi işareti mali sonuç doğurmaz — yalnızca telafi dersi fiilen
-        gerçekleştiğinde, o dersin kendisinde Geldi/İşlendi işaretlenince gerçek ders tarihi
-        üzerinden ücret/hakediş oluşur.
       </p>
       <Button type="submit" variant="secondary" disabled={busy}>
         {busy ? "Kaydediliyor..." : "Ayarları kaydet"}
