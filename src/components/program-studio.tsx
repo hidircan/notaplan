@@ -1476,18 +1476,9 @@ export function ProgramStudio({
         </p>
       ) : null}
 
-      {visibleWeekLessons.length === 0 ? (
+      {visibleWeekLessons.length === 0 && (filterBranchId || filterTeacherId || filterStudentId) ? (
         <Card className="mb-4 border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] text-center">
-          <p className="text-sm text-[var(--color-text-muted)]">
-            {filterBranchId || filterTeacherId || filterStudentId
-              ? "Bu filtrelerle eşleşen ders yok."
-              : "Bu hafta için planlanmış ders yok."}
-          </p>
-          <div className="mt-3 flex justify-center">
-            <Button onClick={() => openPlanner()} disabled={!canCreate}>
-              Ders planla
-            </Button>
-          </div>
+          <p className="text-sm text-[var(--color-text-muted)]">Bu filtrelerle eşleşen ders yok.</p>
         </Card>
       ) : null}
 

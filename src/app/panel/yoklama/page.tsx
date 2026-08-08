@@ -58,10 +58,7 @@ export default async function YoklamaPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader
-        title="Yoklama Takvimi"
-        description="Öğrenci seçin — Geldi/İşlendi/Telafi işlemleri Ders Programı ile aynı kaydı günceller."
-      />
+      <PageHeader title="Yoklama Takvimi" />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">

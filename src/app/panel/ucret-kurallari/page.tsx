@@ -25,10 +25,7 @@ export default async function FeeRulesPage() {
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader
-        title="Ücret Kuralları"
-        description="Öğretmenlerin saatlik hakediş ücretini tanımlayın ve gerektiğinde güncelleyin."
-      />
+      <PageHeader title="Ücret Kuralları" />
       <FeeRoundingModeSelector
         currentMode={data.settings.feeRoundingMode}
         canWrite={kurum.scope.mode === "single"}

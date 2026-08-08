@@ -50,7 +50,6 @@ export default async function IsTakipRaporlarPage({
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="İş Takip — Raporlar"
-        description="Seçili tarih aralığı için iş yükü, gecikme ve tamamlanma metrikleri (yalnızca bu kuruma ait)."
         actions={
           <Link href="/panel/is-takip" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
             ← İş Takip&apos;e dön

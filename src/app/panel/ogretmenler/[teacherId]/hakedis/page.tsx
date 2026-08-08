@@ -60,10 +60,7 @@ export default async function TeacherPayoutPage({
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <AssistantPageContext entity={{ kind: "teacher", id: teacher.id, label: teacher.name }} />
-      <PageHeader
-        title={`${teacher.name} — Hakediş`}
-        description="Aylık ders dökümü, saatlik ücret ve hakediş özeti."
-      />
+      <PageHeader title={`${teacher.name} — Hakediş`} />
       <TeacherPayoutDashboard
         teacherId={teacherId}
         initialYear={now.getFullYear()}

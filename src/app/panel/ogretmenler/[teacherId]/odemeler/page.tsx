@@ -53,7 +53,6 @@ export default async function TeacherPayoutHistoryPage({
       <AssistantPageContext entity={{ kind: "teacher", id: teacher.id, label: teacher.name }} />
       <PageHeader
         title={`${teacher.name} — Ödeme Geçmişi`}
-        description="Bekleyen ve tamamlanmış hakediş ödemeleri."
         actions={
           <Link
             href={`/panel/ogretmenler/${teacherId}/hakedis`}

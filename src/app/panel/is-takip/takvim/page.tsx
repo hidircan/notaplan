@@ -70,7 +70,6 @@ export default async function IsTakipTakvimPage({
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="İş Takip — Takvim"
-        description="Görevler son tarihe göre; tarihsiz görevler aşağıda ayrı listelenir."
         actions={
           <Link href="/panel/is-takip" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
             ← Liste görünümü

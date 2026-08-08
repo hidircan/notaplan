@@ -52,10 +52,7 @@ export default async function OgretmenlerPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader
-        title="Öğretmenler"
-        description="Müsaitlik pencereleri telafi motoru tarafından kullanılır."
-      />
+      <PageHeader title="Öğretmenler" />
 
       <div className="mb-4 flex items-center gap-1 rounded-md border border-slate-200 p-0.5 dark:border-slate-700" role="tablist" aria-label="Öğretmen durumu">
         <Link

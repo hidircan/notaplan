@@ -26,10 +26,7 @@ export default async function OdalarPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Odalar"
-        description="Stüdyoların şube ve enstrüman uyumu; telafi ve ders planlamasında kullanılır."
-      />
+      <PageHeader title="Odalar" />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 overflow-hidden p-0">

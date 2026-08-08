@@ -47,7 +47,6 @@ export default async function OdemelerPage() {
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="Ödemeler"
-        description="Aylık paket tahsilatı, gecikmeler ve kısmi ödemeler."
         actions={
           <Link
             href="/panel/ai/tahsilat-agent"

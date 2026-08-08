@@ -101,9 +101,6 @@ export default async function OgretmenPortalPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {todayLessons.length} ders · {students.length} aktif öğrenci
           </p>
-          <p className="mt-2 text-xs text-slate-400">
-            Demo öğretmen portalı, bugünkü derslerini ve yoklama kontrolünü hızlıca gösterir.
-          </p>
           <Link
             href="/ogretmen/program"
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-cyan-700 hover:text-cyan-800"

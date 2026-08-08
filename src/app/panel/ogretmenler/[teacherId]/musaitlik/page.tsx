@@ -64,10 +64,7 @@ export default async function TeacherAvailabilityReviewPage({
 
   return (
     <div>
-      <PageHeader
-        title={`${teacher.name} — Müsaitlik`}
-        description="Öğretmenin müsaitlik değişikliği önerilerini onaylayın veya reddedin."
-      />
+      <PageHeader title={`${teacher.name} — Müsaitlik`} />
 
       <Card className="mb-4">
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">

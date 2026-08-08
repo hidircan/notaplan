@@ -29,7 +29,6 @@ export default async function AiMemoryPage() {
     <div>
       <PageHeader
         title="AI Memory"
-        description="Kısa ve uzun vadeli bellek (conversation / user / tenant / workflow). Gelecek: pgvector · Qdrant · Pinecone."
         actions={
           <Link
             href="/panel/ai"

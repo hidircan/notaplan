@@ -174,9 +174,6 @@ export default async function VeliPortalPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {branch?.name} · Öğretmen: {teacher?.name}
           </p>
-          <p className="mt-2 text-xs text-slate-400">
-            Bu sayfa demo görünümüdür. Gerçekte veli kendi hesabıyla giriş yapar ve telafi / ödeme bilgilerini görür.
-          </p>
         </Card>
 
         <div className="grid grid-cols-2 gap-2">

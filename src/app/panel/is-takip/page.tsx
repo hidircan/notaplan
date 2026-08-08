@@ -141,7 +141,6 @@ export default async function IsTakipPage({
       ) : null}
       <PageHeader
         title="İş Takip"
-        description="Kurum içi görevleri sorumlu, öncelik, kategori ve son tarihe göre takip edin."
         actions={
           <div className="flex items-center gap-3">
             <Link href="/panel/is-takip/kanban" className="text-sm font-medium text-[var(--color-primary)] hover:underline">

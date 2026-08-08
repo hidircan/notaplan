@@ -29,10 +29,7 @@ export default async function InstrumentCatalogPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Enstrümanlar"
-        description="Sistemde seçilebilecek enstrümanları yönetin — öğrenci/öğretmen formları ve ders planlaması bu listeyi kullanır."
-      />
+      <PageHeader title="Enstrümanlar" />
       <InstrumentCatalogManager entries={entries} staticInstruments={staticInstruments} canWrite />
     </div>
   );

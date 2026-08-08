@@ -63,10 +63,7 @@ export default async function DocumentsCenterPage({
 
   return (
     <div>
-      <PageHeader
-        title="Evraklar Merkezi"
-        description="Belge oluşturma, yazdırma ve imzalı sürüm takibi — kurumun doküman operasyon merkezi."
-      />
+      <PageHeader title="Evraklar Merkezi" />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Taslak" value={draftCount} accent="warning" />

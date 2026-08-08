@@ -27,7 +27,6 @@ export default async function AiDashboardPage() {
     <div>
       <PageHeader
         title="AI Dashboard"
-        description="Gözlemlenebilirlik: sohbetler, tool çağrıları, provider sağlığı ve faturalama birimleri."
         actions={
           <Link
             href="/panel/ai/logs"

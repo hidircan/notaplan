@@ -92,10 +92,7 @@ export default async function ProgramPage({
           <ArrowLeft className="h-4 w-4" /> Ödemelere geri dön
         </Link>
       ) : null}
-      <PageHeader
-        title="Ders programı"
-        description="Öğretmen ve stüdyo bazında haftalık ders görünümü."
-      />
+      <PageHeader title="Ders programı" />
 
       <ProgramTermYearNav term={selectedTerm} academicYearStart={selectedAcademicYearStart} />
 

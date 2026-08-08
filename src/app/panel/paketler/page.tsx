@@ -31,10 +31,7 @@ export default async function PackagesPage() {
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader
-        title="Paketler"
-        description="Öğrenci kaydında seçilebilecek ders paketlerini yönetin — 30/40/50 dk süreye göre fiyatlandırma."
-      />
+      <PageHeader title="Paketler" />
       <PackageManager packages={data.packages ?? []} canWrite={kurum.scope.mode === "single"} />
     </div>
   );

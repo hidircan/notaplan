@@ -38,7 +38,6 @@ export default async function AiLogsPage() {
     <div>
       <PageHeader
         title="AI Logları"
-        description="Ürün özelliklerinden (capability) yapılan her AI çağrısı: kim, hangi rol, hangi provider, onay durumu, sonuç."
         actions={
           <Link
             href="/panel/ai"

@@ -44,10 +44,7 @@ export default async function TelafiPage() {
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <AssistantPageContext entity={{ kind: "page", label: "Telafi Merkezi" }} />
-      <PageHeader
-        title="Telafi Merkezi"
-        description="Açık telafi taleplerini listeleyin, şube / öğretmen / oda çakışmalarını tarayın ve en iyi slotu onaylayarak dersi programa alın."
-      />
+      <PageHeader title="Telafi Merkezi" />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card className="bg-amber-50 border-amber-100">

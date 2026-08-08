@@ -28,10 +28,7 @@ export default async function TrialLessonsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Deneme dersleri"
-        description="Aday öğrenciler için deneme planı, durum takibi ve kayda dönüştürme."
-      />
+      <PageHeader title="Deneme dersleri" />
       <Card>
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-600">
           Deneme dersi planla

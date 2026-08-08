@@ -14,10 +14,7 @@ export const dynamic = "force-dynamic";
 export default function PanelChatPage() {
   return (
     <div>
-      <PageHeader
-        title="AI Asistan"
-        description="Sohbet artık her sayfada, sağ alt köşedeki simgeden erişilebilir — bu sayfa yalnızca aynı asistanı açar."
-      />
+      <PageHeader title="AI Asistan" />
       <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/50">
         <Bot className="h-10 w-10 text-amber-400" />
         <p className="max-w-sm text-sm text-slate-600 dark:text-slate-300">

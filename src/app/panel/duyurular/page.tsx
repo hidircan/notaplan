@@ -38,7 +38,7 @@ export default async function DuyurularPage() {
     <div>
       <PageHeader
         title="Duyuru Merkezi"
-        description="Veli, öğretmen veya belirli bir hedef kitleye duyuru oluşturun. Hedef kitle eşleştirmesi sunucu tarafında yapılır — hedef dışı kullanıcı asla duyuruyu görmez."
+        description="Hedef kitle eşleştirmesi sunucu tarafında yapılır — hedef dışı kullanıcı asla duyuruyu görmez."
       />
 
       <Card className="mb-6">

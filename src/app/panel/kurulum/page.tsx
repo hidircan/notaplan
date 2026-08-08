@@ -67,7 +67,6 @@ export default async function KurulumPage() {
     <div>
       <PageHeader
         title="Kurulum Merkezi"
-        description="Okulunuzu günlük operasyona hazırlamak için temel adımları tamamlayın."
         actions={<QuickTaskLink context={{}} returnTo="/panel/kurulum" label="Kurum için görev oluştur" />}
       />
 

@@ -67,10 +67,7 @@ export default async function OgrencilerPage() {
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <AssistantPageContext entity={{ kind: "page", label: "Öğrenciler" }} />
-      <PageHeader
-        title="Öğrenciler"
-        description="Kayıtlar, paketler, veli bilgisi ve atanan öğretmenler."
-      />
+      <PageHeader title="Öğrenciler" />
 
       {atRisk.length > 0 ? (
         <Card className="mb-6 border-amber-200 bg-amber-50/40">

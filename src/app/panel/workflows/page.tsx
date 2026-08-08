@@ -22,10 +22,7 @@ export default async function WorkflowsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Otonom Workflows"
-        description="Zamanlanmış AI işleri yalnızca Agent Runtime üzerinden çalışır. Cron: POST /api/v1/workflows/tick"
-      />
+      <PageHeader title="Otonom Workflows" />
 
       <div className="space-y-4">
         {workflows.map((w) => (

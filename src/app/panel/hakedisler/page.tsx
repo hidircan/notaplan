@@ -82,10 +82,7 @@ export default async function TeacherPayoutOverviewPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader
-        title="Öğretmen Hakedişleri"
-        description="Tüm öğretmenler için dönemsel hakediş özeti — filtreleyin, detaya tek tıkla ulaşın."
-      />
+      <PageHeader title="Öğretmen Hakedişleri" />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
