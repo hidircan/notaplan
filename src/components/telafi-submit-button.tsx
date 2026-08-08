@@ -11,15 +11,17 @@ export function TelafiSubmitButton({
   pendingLabel,
   variant,
   className,
+  disabled,
 }: {
   children: ReactNode;
   pendingLabel: string;
   variant?: "primary" | "secondary" | "ghost" | "danger" | "success";
   className?: string;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant={variant} className={className} disabled={pending}>
+    <Button type="submit" variant={variant} className={className} disabled={pending || disabled}>
       {pending ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />

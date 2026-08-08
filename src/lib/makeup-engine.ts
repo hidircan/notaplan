@@ -92,8 +92,6 @@ export type SlotValidationCode =
   | "INVALID_DURATION"
   | "PAST_START"
   | "AFTER_EXPIRY"
-  | "OUTSIDE_WORKING_DAY"
-  | "OUTSIDE_WORKING_HOURS"
   | "TEACHER_NOT_FOUND"
   | "TEACHER_INACTIVE"
   | "TEACHER_INSTRUMENT_MISMATCH"
@@ -112,8 +110,6 @@ export const SLOT_ERROR_MESSAGES: Record<SlotValidationCode, string> = {
   INVALID_DURATION: "Ders süresi en az 30 dakika olmalı.",
   PAST_START: "Başlangıç saati geçmişte olamaz.",
   AFTER_EXPIRY: "Ders, telafi son kullanım tarihini aşıyor.",
-  OUTSIDE_WORKING_DAY: "Seçilen gün okulun çalışma günleri dışında.",
-  OUTSIDE_WORKING_HOURS: "Seçilen saat okulun çalışma saatleri dışında.",
   TEACHER_NOT_FOUND: "Seçilen öğretmen bulunamadı.",
   TEACHER_INACTIVE: "Seçilen öğretmen aktif değil.",
   TEACHER_INSTRUMENT_MISMATCH: "Seçilen öğretmen bu enstrümanı vermiyor.",
@@ -196,14 +192,11 @@ export function validateLessonSlot(
     if (end > expire) return fail("AFTER_EXPIRY");
   }
 
+  // Okulun genel çalışma günü/saati artık ders planlamayı engellemez — talep
+  // varsa Pazar veya mesai dışı saatlerde de ders planlanabilir. Öğretmenin
+  // kendi bildirdiği müsaitlik penceresi (teacherAvailableOnDay) ayrı ve
+  // geçerli bir kısıt olarak kalır.
   const day = startOfDay(start);
-  if (!data.settings.workingDays.includes(getDay(day))) return fail("OUTSIDE_WORKING_DAY");
-
-  const { h: whStartH, m: whStartM } = parseHm(data.settings.workingHours.start);
-  const { h: whEndH, m: whEndM } = parseHm(data.settings.workingHours.end);
-  const dayStart = setMinutes(setHours(day, whStartH), whStartM);
-  const dayEnd = setMinutes(setHours(day, whEndH), whEndM);
-  if (start < dayStart || end > dayEnd) return fail("OUTSIDE_WORKING_HOURS");
 
   const teacher = data.teachers.find((t) => t.id === input.teacherId);
   if (!teacher) return fail("TEACHER_NOT_FOUND");
