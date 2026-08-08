@@ -1070,6 +1070,7 @@ model Task {
   checklistItems TaskChecklistItem[]
   comments       TaskComment[]
   activities     TaskActivity[]
+  attachments    TaskAttachment[]
 
   @@index([tenantId, status])
   @@index([tenantId, assigneeId])
@@ -1118,6 +1119,31 @@ model TaskActivity {
   action    String
   summary   String
   createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([tenantId])
+}
+
+/// İş Takip Faz 3B-2A — göreve dosya/link eki. `fileData` ASLA public tipe
+/// (TaskAttachment) sızmaz — yalnızca sahiplik/tenant kontrolü geçen indirme
+/// tool'u (getTaskAttachmentFileTool) okur, tıpkı TeachingMaterial/
+/// HomeworkSubmission'daki aynı desende. Task silinince cascade silinir.
+model TaskAttachment {
+  id           String    @id
+  taskId       String
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenantId     String
+  /// FILE | LINK
+  type         String
+  title        String
+  url          String?   @db.Text
+  fileName     String?
+  fileMimeType String?
+  fileSize     Int?
+  fileData     String?   @db.LongText
+  createdById  String
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
 
   @@index([taskId])
   @@index([tenantId])

@@ -8,7 +8,7 @@
  * gösterileceğini belirler (ikinci, UI katmanı savunması).
  */
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   actionChangeTaskStatus,
@@ -19,10 +19,32 @@ import {
   actionUpdateTaskComment,
   actionDeleteTaskComment,
   actionUpdateTask,
+  actionAddTaskFileAttachment,
+  actionAddTaskLinkAttachment,
+  actionDeleteTaskAttachment,
 } from "@/lib/actions";
-import { Badge, Button, Input } from "@/components/ui";
+import { Badge, Button, Input, Label } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
-import type { Task, TaskChecklistItem, TaskComment, TaskActivity, TaskStatus } from "@/lib/types";
+import type { Task, TaskChecklistItem, TaskComment, TaskActivity, TaskAttachment, TaskStatus } from "@/lib/types";
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(new Error("Dosya okunamadı"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "Yapılacak",
@@ -48,6 +70,8 @@ const ACTIVITY_LABEL: Record<string, string> = {
   checklist_removed: "Checklist kaldırıldı",
   comment_added: "Yorum eklendi",
   comment_updated: "Yorum düzenlendi",
+  attachment_added: "Ek eklendi",
+  attachment_removed: "Ek kaldırıldı",
   completed: "Tamamlandı",
   cancelled: "İptal edildi",
   archived: "Arşivlendi",
@@ -59,6 +83,7 @@ export function TaskDetailPanel({
   checklist,
   comments,
   activity,
+  attachments = [],
   isAdmin,
   assigneeLabel,
   currentActorIds = [],
@@ -68,6 +93,7 @@ export function TaskDetailPanel({
   checklist: TaskChecklistItem[];
   comments: TaskComment[];
   activity: TaskActivity[];
+  attachments?: TaskAttachment[];
   /** Admin: durum/öncelik/kategori/sorumlu/tarih tam düzenleme + iptal/arşiv/yeniden-aç. TEACHER: yalnızca izinli statü + checklist + yorum. */
   isAdmin: boolean;
   assigneeLabel?: string;
@@ -91,6 +117,12 @@ export function TaskDetailPanel({
   const [confirmAction, setConfirmAction] = useState<"cancel" | "archive" | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentBody, setEditingCommentBody] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentTitle, setAttachmentTitle] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [confirmDeleteAttachmentId, setConfirmDeleteAttachmentId] = useState<string | null>(null);
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
     setError(null);
@@ -107,6 +139,35 @@ export function TaskDetailPanel({
   const canSetStatus = (status: TaskStatus) => isAdmin || (status !== "CANCELLED" && status !== "ARCHIVED");
   const activeChecklist = checklist.filter((c) => !c.archivedAt);
   const completedCount = activeChecklist.filter((c) => c.isCompleted).length;
+  const activeAttachments = attachments.filter((a) => !a.deletedAt);
+
+  async function onSelectAttachmentFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fileData = await readFileAsBase64(file);
+      const res = await actionAddTaskFileAttachment({
+        taskId: task.id,
+        title: attachmentTitle.trim() || file.name,
+        fileName: file.name,
+        fileMimeType: file.type || "application/octet-stream",
+        fileData,
+      });
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      setAttachmentTitle("");
+      router.refresh();
+    } catch {
+      setError("Dosya okunamadı.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -487,6 +548,164 @@ export function TaskDetailPanel({
             Gönder
           </Button>
         </form>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text)]">Ekler</h2>
+        <div className="space-y-1.5">
+          {activeAttachments.length === 0 ? (
+            <p className="text-xs text-[var(--color-text-muted)]">Henüz ek yok.</p>
+          ) : (
+            activeAttachments.map((a) => {
+              const canModify = isAdmin || currentActorIds.includes(a.createdById);
+              return (
+                <div
+                  key={a.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--color-bg)] p-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    {a.type === "FILE" ? (
+                      <a
+                        href={`/api/v1/task-attachments/${a.id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-[var(--color-primary)] hover:underline"
+                      >
+                        📎 {a.title}
+                      </a>
+                    ) : (
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="font-medium text-[var(--color-primary)] hover:underline"
+                      >
+                        🔗 {a.title}
+                      </a>
+                    )}
+                    <p className="text-[11px] text-[var(--color-text-muted)]">
+                      {formatDateTime(a.createdAt)}
+                      {a.type === "FILE" && a.fileSize ? ` · ${formatFileSize(a.fileSize)}` : ""}
+                      {a.type === "LINK" ? ` · ${a.url}` : ""}
+                    </p>
+                  </div>
+                  {canModify ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => setConfirmDeleteAttachmentId(a.id)}
+                      className="shrink-0 text-[11px] font-medium text-rose-600 hover:underline"
+                    >
+                      Kaldır
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {confirmDeleteAttachmentId ? (
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          >
+            <div className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">
+              <h3 className="text-base font-semibold text-[var(--color-text)]">Ek kaldırılsın mı?</h3>
+              <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                Bu işlem geri alınamaz; ek görev geçmişinde &quot;kaldırıldı&quot; olarak kalır.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setConfirmDeleteAttachmentId(null)}
+                  disabled={pending}
+                >
+                  Vazgeç
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={pending}
+                  onClick={() => {
+                    const attachmentId = confirmDeleteAttachmentId;
+                    setConfirmDeleteAttachmentId(null);
+                    run(() => actionDeleteTaskAttachment({ taskId: task.id, attachmentId }));
+                  }}
+                >
+                  Kaldır
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-3 space-y-3 rounded-lg border border-dashed border-[var(--color-border)] p-3">
+          <div>
+            <Label>Ek başlığı (opsiyonel)</Label>
+            <Input
+              id="task-attachment-title"
+              value={attachmentTitle}
+              onChange={(e) => setAttachmentTitle(e.target.value)}
+              placeholder="Örn. Veli onay formu"
+            />
+          </div>
+          <div>
+            <Label>Dosya ekle (PDF, görsel, ses/video, doküman — maks. 2MB)</Label>
+            <input
+              id="task-attachment-file"
+              ref={fileInputRef}
+              type="file"
+              disabled={uploading || pending}
+              onChange={(e) => void onSelectAttachmentFile(e)}
+              className="block w-full text-sm text-[var(--color-text)]"
+            />
+            {uploading ? <p className="mt-1 text-xs text-[var(--color-text-muted)]">Yükleniyor…</p> : null}
+          </div>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!linkUrl.trim()) return;
+              run(async () => {
+                const res = await actionAddTaskLinkAttachment({
+                  taskId: task.id,
+                  title: linkTitle.trim() || linkUrl.trim(),
+                  url: linkUrl.trim(),
+                });
+                if (res.ok) {
+                  setLinkTitle("");
+                  setLinkUrl("");
+                }
+                return res;
+              });
+            }}
+          >
+            <div className="flex-1">
+              <Label>Bağlantı başlığı (opsiyonel)</Label>
+              <Input
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                placeholder="Örn. Drive klasörü"
+              />
+            </div>
+            <div className="flex-1">
+              <Label>Bağlantı ekle (https://…)</Label>
+              <Input
+                id="task-attachment-link-url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://…"
+                type="url"
+              />
+            </div>
+            <Button type="submit" variant="secondary" disabled={pending || !linkUrl.trim()}>
+              Bağlantı Ekle
+            </Button>
+          </form>
+        </div>
       </section>
 
       <section>

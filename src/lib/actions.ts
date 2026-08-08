@@ -73,6 +73,9 @@ import {
   addTaskCommentTool,
   updateTaskCommentTool,
   deleteTaskCommentTool,
+  addTaskFileAttachmentTool,
+  addTaskLinkAttachmentTool,
+  deleteTaskAttachmentTool,
   getTaskReminderPreferenceTool,
   updateTaskReminderPreferenceTool,
 } from "./services/tools";
@@ -1522,6 +1525,64 @@ export async function actionDeleteTaskComment(input: {
     logger.error("actionDeleteTaskComment failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Yorum kaldırılırken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionAddTaskFileAttachment(input: {
+  taskId: string;
+  title: string;
+  fileName: string;
+  fileMimeType: string;
+  fileData: string;
+}): Promise<TaskActionResult<{ attachmentId: string }>> {
+  try {
+    const result = await withAuthContext("actionAddTaskFileAttachment", (ctx) =>
+      addTaskFileAttachmentTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { attachmentId: result.data.attachmentId } };
+  } catch (error) {
+    logger.error("actionAddTaskFileAttachment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Dosya eklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionAddTaskLinkAttachment(input: {
+  taskId: string;
+  title: string;
+  url: string;
+}): Promise<TaskActionResult<{ attachmentId: string }>> {
+  try {
+    const result = await withAuthContext("actionAddTaskLinkAttachment", (ctx) =>
+      addTaskLinkAttachmentTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { attachmentId: result.data.attachmentId } };
+  } catch (error) {
+    logger.error("actionAddTaskLinkAttachment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Bağlantı eklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionDeleteTaskAttachment(input: {
+  taskId: string;
+  attachmentId: string;
+}): Promise<TaskActionResult<{ attachmentId: string }>> {
+  try {
+    const result = await withAuthContext("actionDeleteTaskAttachment", (ctx) =>
+      deleteTaskAttachmentTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { attachmentId: result.data.attachmentId } };
+  } catch (error) {
+    logger.error("actionDeleteTaskAttachment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Ek kaldırılırken beklenmeyen bir hata oluştu." };
   }
 }
 

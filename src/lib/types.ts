@@ -1045,6 +1045,27 @@ export interface TaskComment {
   deletedAt?: string;
 }
 
+/** İş Takip Faz 3B-2A — göreve dosya veya link eki. */
+export type TaskAttachmentType = "FILE" | "LINK";
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  type: TaskAttachmentType;
+  /** Görünen ad — kullanıcı tarafından girilir, dosya adından bağımsız. */
+  title: string;
+  /** Yalnızca `type === "LINK"` — http/https, doğrulanmış. */
+  url?: string;
+  /** Yalnızca `type === "FILE"` — ham dosya baytı ASLA bu tipte yer almaz (bkz. getTaskAttachmentFileTool). */
+  fileName?: string;
+  fileMimeType?: string;
+  fileSize?: number;
+  createdById: string;
+  createdAt: string;
+  /** Soft delete — hard delete yok (yorum deseniyle aynı). */
+  deletedAt?: string;
+}
+
 export type TaskActivityAction =
   | "created"
   | "field_updated"
@@ -1060,6 +1081,8 @@ export type TaskActivityAction =
   | "checklist_removed"
   | "comment_added"
   | "comment_updated"
+  | "attachment_added"
+  | "attachment_removed"
   | "completed"
   | "cancelled"
   | "archived"

@@ -25,6 +25,8 @@ import type {
   TaskComment,
   TaskActivity,
   TaskActivityAction,
+  TaskAttachment,
+  TaskAttachmentType,
 } from "./types";
 
 const FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "tasks.json");
@@ -36,15 +38,18 @@ type StoredTask = Task & { tenantId: string };
 type StoredChecklistItem = TaskChecklistItem & { tenantId: string };
 type StoredComment = TaskComment & { tenantId: string };
 type StoredActivity = TaskActivity & { tenantId: string };
+/** `fileData` yalnızca burada (dahili, ham) tutulur — `toPublicAttachment` ASLA dışarı sızdırmaz. */
+type StoredAttachment = TaskAttachment & { tenantId: string; fileData?: string };
 
 type StoreShape = {
   tasks: StoredTask[];
   checklist: StoredChecklistItem[];
   comments: StoredComment[];
   activity: StoredActivity[];
+  attachments: StoredAttachment[];
 };
 
-const EMPTY: StoreShape = { tasks: [], checklist: [], comments: [], activity: [] };
+const EMPTY: StoreShape = { tasks: [], checklist: [], comments: [], activity: [], attachments: [] };
 
 async function loadAll(): Promise<StoreShape> {
   try {
@@ -56,6 +61,7 @@ async function loadAll(): Promise<StoreShape> {
       checklist: parsed.checklist ?? [],
       comments: parsed.comments ?? [],
       activity: parsed.activity ?? [],
+      attachments: parsed.attachments ?? [],
     };
   } catch {
     return { ...EMPTY };
@@ -86,6 +92,12 @@ function toPublicComment(c: StoredComment): TaskComment {
 function toPublicActivity(a: StoredActivity): TaskActivity {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { tenantId, ...rest } = a;
+  return rest;
+}
+/** `fileData` bilinçli olarak DIŞARIDA bırakılır — liste/detay yanıtları ham dosya baytı taşımaz. */
+function toPublicAttachment(a: StoredAttachment): TaskAttachment {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tenantId, fileData, ...rest } = a;
   return rest;
 }
 
@@ -383,7 +395,7 @@ async function clearTasksDb(tenantId: string): Promise<void> {
   await prisma.task.deleteMany({ where: { tenantId } });
 }
 
-/** Demo/kurulum sıfırlaması için — tenant'ın TÜM görev verisini (checklist/yorum/aktivite dahil) siler. */
+/** Demo/kurulum sıfırlaması için — tenant'ın TÜM görev verisini (checklist/yorum/aktivite/ek dahil) siler. */
 export async function clearTasks(tenantId: string): Promise<void> {
   if (isDbMode) return clearTasksDb(tenantId);
   const all = await loadAll();
@@ -392,6 +404,7 @@ export async function clearTasks(tenantId: string): Promise<void> {
     checklist: all.checklist.filter((c) => c.tenantId !== tenantId),
     comments: all.comments.filter((c) => c.tenantId !== tenantId),
     activity: all.activity.filter((a) => a.tenantId !== tenantId),
+    attachments: all.attachments.filter((a) => a.tenantId !== tenantId),
   });
 }
 
@@ -686,4 +699,179 @@ export async function listActivity(tenantId: string, taskId: string): Promise<Ta
     .filter((a) => a.tenantId === tenantId && a.taskId === taskId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map(toPublicActivity);
+}
+
+// ─── Attachments (İş Takip Faz 3B-2A — dosya/link eki) ─────────────────
+
+function mapDbAttachment(r: {
+  id: string;
+  taskId: string;
+  tenantId: string;
+  type: string;
+  title: string;
+  url: string | null;
+  fileName: string | null;
+  fileMimeType: string | null;
+  fileSize: number | null;
+  fileData: string | null;
+  createdById: string;
+  createdAt: Date;
+  deletedAt: Date | null;
+}): StoredAttachment {
+  return {
+    id: r.id,
+    taskId: r.taskId,
+    tenantId: r.tenantId,
+    type: r.type as TaskAttachmentType,
+    title: r.title,
+    url: r.url ?? undefined,
+    fileName: r.fileName ?? undefined,
+    fileMimeType: r.fileMimeType ?? undefined,
+    fileSize: r.fileSize ?? undefined,
+    fileData: r.fileData ?? undefined,
+    createdById: r.createdById,
+    createdAt: r.createdAt.toISOString(),
+    deletedAt: r.deletedAt?.toISOString(),
+  };
+}
+
+export type AddFileAttachmentInput = {
+  tenantId: string;
+  taskId: string;
+  createdById: string;
+  title: string;
+  fileName: string;
+  fileMimeType: string;
+  fileData: string;
+  fileSize: number;
+};
+
+export async function addFileAttachment(input: AddFileAttachmentInput): Promise<TaskAttachment> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskAttachment.create({
+      data: {
+        id: uid("att"),
+        taskId: input.taskId,
+        tenantId: input.tenantId,
+        type: "FILE",
+        title: input.title,
+        fileName: input.fileName,
+        fileMimeType: input.fileMimeType,
+        fileSize: input.fileSize,
+        fileData: input.fileData,
+        createdById: input.createdById,
+      },
+    });
+    return toPublicAttachment(mapDbAttachment(row));
+  }
+  const all = await loadAll();
+  const record: StoredAttachment = {
+    id: uid("att"),
+    taskId: input.taskId,
+    tenantId: input.tenantId,
+    type: "FILE",
+    title: input.title,
+    fileName: input.fileName,
+    fileMimeType: input.fileMimeType,
+    fileSize: input.fileSize,
+    fileData: input.fileData,
+    createdById: input.createdById,
+    createdAt: now,
+  };
+  await saveAll({ ...all, attachments: [...all.attachments, record] });
+  return toPublicAttachment(record);
+}
+
+export type AddLinkAttachmentInput = {
+  tenantId: string;
+  taskId: string;
+  createdById: string;
+  title: string;
+  url: string;
+};
+
+export async function addLinkAttachment(input: AddLinkAttachmentInput): Promise<TaskAttachment> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskAttachment.create({
+      data: {
+        id: uid("att"),
+        taskId: input.taskId,
+        tenantId: input.tenantId,
+        type: "LINK",
+        title: input.title,
+        url: input.url,
+        createdById: input.createdById,
+      },
+    });
+    return toPublicAttachment(mapDbAttachment(row));
+  }
+  const all = await loadAll();
+  const record: StoredAttachment = {
+    id: uid("att"),
+    taskId: input.taskId,
+    tenantId: input.tenantId,
+    type: "LINK",
+    title: input.title,
+    url: input.url,
+    createdById: input.createdById,
+    createdAt: now,
+  };
+  await saveAll({ ...all, attachments: [...all.attachments, record] });
+  return toPublicAttachment(record);
+}
+
+/** Liste/detay için — `fileData` HİÇBİR ZAMAN döndürülmez (bkz. toPublicAttachment). */
+export async function listAttachments(tenantId: string, taskId: string): Promise<TaskAttachment[]> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const rows = await prisma.taskAttachment.findMany({
+      where: { tenantId, taskId, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => toPublicAttachment(mapDbAttachment(r)));
+  }
+  const all = await loadAll();
+  return all.attachments
+    .filter((a) => a.tenantId === tenantId && a.taskId === taskId && !a.deletedAt)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map(toPublicAttachment);
+}
+
+/**
+ * Sahiplik/silme kontrolü + dosya indirme için — `fileData` DAHİL tam kaydı
+ * döndürür. Çağıran taraf (tools.ts) tenant + görev erişimini zaten
+ * doğrulamış olmalı; bu fonksiyon yalnızca tenant-scoped okuma yapar.
+ */
+export async function getAttachmentById(tenantId: string, attachmentId: string): Promise<StoredAttachment | null> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskAttachment.findFirst({ where: { id: attachmentId, tenantId } });
+    return row ? mapDbAttachment(row) : null;
+  }
+  const all = await loadAll();
+  return all.attachments.find((a) => a.id === attachmentId && a.tenantId === tenantId) ?? null;
+}
+
+/** Soft delete — hard delete yok (yorum deseniyle aynı). */
+export async function softDeleteAttachment(tenantId: string, attachmentId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const result = await prisma.taskAttachment.updateMany({
+      where: { id: attachmentId, tenantId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return result.count > 0;
+  }
+  const all = await loadAll();
+  const idx = all.attachments.findIndex((a) => a.id === attachmentId && a.tenantId === tenantId && !a.deletedAt);
+  if (idx === -1) return false;
+  const next = [...all.attachments];
+  next[idx] = { ...next[idx], deletedAt: now };
+  await saveAll({ ...all, attachments: next });
+  return true;
 }

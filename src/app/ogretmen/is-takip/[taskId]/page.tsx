@@ -51,6 +51,7 @@ export default async function OgretmenIsTakipDetailPage({
               checklist={detailRes.data.checklist}
               comments={detailRes.data.comments}
               activity={detailRes.data.activity}
+              attachments={detailRes.data.attachments}
               isAdmin={false}
               currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
             />

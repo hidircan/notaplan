@@ -219,6 +219,9 @@ import {
   addTaskCommentSchema,
   updateTaskCommentSchema,
   deleteTaskCommentSchema,
+  addTaskFileAttachmentSchema,
+  addTaskLinkAttachmentSchema,
+  deleteTaskAttachmentSchema,
   updateTaskReminderPreferenceSchema,
   listTasksFilterSchema,
 } from "../validation";
@@ -250,6 +253,7 @@ import {
   type TaskComment,
   type TaskActivity,
   type TaskActivityAction,
+  type TaskAttachment,
   OPEN_TASK_STATUSES,
 } from "../types";
 import {
@@ -269,6 +273,11 @@ import {
   addActivity,
   listActivity,
   clearTasks,
+  addFileAttachment,
+  addLinkAttachment,
+  listAttachments,
+  getAttachmentById,
+  softDeleteAttachment,
   type TaskFilter,
 } from "../tasks";
 import { clearTaskReminderLog } from "../task-reminder-log";
@@ -4276,6 +4285,7 @@ export async function getTaskDetailTool(
     checklist: TaskChecklistItem[];
     comments: TaskComment[];
     activity: TaskActivity[];
+    attachments: TaskAttachment[];
   }>
 > {
   const auth = requireRole(ctx, TASK_VIEW_ROLES);
@@ -4286,12 +4296,13 @@ export async function getTaskDetailTool(
   const access = await assertTaskViewAccess(ctx, v.data.taskId);
   if (!access.ok) return access;
 
-  const [checklist, comments, activity] = await Promise.all([
+  const [checklist, comments, activity, attachments] = await Promise.all([
     listChecklistItems(ctx.tenantId, v.data.taskId),
     listComments(ctx.tenantId, v.data.taskId),
     listActivity(ctx.tenantId, v.data.taskId),
+    listAttachments(ctx.tenantId, v.data.taskId),
   ]);
-  return ok({ task: access.data, checklist, comments, activity });
+  return ok({ task: access.data, checklist, comments, activity, attachments });
 }
 
 /** TEACHER'ın kendi görevinde değiştirebileceği TEK alan seti — sorumlu/takipçi/tarih/bağlam DIŞARIDA. */
@@ -4677,6 +4688,215 @@ export async function deleteTaskCommentTool(
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "deleteTaskComment failed");
   }
+}
+
+// ─── Ekler (İş Takip Faz 3B-2A — güvenli dosya/link eki) ────────────────
+
+/**
+ * Sabit, testli allowlist — yeni bir depolama sağlayıcısı YOK, mevcut
+ * base64-in-DB desenini (TeachingMaterial/HomeworkSubmission) kullanır.
+ * Uzantı + MIME ikisi birden kontrol edilir (savunma katmanı — biri
+ * yanıltılsa bile diğeri yakalar).
+ */
+const TASK_ATTACHMENT_ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/x-m4a",
+  "video/mp4",
+  "video/quicktime",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+]);
+const TASK_ATTACHMENT_DISALLOWED_EXT =
+  /\.(exe|sh|bat|cmd|com|msi|dll|js|mjs|cjs|html?|svg|php\d?|jar|apk|ps1|vbs|scr|jsp)$/i;
+const TASK_ATTACHMENT_MAX_BYTES = 2_000_000;
+
+function validateTaskFileAttachmentPayload(input: {
+  fileName: string;
+  fileMimeType: string;
+  fileData: string;
+}): { ok: true; byteLength: number } | { ok: false; message: string } {
+  if (TASK_ATTACHMENT_DISALLOWED_EXT.test(input.fileName)) {
+    return { ok: false, message: "Bu dosya türüne izin verilmiyor." };
+  }
+  if (!TASK_ATTACHMENT_ALLOWED_MIME.has(input.fileMimeType)) {
+    return { ok: false, message: "Desteklenmeyen dosya türü." };
+  }
+  let byteLength = 0;
+  try {
+    byteLength = Buffer.from(input.fileData, "base64").length;
+  } catch {
+    return { ok: false, message: "Dosya verisi okunamadı." };
+  }
+  if (byteLength <= 0) return { ok: false, message: "Boş dosya yüklenemez." };
+  if (byteLength > TASK_ATTACHMENT_MAX_BYTES) return { ok: false, message: "Dosya çok büyük (maks. 2MB)." };
+  return { ok: true, byteLength };
+}
+
+/** http/https dışı şema (javascript:/data:/file: vb.) ve private/loopback ağ adresleri reddedilir. */
+const TASK_ATTACHMENT_PRIVATE_HOST = [
+  /^localhost$/i,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^169\.254\./,
+  /^0\.0\.0\.0$/,
+  /^\[?::1\]?$/,
+  /^0\./,
+];
+
+function validateTaskLinkAttachmentUrl(raw: string): { ok: true; url: string } | { ok: false; message: string } {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return { ok: false, message: "Geçersiz bağlantı." };
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    return { ok: false, message: "Yalnızca http/https bağlantılara izin verilir." };
+  }
+  const host = u.hostname.toLowerCase();
+  if (TASK_ATTACHMENT_PRIVATE_HOST.some((p) => p.test(host))) {
+    return { ok: false, message: "İç ağ adreslerine bağlantı eklenemez." };
+  }
+  return { ok: true, url: u.toString() };
+}
+
+export async function addTaskFileAttachmentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ attachmentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(addTaskFileAttachmentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  const fileCheck = validateTaskFileAttachmentPayload(v.data);
+  if (!fileCheck.ok) return fail("VALIDATION_ERROR", fileCheck.message);
+
+  try {
+    const attachment = await addFileAttachment({
+      tenantId: ctx.tenantId,
+      taskId: v.data.taskId,
+      createdById: ctx.userId,
+      title: v.data.title,
+      fileName: v.data.fileName,
+      fileMimeType: v.data.fileMimeType,
+      fileData: v.data.fileData,
+      fileSize: fileCheck.byteLength,
+    });
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "attachment_added", `Dosya eklendi: "${v.data.title}"`);
+    audit(ctx, "task.attachment.add", "Task", v.data.taskId, { attachmentId: attachment.id, type: "FILE" });
+    return ok({ attachmentId: attachment.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "addTaskFileAttachment failed");
+  }
+}
+
+export async function addTaskLinkAttachmentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ attachmentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(addTaskLinkAttachmentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  const urlCheck = validateTaskLinkAttachmentUrl(v.data.url);
+  if (!urlCheck.ok) return fail("VALIDATION_ERROR", urlCheck.message);
+
+  try {
+    const attachment = await addLinkAttachment({
+      tenantId: ctx.tenantId,
+      taskId: v.data.taskId,
+      createdById: ctx.userId,
+      title: v.data.title,
+      url: urlCheck.url,
+    });
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "attachment_added", `Bağlantı eklendi: "${v.data.title}"`);
+    audit(ctx, "task.attachment.add", "Task", v.data.taskId, { attachmentId: attachment.id, type: "LINK" });
+    return ok({ attachmentId: attachment.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "addTaskLinkAttachment failed");
+  }
+}
+
+/** Ekleyen kişi veya admin kaldırabilir — yorum silme yetkisiyle AYNI desen. */
+function canModifyAttachment(attachment: { createdById: string }, ctx: ServiceContext): boolean {
+  return isTaskAdminRole(ctx.role) || actorTaskIdentities(ctx).includes(attachment.createdById);
+}
+
+/** Soft delete — hard delete yok (yorum deseniyle aynı). */
+export async function deleteTaskAttachmentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ attachmentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(deleteTaskAttachmentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const existing = await getAttachmentById(ctx.tenantId, v.data.attachmentId);
+    if (!existing || existing.taskId !== v.data.taskId || existing.deletedAt) {
+      return fail("NOT_FOUND", "Ek bulunamadı");
+    }
+    if (!canModifyAttachment(existing, ctx)) {
+      return fail("FORBIDDEN", "Yalnızca kendi eklediğiniz eki kaldırabilirsiniz.");
+    }
+    const removed = await softDeleteAttachment(ctx.tenantId, v.data.attachmentId);
+    if (!removed) return fail("NOT_FOUND", "Ek bulunamadı");
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "attachment_removed", `Ek kaldırıldı: "${existing.title}"`);
+    audit(ctx, "task.attachment.delete", "Task", v.data.taskId, { attachmentId: v.data.attachmentId });
+    return ok({ attachmentId: v.data.attachmentId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "deleteTaskAttachment failed");
+  }
+}
+
+/**
+ * Dosya indirme rotası için — yalnızca görev erişimi (assertTaskViewAccess:
+ * admin VEYA sorumlu/takipçi TEACHER, aynı tenant) geçen çağrılar `fileData`yı
+ * görür; ASLA tahmin edilebilir/herkese açık bir URL üzerinden değil.
+ */
+export async function getTaskAttachmentFileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ fileName?: string; fileMimeType?: string; fileData?: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ attachmentId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const attachment = await getAttachmentById(ctx.tenantId, v.data.attachmentId);
+  if (!attachment || attachment.deletedAt) return fail("NOT_FOUND", "Ek bulunamadı");
+
+  const access = await assertTaskViewAccess(ctx, attachment.taskId);
+  if (!access.ok) return access;
+
+  if (attachment.type !== "FILE" || !attachment.fileData) return fail("NOT_FOUND", "Bu ekte dosya yok");
+  return ok({
+    fileName: attachment.fileName,
+    fileMimeType: attachment.fileMimeType,
+    fileData: attachment.fileData,
+  });
 }
 
 /** Demo/Kurulum Merkezi sıfırlaması — resetDemoTool/resetToCleanTemplateTool tarafından çağrılır. */

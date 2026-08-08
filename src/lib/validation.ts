@@ -750,6 +750,37 @@ export const deleteTaskCommentSchema = z.object({
   commentId: z.string().min(1),
 });
 
+/**
+ * İş Takip Faz 3B-2A — dosya eki. `fileName` bilinçli olarak `/`, `\` veya
+ * `..` içeremez (path traversal — bu uygulamada dosya ASLA disk yoluna
+ * yazılmıyor, base64 olarak DB'ye gidiyor, ama savunma katmanı olarak
+ * yine de reddedilir). Boyut/MIME/uzantı allowlist kontrolü tools.ts'te
+ * (zod'un ötesinde, tıpkı instrument katalog doğrulaması gibi) yapılır —
+ * zod burada yalnızca biçim/uzunluk sınırlarını uygular.
+ */
+export const addTaskFileAttachmentSchema = z.object({
+  taskId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  fileName: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."), "Geçersiz dosya adı"),
+  fileMimeType: z.string().min(1).max(100),
+  fileData: z.string().min(1).max(2_800_000),
+});
+
+export const addTaskLinkAttachmentSchema = z.object({
+  taskId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  url: z.string().min(1).max(2000),
+});
+
+export const deleteTaskAttachmentSchema = z.object({
+  taskId: z.string().min(1),
+  attachmentId: z.string().min(1),
+});
+
 export const updateTaskReminderPreferenceSchema = z.object({
   dueSoonEnabled: z.boolean(),
   dueTodayEnabled: z.boolean(),

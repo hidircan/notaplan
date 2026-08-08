@@ -58,6 +58,7 @@ export default async function IsTakipDetailPage({
           checklist={detailRes.data.checklist}
           comments={detailRes.data.comments}
           activity={detailRes.data.activity}
+          attachments={detailRes.data.attachments}
           isAdmin
           assigneeLabel={resolveStaffLabel(staff, detailRes.data.task.assigneeId)}
           currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
