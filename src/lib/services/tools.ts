@@ -217,6 +217,8 @@ import {
   setTaskChecklistItemCompletedSchema,
   archiveTaskChecklistItemSchema,
   addTaskCommentSchema,
+  updateTaskCommentSchema,
+  deleteTaskCommentSchema,
   listTasksFilterSchema,
 } from "../validation";
 import {
@@ -260,6 +262,9 @@ import {
   archiveChecklistItem,
   addComment,
   listComments,
+  updateComment,
+  softDeleteComment,
+  getCommentById,
   addActivity,
   listActivity,
   clearTasks,
@@ -4596,6 +4601,72 @@ export async function addTaskCommentTool(
     return ok({ commentId: comment.id });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "addTaskComment failed");
+  }
+}
+
+/** Yorum sahibi kendi yorumunu, admin herhangi bir yorumu (moderasyon) düzenleyebilir/silebilir. */
+function canModifyComment(comment: { authorId: string }, ctx: ServiceContext): boolean {
+  return isTaskAdminRole(ctx.role) || actorTaskIdentities(ctx).includes(comment.authorId);
+}
+
+export async function updateTaskCommentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ commentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(updateTaskCommentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const existing = await getCommentById(ctx.tenantId, v.data.commentId);
+    if (!existing || existing.taskId !== v.data.taskId || existing.deletedAt) {
+      return fail("NOT_FOUND", "Yorum bulunamadı");
+    }
+    if (!canModifyComment(existing, ctx)) {
+      return fail("FORBIDDEN", "Yalnızca kendi yorumunuzu düzenleyebilirsiniz.");
+    }
+    const updated = await updateComment(ctx.tenantId, v.data.commentId, v.data.body);
+    if (!updated) return fail("NOT_FOUND", "Yorum bulunamadı");
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "comment_updated", "Yorum düzenlendi");
+    audit(ctx, "task.comment.update", "Task", v.data.taskId, { commentId: v.data.commentId });
+    return ok({ commentId: updated.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTaskComment failed");
+  }
+}
+
+/** Soft delete — hard delete yok (modül gereksinimi). */
+export async function deleteTaskCommentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ commentId: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(deleteTaskCommentSchema, input);
+  if (!v.ok) return v;
+
+  const access = await assertTaskWriteAccess(ctx, v.data.taskId);
+  if (!access.ok) return access;
+
+  try {
+    const existing = await getCommentById(ctx.tenantId, v.data.commentId);
+    if (!existing || existing.taskId !== v.data.taskId || existing.deletedAt) {
+      return fail("NOT_FOUND", "Yorum bulunamadı");
+    }
+    if (!canModifyComment(existing, ctx)) {
+      return fail("FORBIDDEN", "Yalnızca kendi yorumunuzu kaldırabilirsiniz.");
+    }
+    const removed = await softDeleteComment(ctx.tenantId, v.data.commentId);
+    if (!removed) return fail("NOT_FOUND", "Yorum bulunamadı");
+    await addActivity(ctx.tenantId, v.data.taskId, ctx.userId, "comment_updated", "Yorum kaldırıldı");
+    audit(ctx, "task.comment.delete", "Task", v.data.taskId, { commentId: v.data.commentId });
+    return ok({ commentId: v.data.commentId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "deleteTaskComment failed");
   }
 }
 

@@ -52,6 +52,7 @@ export default async function OgretmenIsTakipDetailPage({
               comments={detailRes.data.comments}
               activity={detailRes.data.activity}
               isAdmin={false}
+              currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
             />
           </Card>
         )}

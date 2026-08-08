@@ -739,6 +739,17 @@ export const addTaskCommentSchema = z.object({
   body: z.string().min(1),
 });
 
+export const updateTaskCommentSchema = z.object({
+  taskId: z.string().min(1),
+  commentId: z.string().min(1),
+  body: z.string().min(1),
+});
+
+export const deleteTaskCommentSchema = z.object({
+  taskId: z.string().min(1),
+  commentId: z.string().min(1),
+});
+
 export const listTasksFilterSchema = z.object({
   status: z.array(z.enum(TASK_STATUS_ENUM)).optional(),
   priority: z.enum(TASK_PRIORITY_ENUM).optional(),

@@ -568,6 +568,62 @@ export async function addComment(
   return toPublicComment(record);
 }
 
+/** Yalnızca yazar/admin çağırabilir (yetki kontrolü tools.ts'te) — burada sadece tenant-scoped kayıt bulunur/güncellenir. */
+export async function updateComment(
+  tenantId: string,
+  commentId: string,
+  body: string
+): Promise<TaskComment | null> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const existing = await prisma.taskComment.findFirst({ where: { id: commentId, tenantId, deletedAt: null } });
+    if (!existing) return null;
+    const row = await prisma.taskComment.update({ where: { id: commentId }, data: { body } });
+    return toPublicComment(mapDbComment(row));
+  }
+  const all = await loadAll();
+  const idx = all.comments.findIndex((c) => c.id === commentId && c.tenantId === tenantId && !c.deletedAt);
+  if (idx === -1) return null;
+  const updated: StoredComment = { ...all.comments[idx], body, updatedAt: now };
+  const next = [...all.comments];
+  next[idx] = updated;
+  await saveAll({ ...all, comments: next });
+  return toPublicComment(updated);
+}
+
+/** Soft delete — hard delete yok (modül gereksinimi, yorumlar da dahil). */
+export async function softDeleteComment(tenantId: string, commentId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const result = await prisma.taskComment.updateMany({
+      where: { id: commentId, tenantId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return result.count > 0;
+  }
+  const all = await loadAll();
+  const idx = all.comments.findIndex((c) => c.id === commentId && c.tenantId === tenantId && !c.deletedAt);
+  if (idx === -1) return false;
+  const next = [...all.comments];
+  next[idx] = { ...next[idx], deletedAt: now };
+  await saveAll({ ...all, comments: next });
+  return true;
+}
+
+/** Yorum sahipliği kontrolü için — tools.ts RBAC'inde kullanılır. Silinmiş yorum da bulunabilir (yetki hatası mesajı için). */
+export async function getCommentById(tenantId: string, commentId: string): Promise<TaskComment | null> {
+  if (isDbMode) {
+    const prisma = await dbTask();
+    const row = await prisma.taskComment.findFirst({ where: { id: commentId, tenantId } });
+    return row ? toPublicComment(mapDbComment(row)) : null;
+  }
+  const all = await loadAll();
+  const found = all.comments.find((c) => c.id === commentId && c.tenantId === tenantId);
+  return found ? toPublicComment(found) : null;
+}
+
 export async function listComments(tenantId: string, taskId: string): Promise<TaskComment[]> {
   if (isDbMode) {
     const prisma = await dbTask();

@@ -124,4 +124,6 @@ export {
   setTaskChecklistItemCompletedTool,
   archiveTaskChecklistItemTool,
   addTaskCommentTool,
+  updateTaskCommentTool,
+  deleteTaskCommentTool,
 } from "./tools";

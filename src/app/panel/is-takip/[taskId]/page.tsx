@@ -50,6 +50,7 @@ export default async function IsTakipDetailPage({
           activity={detailRes.data.activity}
           isAdmin
           assigneeLabel={data.teachers.find((t) => t.id === detailRes.data.task.assigneeId)?.name}
+          currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
         />
       )}
     </div>

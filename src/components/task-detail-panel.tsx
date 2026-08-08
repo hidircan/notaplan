@@ -16,6 +16,8 @@ import {
   actionSetTaskChecklistItemCompleted,
   actionArchiveTaskChecklistItem,
   actionAddTaskComment,
+  actionUpdateTaskComment,
+  actionDeleteTaskComment,
   actionUpdateTask,
 } from "@/lib/actions";
 import { Badge, Button, Input } from "@/components/ui";
@@ -59,6 +61,7 @@ export function TaskDetailPanel({
   activity,
   isAdmin,
   assigneeLabel,
+  currentActorIds = [],
 }: {
   task: Task;
   checklist: TaskChecklistItem[];
@@ -67,6 +70,8 @@ export function TaskDetailPanel({
   /** Admin: durum/öncelik/kategori/sorumlu/tarih tam düzenleme + iptal/arşiv/yeniden-aç. TEACHER: yalnızca izinli statü + checklist + yorum. */
   isAdmin: boolean;
   assigneeLabel?: string;
+  /** Oturum sahibinin olası kimlikleri (userId + teacherId) — "bu benim yorumum mu" kontrolü için. */
+  currentActorIds?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -74,6 +79,8 @@ export function TaskDetailPanel({
   const [newChecklistTitle, setNewChecklistTitle] = useState("");
   const [newComment, setNewComment] = useState("");
   const [confirmAction, setConfirmAction] = useState<"cancel" | "archive" | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentBody, setEditingCommentBody] = useState("");
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
     setError(null);
@@ -343,12 +350,82 @@ export function TaskDetailPanel({
           {comments.length === 0 ? (
             <p className="text-xs text-[var(--color-text-muted)]">Henüz yorum yok.</p>
           ) : (
-            comments.map((c) => (
-              <div key={c.id} className="rounded-md bg-[var(--color-bg)] p-2 text-sm">
-                <p className="text-[var(--color-text)]">{c.body}</p>
-                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">{formatDateTime(c.createdAt)}</p>
-              </div>
-            ))
+            comments.map((c) => {
+              const canModify = isAdmin || currentActorIds.includes(c.authorId);
+              const wasEdited = c.updatedAt !== c.createdAt;
+              if (editingCommentId === c.id) {
+                return (
+                  <form
+                    key={c.id}
+                    className="flex items-center gap-2 rounded-md bg-[var(--color-bg)] p-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!editingCommentBody.trim()) return;
+                      run(async () => {
+                        const res = await actionUpdateTaskComment({
+                          taskId: task.id,
+                          commentId: c.id,
+                          body: editingCommentBody.trim(),
+                        });
+                        if (res.ok) setEditingCommentId(null);
+                        return res;
+                      });
+                    }}
+                  >
+                    <Input
+                      value={editingCommentBody}
+                      onChange={(e) => setEditingCommentBody(e.target.value)}
+                      className="flex-1"
+                      autoFocus
+                    />
+                    <Button type="submit" variant="secondary" disabled={pending || !editingCommentBody.trim()}>
+                      Kaydet
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCommentId(null)}
+                      className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    >
+                      Vazgeç
+                    </button>
+                  </form>
+                );
+              }
+              return (
+                <div key={c.id} className="rounded-md bg-[var(--color-bg)] p-2 text-sm">
+                  <p className="text-[var(--color-text)]">{c.body}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-[var(--color-text-muted)]">
+                      {formatDateTime(c.createdAt)}
+                      {wasEdited ? " (düzenlendi)" : ""}
+                    </p>
+                    {canModify ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => {
+                            setEditingCommentId(c.id);
+                            setEditingCommentBody(c.body);
+                          }}
+                          className="text-[11px] font-medium text-[var(--color-primary)] hover:underline"
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => run(() => actionDeleteTaskComment({ taskId: task.id, commentId: c.id }))}
+                          className="text-[11px] font-medium text-rose-600 hover:underline"
+                        >
+                          Kaldır
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
         <form

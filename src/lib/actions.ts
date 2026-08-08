@@ -71,6 +71,8 @@ import {
   setTaskChecklistItemCompletedTool,
   archiveTaskChecklistItemTool,
   addTaskCommentTool,
+  updateTaskCommentTool,
+  deleteTaskCommentTool,
 } from "./services/tools";
 import { runWithTenantAsync } from "./tenant-context";
 import { getSessionContext, requireSessionContext } from "./auth/session";
@@ -1485,5 +1487,38 @@ export async function actionAddTaskComment(input: {
     logger.error("actionAddTaskComment failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Yorum eklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionUpdateTaskComment(input: {
+  taskId: string;
+  commentId: string;
+  body: string;
+}): Promise<TaskActionResult<{ commentId: string }>> {
+  try {
+    const result = await withAuthContext("actionUpdateTaskComment", (ctx) => updateTaskCommentTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { commentId: result.data.commentId } };
+  } catch (error) {
+    logger.error("actionUpdateTaskComment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Yorum düzenlenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionDeleteTaskComment(input: {
+  taskId: string;
+  commentId: string;
+}): Promise<TaskActionResult<{ commentId: string }>> {
+  try {
+    const result = await withAuthContext("actionDeleteTaskComment", (ctx) => deleteTaskCommentTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, data: { commentId: result.data.commentId } };
+  } catch (error) {
+    logger.error("actionDeleteTaskComment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Yorum kaldırılırken beklenmeyen bir hata oluştu." };
   }
 }
