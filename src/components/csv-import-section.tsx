@@ -16,7 +16,7 @@ type ImportPreview<T> = {
   valid: T[];
   readRows: ImportReadRow[];
 };
-type ImportCommitResult = { created: number; updated: number };
+type ImportCommitResult = { created: number; updated: number; skipped?: number };
 
 type PreviewActionResult<T> = { ok: true; preview: ImportPreview<T> } | { ok: false; message: string };
 type CommitActionResult = { ok: true; result: ImportCommitResult } | { ok: false; message: string };
@@ -254,7 +254,8 @@ export function CsvImportSection<T,>({
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-semibold text-emerald-800">
               Aktarım tamamlandı: {commitSuccess.created} yeni kayıt eklendi, {commitSuccess.updated} kayıt
-              güncellendi.
+              güncellendi
+              {commitSuccess.skipped ? `, ${commitSuccess.skipped} kayıt zaten mevcut olduğu için atlandı` : ""}.
             </p>
             <button
               type="button"

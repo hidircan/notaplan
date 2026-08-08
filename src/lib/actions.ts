@@ -31,6 +31,8 @@ import {
   commitTeacherImportTool,
   previewRoomImportTool,
   commitRoomImportTool,
+  previewLessonImportTool,
+  commitLessonImportTool,
   previewStudentImportTool,
   commitStudentImportTool,
   createRoomTool,
@@ -95,6 +97,7 @@ import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
 import type { StudentImportRow } from "./import/students";
+import type { LessonImportRow } from "./import/lessons";
 import type { ServiceContext } from "./services/context";
 
 function revalidateAll() {
@@ -983,6 +986,33 @@ export async function actionCommitRoomImport(csvText: string): Promise<ImportCom
     return { ok: true, result: result.data };
   } catch (error) {
     logger.error("actionCommitRoomImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionPreviewLessonImport(csvText: string): Promise<ImportPreviewActionResult<LessonImportRow>> {
+  try {
+    const result = await withAuthContext("actionPreviewLessonImport", (ctx) => previewLessonImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, preview: result.data };
+  } catch (error) {
+    logger.error("actionPreviewLessonImport failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "Önizleme sırasında beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionCommitLessonImport(csvText: string): Promise<ImportCommitActionResult> {
+  try {
+    const result = await withAuthContext("actionCommitLessonImport", (ctx) => commitLessonImportTool(ctx, { csvText }));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, result: result.data };
+  } catch (error) {
+    logger.error("actionCommitLessonImport failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "İçe aktarım sırasında beklenmeyen bir hata oluştu." };

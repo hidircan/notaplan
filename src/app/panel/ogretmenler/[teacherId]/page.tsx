@@ -373,8 +373,8 @@ export default async function TeacherDetailPage({
       <section id="evrak" className="scroll-mt-4">
         <h2 className="mb-3 flex items-center justify-between text-sm font-semibold text-[var(--color-text)]">
           Evraklar
-          <Link href="/panel/evraklar" className="text-xs font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
-            Evraklar Merkezinde Aç →
+          <Link href={`/panel/evraklar?teacherId=${teacher.id}`} className="text-xs font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
+            Evrak Oluştur / Merkezinde Aç →
           </Link>
         </h2>
         <p className="text-sm text-[var(--color-text-muted)]">

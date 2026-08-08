@@ -15,6 +15,7 @@ import { getInstitutionContext, readScopedData } from "@/lib/institution/context
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 const MORE_SUGGESTIONS_COUNT = 18;
 
@@ -132,6 +133,15 @@ export default async function TelafiPage() {
                     <p className="mt-2 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:text-slate-400">
                       {req.policyNote}
                     </p>
+                    {canWrite ? (
+                      <div className="mt-2">
+                        <QuickTaskLink
+                          context={{ studentId: req.studentId, teacherId: req.teacherId, branchId: req.branchId }}
+                          returnTo="/panel/telafi"
+                          label="Bu talep için görev oluştur"
+                        />
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">

@@ -1868,6 +1868,14 @@ function DetailPanel({
         >
           Bu ders için görev oluştur →
         </Link>
+        {student ? (
+          <Link
+            href={`/panel/evraklar?studentId=${student.id}`}
+            className="mt-1 block text-xs font-medium text-[var(--color-primary)] hover:underline"
+          >
+            Bu ders için evrak oluştur →
+          </Link>
+        ) : null}
       </div>
 
       {isSeriesMember ? (

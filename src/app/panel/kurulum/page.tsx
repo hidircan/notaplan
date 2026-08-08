@@ -8,6 +8,7 @@ import { EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-exp
 import { DEFAULT_COLLECTIONS_SETTINGS } from "@/lib/types";
 import { CollectionsSettingsForm } from "@/components/collections-settings-form";
 import { SetupResetAction } from "@/components/setup-reset-action";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 const EXPORT_LABELS: Record<ExportEntity, string> = {
   students: "Öğrenciler",
@@ -67,6 +68,7 @@ export default async function KurulumPage() {
       <PageHeader
         title="Kurulum Merkezi"
         description="Okulunuzu günlük operasyona hazırlamak için temel adımları tamamlayın."
+        actions={<QuickTaskLink context={{}} returnTo="/panel/kurulum" label="Kurum için görev oluştur" />}
       />
 
       <Card

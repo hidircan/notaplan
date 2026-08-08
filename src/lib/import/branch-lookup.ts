@@ -93,3 +93,36 @@ export function resolveTeacherIdByName(
   }
   return { ok: true, teacherId: matches[0]!.id };
 }
+
+/**
+ * Ders programı importu — öğrenci AD ile eşleşir (aynı tenant içindeki
+ * AKTİF öğrenciler arasında), `resolveTeacherIdByName` ile birebir aynı
+ * kural: belirsiz/bulunamayan eşleşme asla tahmin edilmez, "Ad Soyad
+ * (öğrenci kodu)" ile netleştirilebilir.
+ */
+export function resolveStudentIdByName(
+  data: AppData,
+  value: string
+): { ok: true; studentId: string } | { ok: false; message: string } {
+  const raw = value.trim();
+  if (!raw) return { ok: false, message: "Öğrenci adı boş olamaz." };
+
+  const idMatch = raw.match(/\(([^()]+)\)\s*$/);
+  if (idMatch) {
+    const byId = data.students.find((s) => s.id === idMatch[1]!.trim() && s.active);
+    if (byId) return { ok: true, studentId: byId.id };
+  }
+
+  const v = normalizeKey(raw.replace(/\([^()]*\)\s*$/, ""));
+  const matches = data.students.filter((s) => s.active && normalizeKey(s.name) === v);
+  if (matches.length === 0) {
+    return { ok: false, message: `"${value}" adında aktif bir öğrenci bulunamadı.` };
+  }
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      message: `"${value}" adında birden fazla aktif öğrenci var — satırı öğrenci kodu ile netleştirin (ör. "${matches[0]!.name} (${matches[0]!.id})").`,
+    };
+  }
+  return { ok: true, studentId: matches[0]!.id };
+}

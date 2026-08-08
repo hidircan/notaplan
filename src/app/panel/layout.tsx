@@ -29,6 +29,7 @@ export default async function PanelLayout({
       <Sidebar
         userLabel={session.userId}
         roleLabel={session.role}
+        role={session.role}
         kurumlar={kurum.available}
         kurumSelection={kurum.selection}
         canSeeAllKurumlar={session.role === "SUPER_ADMIN"}

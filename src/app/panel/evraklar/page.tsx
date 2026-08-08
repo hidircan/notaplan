@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function DocumentsCenterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ studentId?: string }>;
+  searchParams: Promise<{ studentId?: string; teacherId?: string }>;
 }) {
-  const { studentId } = await searchParams;
+  const { studentId, teacherId } = await searchParams;
   let session;
   try {
     session = await requireSessionContext();
@@ -30,13 +30,14 @@ export default async function DocumentsCenterPage({
   const [templatesResult, allTemplatesResult, documentsResult, data] = await Promise.all([
     listDocumentTemplatesTool(session),
     listAllDocumentTemplatesTool(session),
-    listDocumentInstancesTool(session, studentId ? { studentId } : {}),
+    listDocumentInstancesTool(session, studentId ? { studentId } : teacherId ? { teacherId } : {}),
     readData(),
   ]);
   const templates = templatesResult.ok ? templatesResult.data.templates : [];
   const allTemplates = allTemplatesResult.ok ? allTemplatesResult.data.templates : [];
   const documents = documentsResult.ok ? documentsResult.data.documents : [];
   const students = data.students.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
+  const teachers = data.teachers.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name }));
 
   const draftCount = documents.filter((d) => d.status === "draft").length;
   const sentForSignatureCount = documents.filter((d) => d.status === "sent_for_signature").length;
@@ -84,6 +85,9 @@ export default async function DocumentsCenterPage({
           <DocumentCreateForm
             templates={templates.map((t) => ({ id: t.id, name: t.name, kind: t.kind }))}
             students={students}
+            teachers={teachers}
+            defaultStudentId={studentId}
+            defaultTeacherId={teacherId}
           />
         )}
       </Card>

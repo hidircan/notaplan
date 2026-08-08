@@ -66,6 +66,7 @@ export default async function IsTakipPage({
     newTaskLessonId?: string;
     newTaskPaymentId?: string;
     newTaskDocumentId?: string;
+    newTaskBranchId?: string;
     returnTo?: string;
   }>;
 }) {
@@ -107,9 +108,10 @@ export default async function IsTakipPage({
   const prefillLessonId = sp.newTaskLessonId || "";
   const prefillPaymentId = sp.newTaskPaymentId || "";
   const prefillDocumentId = sp.newTaskDocumentId || "";
+  const prefillBranchId = sp.newTaskBranchId || "";
   const safeReturnTo = resolveSafeReturnTo(sp.returnTo);
   const hasContext = Boolean(
-    prefillStudentId || prefillTeacherId || prefillLessonId || prefillPaymentId || prefillDocumentId
+    prefillStudentId || prefillTeacherId || prefillLessonId || prefillPaymentId || prefillDocumentId || prefillBranchId
   );
 
   // İş Takip Faz 3B-1A — evrak bağlamından gelen başlık önerisi. Belge
@@ -374,7 +376,7 @@ export default async function IsTakipPage({
               </div>
               <div>
                 <Label>Şube (opsiyonel)</Label>
-                <Select name="branchId" defaultValue="">
+                <Select name="branchId" defaultValue={prefillBranchId}>
                   <option value="">Seçilmedi</option>
                   {data.settings.branches.map((b) => (
                     <option key={b.id} value={b.id}>

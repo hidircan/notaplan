@@ -151,6 +151,7 @@ import { validateBranchRows, type BranchImportRow } from "../import/branches";
 import { validateTeacherRows, type TeacherImportRow } from "../import/teachers";
 import { validateRoomRows, type RoomImportRow } from "../import/rooms";
 import { validateStudentRows, type StudentImportRow } from "../import/students";
+import { validateLessonRows, type LessonImportRow } from "../import/lessons";
 import type { ImportPreview } from "../import/types";
 import type { ImportCommitResult } from "../import/commit-result";
 import {
@@ -1545,6 +1546,65 @@ export async function commitRoomImportTool(
     return ok(await importRooms(preview.valid));
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importRooms failed");
+  }
+}
+
+export async function previewLessonImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportPreview<LessonImportRow>>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  return ok(validateLessonRows(data, csvRecords(v.data.csvText)));
+}
+
+/**
+ * Diğer commit tool'larından FARKLI: tek bir toplu store fonksiyonu yok —
+ * her satır mevcut `addLesson` (validateLessonSlot ÜZERİNDEN, program/telafi
+ * ile TEK doğrulama kaynağı) ile TEK TEK yazılır. `duplicate` satırlar
+ * (aynı öğretmen+oda+başlangıç saatinde zaten var olan ders) atlanır —
+ * aynı CSV'nin tekrar yüklenmesi kör duplicate üretmez.
+ */
+export async function commitLessonImportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<ImportCommitResult>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(csvInputSchema, input);
+  if (!v.ok) return v;
+  const data = await readData();
+  const preview = validateLessonRows(data, csvRecords(v.data.csvText));
+  if (preview.errorCount > 0) {
+    return fail("VALIDATION_ERROR", "CSV içinde hatalı satır var; hiçbir kayıt eklenmedi.", preview.errors);
+  }
+  if (preview.valid.length === 0) return fail("VALIDATION_ERROR", "İçe aktarılacak geçerli satır yok.");
+  try {
+    let created = 0;
+    let skipped = 0;
+    let latest = data;
+    for (const row of preview.valid) {
+      if (row.duplicate) {
+        skipped++;
+        continue;
+      }
+      latest = await addLesson({
+        studentId: row.studentId,
+        teacherId: row.teacherId,
+        roomId: row.roomId,
+        instrument: row.instrument,
+        startAt: row.startAt,
+        durationMinutes: row.durationMinutes,
+      });
+      created++;
+    }
+    audit(ctx, "lessons.import", "Lesson", "bulk", { created, skipped });
+    return ok({ data: latest, created, updated: 0, skipped });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "importLessons failed");
   }
 }
 
