@@ -13,6 +13,7 @@ import {
   archiveTaskChecklistItemTool,
   addTaskCommentTool,
   getTaskKpiSummaryTool,
+  getTaskReportTool,
   createDocumentInstanceTool,
   listDocumentTemplatesTool,
   getDocumentInstanceTool,
@@ -521,5 +522,80 @@ describe("İş Takip — evrak bağlamından görev oluşturma (Faz 3B-1A)", () 
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+/**
+ * İş Takip Faz 3B-3B — yönetici görev raporu tool katmanı (RBAC/tenant).
+ * Saf hesaplama mantığı (`buildTaskReport`) ayrı dosyada (task-report.test.ts)
+ * hedefli olarak test ediliyor — burada yalnızca tool'un rol/tenant
+ * doğrulaması ve gerçek `listTasks` entegrasyonu doğrulanıyor.
+ */
+describe("İş Takip — yönetici görev raporu (Faz 3B-3B) — RBAC/tenant", () => {
+  it("admin rapor alır; tenant'taki görevleri doğru sayar", async () => {
+    await createBasicTask({ status: "TODO" });
+    await createBasicTask({ status: "IN_PROGRESS" });
+    const res = await getTaskReportTool(ctx(), {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.openWorkload.total).toBe(2);
+  });
+
+  it("TEACHER rapor alamaz (FORBIDDEN)", async () => {
+    const res = await getTaskReportTool(ctx({ role: "TEACHER", teacherId: "t1", userId: "u_teacher" }), {});
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("PARENT/STUDENT rapor alamaz", async () => {
+    const parentRes = await getTaskReportTool(ctx({ role: "PARENT" }), {});
+    expect(parentRes.ok).toBe(false);
+    const studentRes = await getTaskReportTool(ctx({ role: "STUDENT" }), {});
+    expect(studentRes.ok).toBe(false);
+  });
+
+  it("cross-tenant görevler rapora karışmaz", async () => {
+    await createBasicTask({ status: "TODO" });
+    const otherRes = await createTaskTool(ctx({ tenantId: "other-tenant-report" }), {
+      title: "Başka tenant görevi",
+      category: "Kayıt",
+      priority: "MEDIUM",
+    });
+    expect(otherRes.ok).toBe(true);
+
+    const res = await getTaskReportTool(ctx(), {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.openWorkload.total).toBe(1);
+
+    const otherTenantReport = await getTaskReportTool(ctx({ tenantId: "other-tenant-report" }), {});
+    expect(otherTenantReport.ok).toBe(true);
+    if (!otherTenantReport.ok) return;
+    expect(otherTenantReport.data.openWorkload.total).toBe(1);
+  });
+
+  it("başlangıç tarihi bitiş tarihinden sonraysa reddedilir", async () => {
+    const res = await getTaskReportTool(ctx(), { startDate: "2026-02-01", endDate: "2026-01-01" });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("tarih verilmezse varsayılan son 30 gün aralığı kullanılır", async () => {
+    const res = await getTaskReportTool(ctx(), {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const days =
+      (new Date(res.data.range.endYmd).getTime() - new Date(res.data.range.startYmd).getTime()) / 86_400_000;
+    expect(days).toBe(29);
+  });
+
+  it("boş tenant için güvenli boş rapor döner", async () => {
+    const res = await getTaskReportTool(ctx({ tenantId: "empty-tenant-report" }), {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.totalTasks).toBe(0);
+    expect(res.data.completed.ratePercent).toBeNull();
   });
 });

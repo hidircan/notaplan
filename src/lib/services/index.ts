@@ -118,6 +118,7 @@ export {
   getTaskTool,
   getTaskDetailTool,
   getTaskKpiSummaryTool,
+  getTaskReportTool,
   updateTaskTool,
   changeTaskStatusTool,
   addTaskChecklistItemTool,

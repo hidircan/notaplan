@@ -280,6 +280,8 @@ import {
   softDeleteAttachment,
   type TaskFilter,
 } from "../tasks";
+import { buildTaskReport, defaultTaskReportRange, type TaskReport, type TaskReportRange } from "../task-report";
+import { resolveAppTimezone, toZonedYmd } from "../timezone";
 import { clearTaskReminderLog } from "../task-reminder-log";
 import { getReminderPreference, setReminderPreference, clearReminderPreferences } from "../task-reminder-preferences";
 import {
@@ -4254,6 +4256,54 @@ export async function getTaskKpiSummaryTool(
     completedThisWeekCount: tasks.filter((t) => t.status === "COMPLETED" && t.completedAt && t.completedAt >= weekAgo)
       .length,
   });
+}
+
+const TASK_REPORT_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * İş Takip Faz 3B-3B — yönetici görev raporu. YALNIZ SUPER_ADMIN/SCHOOL_ADMIN
+ * (`TASK_ADMIN_ROLES`, `TASK_VIEW_ROLES` DEĞİL — TEACHER'a bu tool tamamen
+ * kapalı, hem sayfa hem bu tool seviyesinde). Tüm hesaplama sunucu
+ * tarafında, `listTasks(ctx.tenantId, {})` ile TEK sorguda (N+1 yok, ek I/O
+ * yok) çekilen tenant-scoped görev listesi üzerinde saf agregasyon
+ * (`buildTaskReport`) ile yapılır — istemciye ham görev listesi asla
+ * gönderilmez, yalnızca sayılmış/gruplanmış sonuç döner.
+ */
+export async function getTaskReportTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<TaskReport>> {
+  const auth = requireRole(ctx, TASK_ADMIN_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z
+      .object({
+        startDate: z.string().regex(TASK_REPORT_DATE_RE).optional(),
+        endDate: z.string().regex(TASK_REPORT_DATE_RE).optional(),
+      })
+      .refine((d) => !d.startDate || !d.endDate || d.startDate <= d.endDate, {
+        message: "Başlangıç tarihi bitiş tarihinden sonra olamaz.",
+      }),
+    input
+  );
+  if (!v.ok) return v;
+
+  const tz = resolveAppTimezone();
+  const todayYmd = toZonedYmd(new Date(), tz);
+  const defaultRange = defaultTaskReportRange(todayYmd);
+  const range: TaskReportRange = {
+    startYmd: v.data.startDate ?? defaultRange.startYmd,
+    endYmd: v.data.endDate ?? defaultRange.endYmd,
+  };
+
+  try {
+    const tasks = await listTasks(ctx.tenantId, {});
+    const report = buildTaskReport(tasks, range, todayYmd);
+    return ok(report);
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getTaskReport failed");
+  }
 }
 
 async function assertTaskViewAccess(ctx: ServiceContext, taskId: string): Promise<ServiceResult<Task>> {

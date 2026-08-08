@@ -148,6 +148,9 @@ export default async function IsTakipPage({
             <Link href="/panel/is-takip/takvim" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
               Takvim görünümü
             </Link>
+            <Link href="/panel/is-takip/raporlar" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+              Raporlar
+            </Link>
             <TaskReminderPreferencesModal />
           </div>
         }
