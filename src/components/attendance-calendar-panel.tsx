@@ -27,8 +27,13 @@ import {
   resolveDayFillSegments,
   attendanceCalendarTextColor,
   ATTENDANCE_CALENDAR_COLORS,
+  leadingBlankDayCount,
+  trailingBlankDayCount,
   type AttendanceCalendarColorKey,
 } from "@/lib/attendance-calendar";
+
+/** Pazartesi→Pazar — takvim grid header'ı ve boş hücre hizalaması bu sırayı kullanır. */
+const WEEKDAY_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cts", "Paz"];
 
 /**
  * Asıl tanım `src/lib/attendance-calendar.ts`'de (`currentAcademicAnchorYear`)
@@ -525,6 +530,17 @@ export function AttendanceCalendarPanel({
                 </p>
               ) : (
                 <div className="grid grid-cols-7 gap-1">
+                  {WEEKDAY_LABELS.map((label) => (
+                    <span
+                      key={label}
+                      className="pb-0.5 text-center text-[9px] font-semibold uppercase text-[var(--color-text-muted)]"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                  {Array.from({ length: leadingBlankDayCount(m.year, m.month) }).map((_, i) => (
+                    <span key={`lead-${i}`} aria-hidden="true" />
+                  ))}
                   {data.days.map((day) => {
                     const { style, segmentCount } = dayFillStyle(day);
                     return (
@@ -551,6 +567,9 @@ export function AttendanceCalendarPanel({
                       </button>
                     );
                   })}
+                  {Array.from({ length: trailingBlankDayCount(m.year, m.month) }).map((_, i) => (
+                    <span key={`trail-${i}`} aria-hidden="true" />
+                  ))}
                 </div>
               )}
 

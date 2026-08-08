@@ -7,6 +7,10 @@ import {
   weeklyClosedDaysForTerm,
   resolveLessonAcademicPeriod,
   lessonMatchesAcademicPeriod,
+  mondayFirstWeekdayIndex,
+  leadingBlankDayCount,
+  trailingBlankDayCount,
+  resolveAttendanceCalendarStudentId,
 } from "../attendance-calendar";
 
 describe("ÖNCELİK 4 — attendance-calendar", () => {
@@ -154,5 +158,45 @@ describe("ÖNCELİK 4 (devam) — resolveLessonAcademicPeriod (Program dönem/y�
     const guzLesson = { startAt: "2026-10-01T10:00:00.000Z", term: "guz" as const, academicYearStart: 2026 };
     expect(lessonMatchesAcademicPeriod(guzLesson, "yaz", 2026)).toBe(false);
     expect(lessonMatchesAcademicPeriod(guzLesson, "guz", 2026)).toBe(true);
+  });
+});
+
+describe("Yoklama Takvimi — Pazartesi başlangıçlı ay grid hizalaması", () => {
+  it("Pazartesi=0, Pazar=6 sütun indeksine çevrilir", () => {
+    expect(mondayFirstWeekdayIndex(new Date(2026, 7, 10))).toBe(0); // 2026-08-10 Pazartesi
+    expect(mondayFirstWeekdayIndex(new Date(2026, 7, 16))).toBe(6); // 2026-08-16 Pazar
+  });
+
+  it("ayın 1. günü Pazartesi ise boş öncü hücre yok", () => {
+    // 2026-08-01 bir Cumartesi (kontrol için de doğrulanır)
+    expect(leadingBlankDayCount(2026, 8)).toBe(mondayFirstWeekdayIndex(new Date(2026, 7, 1)));
+  });
+
+  it("2026 Eylül 1. günü Salı — grid'de Pazartesi'den sonra 1 boş hücre olmalı", () => {
+    // 2026-09-01 bir Salı
+    expect(leadingBlankDayCount(2026, 9)).toBe(1);
+  });
+
+  it("öncü + ayın gün sayısı + artçı boşluk her zaman 7'nin katıdır", () => {
+    for (const [year, month] of [[2026, 2], [2026, 9], [2027, 1], [2024, 2]] as const) {
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const total = leadingBlankDayCount(year, month) + daysInMonth + trailingBlankDayCount(year, month);
+      expect(total % 7).toBe(0);
+    }
+  });
+});
+
+describe("Yoklama Takvimi — studentId param tenant/scope doğrulaması", () => {
+  it("scoped listede olan studentId aynen döner", () => {
+    expect(resolveAttendanceCalendarStudentId("s1", ["s1", "s2"])).toBe("s1");
+  });
+
+  it("scoped listede OLMAYAN (cross-tenant/geçersiz) studentId reddedilir — null döner", () => {
+    expect(resolveAttendanceCalendarStudentId("cross-tenant-id", ["s1", "s2"])).toBeNull();
+  });
+
+  it("studentId verilmemişse null döner (seçici gösterilir)", () => {
+    expect(resolveAttendanceCalendarStudentId(null, ["s1"])).toBeNull();
+    expect(resolveAttendanceCalendarStudentId(undefined, ["s1"])).toBeNull();
   });
 });

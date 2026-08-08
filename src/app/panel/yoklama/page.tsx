@@ -1,17 +1,28 @@
 import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
-import { readData } from "@/lib/store";
-import { Badge, Card, PageHeader, EmptyState } from "@/components/ui";
-import { formatTime } from "@/lib/utils";
-import { LessonOpsActions, LessonOpsBadges } from "@/components/lesson-ops-actions";
+import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
+import { KurumScopeNote } from "@/components/kurum-scope-note";
+import { Card, PageHeader, EmptyState } from "@/components/ui";
+import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
+import { StudentAttendancePicker } from "@/components/student-attendance-picker";
+import { resolveAttendanceCalendarStudentId } from "@/lib/attendance-calendar";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Yoklama — varsayılan yalnız bugünün dersleri.
- * Üç operasyonel aksiyon: Geldi, İşlendi, Telafi (ayrı bayraklar).
+ * ÖNCELİK — Yoklama Takvimi: öğrenci odaklı yoklama ekranı. Ders Programı ile
+ * AYNI kaynağı (Lesson satırı, `setLessonOpsFlagTool`/`LessonOpsActions`)
+ * kullanan `AttendanceCalendarPanel`'i gömer — ikinci bir yoklama yazma yolu
+ * YOK. Varsayılan dönem seçimi öğrencinin (server tarafında, tenant-scoped
+ * veriden okunan) `termType` alanından gelir; `studentId` query param'ı
+ * yalnızca bu sayfanın scoped öğrenci listesinde varsa kabul edilir —
+ * aksi halde seçici gösterilir, takvim render edilmez.
  */
-export default async function YoklamaPage() {
+export default async function YoklamaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   let session;
   try {
     session = await requireSessionContext();
@@ -22,83 +33,63 @@ export default async function YoklamaPage() {
   if (session.role === "PARENT") redirect("/veli");
   if (session.role === "STUDENT") redirect("/ogrenci");
 
-  const data = await readData();
-  const now = new Date();
-  // Yerel gün anahtarı (TR): ISO slice UTC kaymasına karşı formatla
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const kurum = await getInstitutionContext(session);
+  const data = await readScopedData(kurum.scope);
+  const sp = await searchParams;
+  const requestedStudentId = typeof sp.studentId === "string" ? sp.studentId : null;
 
-  const todayLessons = data.lessons
-    .filter((l) => {
-      const d = new Date(l.startAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return key === todayKey;
-    })
-    .sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const scopedStudentIds = data.students.map((s) => s.id);
+  const studentId = resolveAttendanceCalendarStudentId(requestedStudentId, scopedStudentIds);
+  const student = studentId ? data.students.find((s) => s.id === studentId) ?? null : null;
+
+  const studentOptions = [...data.students]
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      branchName: data.settings.branches.find((b) => b.id === s.branchId)?.shortName,
+    }));
+
+  // "Tüm kurumlar" birleşik görünümde hiçbir yazma yapılamaz (bkz. CLAUDE.md
+  // Multi-tenancy notu) — bu yalnızca UI'daki ikinci savunma, asıl engel
+  // server-side tenant çözümlemesindedir.
+  const canEdit = (session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN") && kurum.scope.mode === "single";
 
   return (
     <div>
+      <KurumScopeNote scope={kurum.scope} />
       <PageHeader
-        title="Yoklama"
-        description="Bugünün dersleri. Geldi = katılım, İşlendi = ders tamamlandı (hakediş), Telafi = telafi akışı. Birlikte işaretlenebilir."
+        title="Yoklama Takvimi"
+        description="Öğrenci seçin — Geldi/İşlendi/Telafi işlemleri Ders Programı ile aynı kaydı günceller."
       />
 
-      <Card className="mb-6 !p-4 text-sm text-stone-600">
-        Varsayılan görünüm: <strong>yalnız bugün</strong> ({todayKey}). Geçmiş 14 gün listesi kaldırıldı — gürültüyü azaltmak için.
-      </Card>
-
-      {todayLessons.length === 0 ? (
-        <EmptyState title="Bugün ders yok" description="Programda bugüne ait seans bulunmuyor." />
-      ) : (
-        <div className="space-y-3">
-          {todayLessons.map((lesson) => {
-            const student = data.students.find((s) => s.id === lesson.studentId);
-            const teacher = data.teachers.find((t) => t.id === lesson.teacherId);
-            const room = data.rooms.find((r) => r.id === lesson.roomId);
-            return (
-              <Card key={lesson.id} className="!p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-stone-900">
-                      {formatTime(lesson.startAt)} · {student?.name ?? "—"}
-                    </p>
-                    <p className="text-sm text-stone-500">
-                      {lesson.instrument} · {teacher?.name ?? "—"} · {room?.name ?? "—"}
-                      {lesson.type === "makeup" ? " · (tip: makeup)" : ""}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge status={lesson.status} />
-                      <LessonOpsBadges
-                        studentAttended={lesson.studentAttended}
-                        lessonProcessed={lesson.lessonProcessed}
-                        opsMakeupFlag={lesson.opsMakeupFlag}
-                      />
-                    </div>
-                    {(lesson.studentAttendedBy || lesson.lessonProcessedBy || lesson.opsMakeupFlagBy) && (
-                      <p className="mt-1 text-[11px] text-stone-400">
-                        {lesson.studentAttendedAt
-                          ? `Geldi: ${lesson.studentAttendedBy} @ ${lesson.studentAttendedAt.slice(0, 16)}`
-                          : ""}
-                        {lesson.lessonProcessedAt
-                          ? ` · İşlendi: ${lesson.lessonProcessedBy} @ ${lesson.lessonProcessedAt.slice(0, 16)}`
-                          : ""}
-                        {lesson.opsMakeupFlagAt
-                          ? ` · Telafi: ${lesson.opsMakeupFlagBy} @ ${lesson.opsMakeupFlagAt.slice(0, 16)}`
-                          : ""}
-                      </p>
-                    )}
-                  </div>
-                  <LessonOpsActions
-                    lessonId={lesson.id}
-                    studentAttended={lesson.studentAttended}
-                    lessonProcessed={lesson.lessonProcessed}
-                    opsMakeupFlag={lesson.opsMakeupFlag}
-                  />
-                </div>
-              </Card>
-            );
-          })}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <Card>
+            <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Öğrenci</h2>
+            <StudentAttendancePicker students={studentOptions} selectedStudentId={studentId} />
+          </Card>
         </div>
-      )}
+
+        <div className="lg:col-span-2">
+          {!student ? (
+            <EmptyState
+              title="Öğrenci seçilmedi"
+              description="Takvimi görüntülemek için soldan bir öğrenci seçin."
+            />
+          ) : (
+            <>
+              <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">{student.name}</h2>
+              <AttendanceCalendarPanel
+                studentId={student.id}
+                termType={student.termType ?? "guz"}
+                canEdit={canEdit}
+                studentActive={student.active}
+              />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

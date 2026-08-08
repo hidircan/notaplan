@@ -242,6 +242,42 @@ export const ATTENDANCE_CALENDAR_COLORS = {
 export type AttendanceCalendarColorKey = keyof typeof ATTENDANCE_CALENDAR_COLORS;
 
 /**
+ * Ay grid'inin Pazartesi→Pazar sütun sırasıyla hizalanması için: `Date.getDay()`
+ * Pazar=0 tabanlıdır, burada Pazartesi=0..Pazar=6'ya çevrilir. Kapalı gün
+ * kuralını (Pazartesi/hafta sonu) ETKİLEMEZ — yalnızca UI grid pozisyonu.
+ */
+export function mondayFirstWeekdayIndex(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
+/** Ayın 1. günü grid'de kaçıncı sütunda (Pazartesi=0) başlıyor — o kadar boş hücre eklenir. */
+export function leadingBlankDayCount(year: number, month: number): number {
+  return mondayFirstWeekdayIndex(new Date(year, month - 1, 1, 12, 0, 0));
+}
+
+/** Son haftayı da 7 sütuna tamamlamak için gereken boş hücre sayısı. */
+export function trailingBlankDayCount(year: number, month: number): number {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const used = (leadingBlankDayCount(year, month) + daysInMonth) % 7;
+  return used === 0 ? 0 : 7 - used;
+}
+
+/**
+ * URL/body'den gelen `studentId`'nin tenant-scoped öğrenci listesinde olup
+ * olmadığını doğrular — yoksa `null` döner (takvim render edilmez, seçici
+ * gösterilir). Tek gerçek kaynak `scopedStudentIds` (server tarafında
+ * `readScopedData`/tenant filtresinden üretilir); bu fonksiyon başka hiçbir
+ * yerden veri okumaz.
+ */
+export function resolveAttendanceCalendarStudentId(
+  requestedStudentId: string | null | undefined,
+  scopedStudentIds: string[]
+): string | null {
+  if (!requestedStudentId) return null;
+  return scopedStudentIds.includes(requestedStudentId) ? requestedStudentId : null;
+}
+
+/**
  * Dolgu üzerindeki metnin erişilebilir kontrastı: kırmızı/yeşil/siyah/mavi
  * dolgularda AÇIK (beyaz) metin, sarı (Telafi) dolguda KOYU metin — sarı
  * zeminde beyaz metnin kontrast oranı WCAG AA eşiğinin altında kalır.
