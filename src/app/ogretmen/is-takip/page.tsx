@@ -55,6 +55,14 @@ export default async function OgretmenIsTakipPage() {
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
+        <div className="flex items-center gap-3 text-sm">
+          <Link href="/ogretmen/is-takip/kanban" className="font-medium text-cyan-700 hover:text-cyan-800">
+            Kanban görünümü →
+          </Link>
+          <Link href="/ogretmen/is-takip/takvim" className="font-medium text-cyan-700 hover:text-cyan-800">
+            Takvim görünümü →
+          </Link>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Card className="!p-3">
             <p className="text-xs text-slate-500">Açık görevlerim</p>

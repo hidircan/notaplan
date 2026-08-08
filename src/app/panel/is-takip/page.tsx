@@ -120,6 +120,16 @@ export default async function IsTakipPage({
       <PageHeader
         title="İş Takip"
         description="Kurum içi görevleri sorumlu, öncelik, kategori ve son tarihe göre takip edin."
+        actions={
+          <div className="flex items-center gap-3">
+            <Link href="/panel/is-takip/kanban" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+              Kanban görünümü
+            </Link>
+            <Link href="/panel/is-takip/takvim" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+              Takvim görünümü
+            </Link>
+          </div>
+        }
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
