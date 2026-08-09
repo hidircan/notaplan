@@ -298,3 +298,64 @@ summary,
     scroll-behavior: auto !important;
   }
 }
+
+/* MAESTRON material surface layer — subtle paper grain and disciplined physical depth. */
+:root {
+  --texture-line: rgb(36 28 20 / 0.035);
+  --texture-grain: rgb(80 64 42 / 0.028);
+  --surface-highlight: rgb(255 255 255 / 0.82);
+  --shadow-material: 0 1px 1px rgb(44 34 22 / 0.025), 0 10px 28px -18px rgb(44 34 22 / 0.18);
+  --shadow-material-hover: 0 1px 1px rgb(44 34 22 / 0.035), 0 16px 34px -18px rgb(44 34 22 / 0.24);
+}
+
+:root[data-theme-profile="obsidian"] {
+  --texture-line: rgb(245 241 232 / 0.045);
+  --texture-grain: rgb(245 241 232 / 0.02);
+  --surface-highlight: rgb(255 255 255 / 0.035);
+  --shadow-material: 0 1px 1px rgb(0 0 0 / 0.35), 0 12px 28px -18px rgb(0 0 0 / 0.78);
+  --shadow-material-hover: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 34px -18px rgb(0 0 0 / 0.86);
+}
+
+body {
+  min-height: 100dvh;
+  background-color: var(--color-bg);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 47px, var(--texture-line) 48px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 95px, var(--texture-line) 96px),
+    radial-gradient(circle at 18% 8%, var(--texture-grain) 0 0.7px, transparent 0.9px),
+    radial-gradient(circle at 78% 64%, var(--texture-grain) 0 0.65px, transparent 0.85px);
+  background-size: auto, auto, 13px 13px, 17px 17px;
+  background-attachment: fixed;
+}
+
+[class*="bg-[var(--color-surface)"] {
+  box-shadow: inset 0 1px 0 var(--surface-highlight), var(--shadow-material);
+}
+
+button:not(:disabled),
+a[href],
+[role="button"] {
+  transform: translateZ(0);
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  [role="button"]:hover {
+    transform: translateY(-1px);
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:active {
+    transform: translateY(0) scale(0.985);
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--text-primary);
+}

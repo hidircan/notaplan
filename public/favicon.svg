@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Maestron">
-  <!-- Raster-backed fallback (bkz. public/brand/maestron-logo.svg notu) — App Router favicon'u src/app/icon.png üzerinden otomatik üretilir; bu dosya SVG favicon isteyen istemciler için. -->
-  <rect width="256" height="256" fill="#f1eee7" />
-  <image href="/brand/maestron-mark.png" x="0" y="27" width="256" height="202" preserveAspectRatio="xMidYMid meet" />
-</svg>
