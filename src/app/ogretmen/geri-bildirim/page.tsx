@@ -28,18 +28,18 @@ export default async function TeacherFeedbackSummaryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900">Geri bildirim özeti</p>
+          <p className="text-sm font-semibold text-[var(--color-text)]">Geri bildirim özeti</p>
           <span className="w-10" aria-hidden />
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
-        <p className="px-1 text-xs text-slate-500">
+        <p className="px-1 text-xs text-[var(--color-text-muted)]">
           Bu özet tamamen anonimdir — hangi öğrenci/velinin ne yazdığını asla göremezsiniz. Yalnızca en az{" "}
           {TEACHER_FEEDBACK_MIN_ANONYMOUS_RESPONSES} yanıt toplandığında görünür.
         </p>
@@ -59,7 +59,7 @@ export default async function TeacherFeedbackSummaryPage() {
                 {TEACHER_FEEDBACK_CRITERIA.map(({ key, label }) => (
                   <div key={key} className="rounded-lg bg-cyan-50 p-3 text-center">
                     <p className="text-lg font-semibold text-cyan-800">{summary.criteriaAverages?.[key]}</p>
-                    <p className="text-[11px] text-slate-500">{label}</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">{label}</p>
                   </div>
                 ))}
               </div>
@@ -73,15 +73,15 @@ export default async function TeacherFeedbackSummaryPage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
                     <p className="text-lg font-semibold text-emerald-700">{summary.continueDistribution.yes}</p>
-                    <p className="text-[11px] text-slate-500">Evet</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">Evet</p>
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-amber-700">{summary.continueDistribution.unsure}</p>
-                    <p className="text-[11px] text-slate-500">Kararsız</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">Kararsız</p>
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-rose-700">{summary.continueDistribution.no}</p>
-                    <p className="text-[11px] text-slate-500">Hayır</p>
+                    <p className="text-[11px] text-[var(--color-text-muted)]">Hayır</p>
                   </div>
                 </div>
               </Card>
@@ -94,7 +94,7 @@ export default async function TeacherFeedbackSummaryPage() {
                 </p>
                 <div className="space-y-2">
                   {summary.sharedComments.map((comment, i) => (
-                    <p key={i} className="rounded-lg bg-slate-50 p-2.5 text-sm text-slate-700">
+                    <p key={i} className="rounded-lg bg-[var(--color-surface-muted)] p-2.5 text-sm text-[var(--color-text-muted)]">
                       {comment}
                     </p>
                   ))}

@@ -67,27 +67,27 @@ export default async function AiDashboardPage() {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Provider kullanımı</h2>
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Provider kullanımı</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {Object.entries(dashboard.providerUsage).length === 0 ? (
-              <li className="text-slate-500 dark:text-slate-400">Henüz kayıt yok — bir sohbet deneyin.</li>
+              <li className="text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Henüz kayıt yok — bir sohbet deneyin.</li>
             ) : (
               Object.entries(dashboard.providerUsage).map(([name, count]) => (
-                <li key={name} className="flex justify-between rounded-lg bg-slate-50 px-3 py-2">
+                <li key={name} className="flex justify-between rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
                   <span>{name}</span>
                   <span className="font-medium">{count}</span>
                 </li>
               ))
             )}
           </ul>
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-3 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Aktif: <strong>{active.name}</strong> · model {active.model}
           </p>
         </Card>
 
         <Card>
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Provider sağlığı</h2>
-          <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm">
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Provider sağlığı</h2>
+          <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 text-sm">
             <p className="font-medium">
               {healthNow.name}{" "}
               <span
@@ -102,12 +102,12 @@ export default async function AiDashboardPage() {
                 · {healthNow.status}
               </span>
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               {healthNow.message} · {healthNow.latencyMs ?? "—"} ms ·{" "}
               {new Date(healthNow.lastCheckedAt).toLocaleString("tr-TR")}
             </p>
           </div>
-          <ul className="mt-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
+          <ul className="mt-3 space-y-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             {Object.values(healthMap).map((h) => (
               <li key={h.name + h.lastCheckedAt}>
                 {h.name}: {h.status}
@@ -117,10 +117,10 @@ export default async function AiDashboardPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Tool dağılımı</h2>
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Tool dağılımı</h2>
           <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-sm">
             {Object.entries(dashboard.toolUsage).length === 0 ? (
-              <li className="text-slate-500 dark:text-slate-400">Tool çağrısı yok</li>
+              <li className="text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Tool çağrısı yok</li>
             ) : (
               Object.entries(dashboard.toolUsage)
                 .sort((a, b) => b[1] - a[1])
@@ -135,15 +135,15 @@ export default async function AiDashboardPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Faturalama (hazır)</h2>
-          <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-50">
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Faturalama (hazır)</h2>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text)] dark:text-slate-50">
             {dashboard.billableUnits}
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">billable units (plan + tool + narrate)</p>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">billable units (plan + tool + narrate)</p>
+          <p className="mt-2 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Token toplamı: <strong>{dashboard.totalTokens || "—"}</strong>
           </p>
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-xs text-[var(--color-text-muted)]">
             billingReady={String(dashboard.billingReady)} — fiyat tablosu sonraki milestone.
           </p>
         </Card>

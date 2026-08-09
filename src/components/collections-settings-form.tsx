@@ -40,7 +40,7 @@ export function CollectionsSettingsForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="mt-3 space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           Aynı ödeme için hatırlatmalar arası en az gün
         </label>
         <input
@@ -49,10 +49,10 @@ export function CollectionsSettingsForm({
           max={30}
           value={days}
           onChange={(event) => setDays(Number(event.target.value))}
-          className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-32 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
-      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
         <input
           type="checkbox"
           checked={autoSend}
@@ -61,7 +61,7 @@ export function CollectionsSettingsForm({
         />
         Taslak mesajları otomatik onayla (varsayılan: kapalı — her mesaj admin onayı bekler)
       </label>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-[var(--color-text-muted)]">
         Otomatik onay açık olsa bile WhatsApp gönderimi (wa.me) her zaman bir kişinin linke
         tıklamasını gerektirir — hiçbir mesaj sistem tarafından otomatik gönderilmez.
       </p>

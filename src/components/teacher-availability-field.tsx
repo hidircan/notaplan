@@ -106,7 +106,7 @@ export function TeacherAvailabilityField({
             className="!w-auto flex-1"
             aria-label={`${dayName(row.dayOfWeek)} başlangıç`}
           />
-          <span className="text-xs text-slate-400">–</span>
+          <span className="text-xs text-[var(--color-text-muted)]">–</span>
           <Input
             type="time"
             value={row.end}

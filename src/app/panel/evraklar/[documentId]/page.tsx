@@ -64,7 +64,7 @@ export default async function DocumentDetailPage({
               href={`/evrak-yazdir/${doc.id}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               Yazdırma görünümü
             </Link>
@@ -73,7 +73,7 @@ export default async function DocumentDetailPage({
                 href={`/panel/is-takip?newTaskDocumentId=${doc.id}&returnTo=${encodeURIComponent(
                   `/panel/evraklar/${doc.id}`
                 )}`}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
               >
                 Bu evrakla ilgili görev oluştur
               </Link>

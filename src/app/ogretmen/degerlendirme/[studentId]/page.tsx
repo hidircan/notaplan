@@ -45,19 +45,19 @@ export default async function TeacherAssessmentFormPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen/degerlendirme" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+          <Link href="/ogretmen/degerlendirme" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900">{student.name}</p>
+          <p className="text-sm font-semibold text-[var(--color-text)]">{student.name}</p>
           <span className="w-10" />
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <Card>
-          <h2 className="mb-3 text-sm font-semibold text-slate-800">Yeni değerlendirme</h2>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Yeni değerlendirme</h2>
           <LessonAssessmentForm
             studentId={studentId}
             lessons={lessons}
@@ -65,7 +65,7 @@ export default async function TeacherAssessmentFormPage({
           />
         </Card>
 
-        <h2 className="mb-2 text-sm font-semibold text-slate-800">Geçmiş değerlendirmeler</h2>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text)]">Geçmiş değerlendirmeler</h2>
         {past.length === 0 ? (
           <EmptyState title="Henüz değerlendirme yok" />
         ) : (
@@ -76,7 +76,7 @@ export default async function TeacherAssessmentFormPage({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-amber-500" />
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-[var(--color-text)]">
                         {formatDate(a.createdAt, "d MMMM yyyy")}
                       </p>
                     </div>

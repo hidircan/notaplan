@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Home, UserRound, Users, ChevronsLeft, ChevronsRight } from "lucide-react";
@@ -169,22 +168,26 @@ export function Sidebar({
 
       <div className="border-b px-3 py-5" style={{ borderColor: "var(--color-border)" }}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
-            {/* Marka rozeti kasıtlı olarak sabit beyaz kalır — logo asseti kendi açık zemini üzerinde
-                tasarlanmıştır (bkz. logoMarkTransparentPath koyu zeminler için ayrı bir varyanttır),
-                bu yüzden tema token'larına bağlanmaz. */}
-            <Image src={BRAND.logoMarkPath} alt={BRAND.name} width={40} height={32} className="h-8 w-auto" priority />
-          </div>
-          {!collapsed ? (
+          {collapsed ? (
+            <p
+              className="text-lg font-extrabold uppercase tracking-wide"
+              style={{ color: "var(--color-primary)" }}
+            >
+              {BRAND.name.charAt(0)}
+            </p>
+          ) : (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>
+              <p
+                className="truncate text-xl font-extrabold uppercase tracking-wide"
+                style={{ color: "var(--color-primary)" }}
+              >
                 {BRAND.name}
               </p>
               <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
                 Kurum yönetimi
               </p>
             </div>
-          ) : null}
+          )}
         </div>
         {!collapsed ? (
           <div

@@ -93,7 +93,7 @@ export function PackageManager({ packages, canWrite }: { packages: Package[]; ca
                       <button
                         type="button"
                         onClick={() => setEditingId(editingId === pkg.id ? null : pkg.id)}
-                        className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+                        className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
                       >
                         {editingId === pkg.id ? "Kapat" : "Düzenle"}
                       </button>
@@ -101,7 +101,7 @@ export function PackageManager({ packages, canWrite }: { packages: Package[]; ca
                         type="button"
                         disabled={pending}
                         onClick={() => toggleStatus(pkg)}
-                        className="inline-flex items-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
                       >
                         {pkg.status === "active" ? (
                           <>

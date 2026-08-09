@@ -69,12 +69,12 @@ export default async function TeacherOwnProgramPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ders Programım</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Ders Programım</p>
           <span className="w-10" />
         </div>
       </header>
@@ -84,7 +84,7 @@ export default async function TeacherOwnProgramPage({
           <Link
             href={prevHref}
             aria-label="Önceki hafta"
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
           >
             <ChevronLeft className="h-3.5 w-3.5" /> Önceki hafta
           </Link>
@@ -101,7 +101,7 @@ export default async function TeacherOwnProgramPage({
             <Link
               href={todayHref}
               aria-label="Bugünün haftasına dön"
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               Bugün
             </Link>
@@ -110,13 +110,13 @@ export default async function TeacherOwnProgramPage({
           <Link
             href={nextHref}
             aria-label="Sonraki hafta"
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
           >
             Sonraki hafta <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
-        <p className="px-1 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p className="px-1 text-center text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {formatDate(weekStart.toISOString(), "d MMM")} –{" "}
           {formatDate(addDays(weekStart, 6).toISOString(), "d MMM yyyy")}
         </p>
@@ -133,13 +133,13 @@ export default async function TeacherOwnProgramPage({
           return (
             <Card key={day.toISOString()} className={today ? "border-cyan-200 bg-cyan-50/30" : undefined}>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">
                   {formatDate(day.toISOString(), "EEEE d MMM")}
                 </p>
                 {today ? <Badge status="scheduled">Bugün</Badge> : null}
               </div>
               {dayLessons.length === 0 ? (
-                <p className="text-xs text-slate-400">Bu gün dersiniz yok.</p>
+                <p className="text-xs text-[var(--color-text-muted)]">Bu gün dersiniz yok.</p>
               ) : (
                 <div className="space-y-2">
                   {dayLessons.map((lesson) => {
@@ -150,13 +150,13 @@ export default async function TeacherOwnProgramPage({
                     return (
                       <div
                         key={lesson.id}
-                        className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs"
+                        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2 text-xs"
                         style={{ borderLeftWidth: 3, borderLeftColor: teacher.color }}
                       >
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        <p className="font-semibold text-[var(--color-text)] dark:text-slate-200">
                           {formatTime(lesson.startAt)} · {student?.name ?? "—"}
                         </p>
-                        <p className="text-slate-500 dark:text-slate-400">
+                        <p className="text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                           {lesson.instrument} · {branch?.shortName ?? "—"} · {room?.name ?? "—"}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-1">

@@ -104,8 +104,8 @@ export function TeacherFeedbackForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-slate-900">{teacherName} hakkında</p>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="text-sm font-semibold text-[var(--color-text)]">{teacherName} hakkında</p>
+        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
           Bu değerlendirme okul yönetimine gizli olarak iletilir; öğretmenin kendisine veya kimliğinizle
           birlikte hiçbir şekilde gösterilmez.
         </p>
@@ -114,7 +114,7 @@ export function TeacherFeedbackForm({
       <div className="space-y-3">
         {CRITERIA.map((c) => (
           <fieldset key={c.key}>
-            <legend className="mb-1.5 text-sm text-slate-700">{c.label}</legend>
+            <legend className="mb-1.5 text-sm text-[var(--color-text-muted)]">{c.label}</legend>
             <div role="radiogroup" aria-label={c.label} className="flex flex-wrap gap-1.5">
               {[1, 2, 3, 4, 5].map((n) => {
                 const checked = scores[c.key] === n;
@@ -124,7 +124,7 @@ export function TeacherFeedbackForm({
                     className={`flex-1 min-w-[4.5rem] cursor-pointer rounded-lg border px-2 py-1.5 text-center text-[11px] font-medium transition ${
                       checked
                         ? "border-amber-600 bg-amber-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-amber-300"
+                        : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-amber-300"
                     }`}
                   >
                     <input
@@ -145,8 +145,8 @@ export function TeacherFeedbackForm({
       </div>
 
       <fieldset>
-        <legend className="mb-1.5 text-sm text-slate-700">
-          Bu öğretmenle derslere devam etmek ister misiniz? <span className="text-slate-400">(opsiyonel)</span>
+        <legend className="mb-1.5 text-sm text-[var(--color-text-muted)]">
+          Bu öğretmenle derslere devam etmek ister misiniz? <span className="text-[var(--color-text-muted)]">(opsiyonel)</span>
         </legend>
         <div role="radiogroup" aria-label="Derslere devam" className="flex flex-wrap gap-1.5">
           {CONTINUE_OPTIONS.map((opt) => {
@@ -157,7 +157,7 @@ export function TeacherFeedbackForm({
                 className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                   checked
                     ? "border-amber-600 bg-amber-600 text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-amber-300"
+                    : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-amber-300"
                 }`}
               >
                 <input
@@ -176,8 +176,8 @@ export function TeacherFeedbackForm({
       </fieldset>
 
       <div>
-        <label htmlFor="feedback-comment" className="mb-1.5 block text-sm text-slate-700">
-          Yönetim için ek görüşünüz <span className="text-slate-400">(opsiyonel)</span>
+        <label htmlFor="feedback-comment" className="mb-1.5 block text-sm text-[var(--color-text-muted)]">
+          Yönetim için ek görüşünüz <span className="text-[var(--color-text-muted)]">(opsiyonel)</span>
         </label>
         <textarea
           id="feedback-comment"
@@ -186,9 +186,9 @@ export function TeacherFeedbackForm({
           placeholder="Yönetimin bilmesini istediğiniz bir şey var mı?"
           rows={3}
           maxLength={COMMENT_MAX}
-          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-amber-500/30 placeholder:text-slate-400 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none ring-amber-500/30 placeholder:text-[var(--color-text-muted)] focus:ring-2"
         />
-        <p className="mt-1 text-right text-[11px] text-slate-400">
+        <p className="mt-1 text-right text-[11px] text-[var(--color-text-muted)]">
           {comment.length}/{COMMENT_MAX}
         </p>
       </div>

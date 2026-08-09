@@ -45,12 +45,12 @@ export default async function OgretmenIsTakipPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">İş Takip</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">İş Takip</p>
           <span className="w-10" />
         </div>
       </header>
@@ -67,11 +67,11 @@ export default async function OgretmenIsTakipPage() {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Card className="!p-3">
-            <p className="text-xs text-slate-500">Açık görevlerim</p>
-            <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{kpi.openCount}</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Açık görevlerim</p>
+            <p className="text-2xl font-semibold text-[var(--color-text)] dark:text-slate-50">{kpi.openCount}</p>
           </Card>
           <Card className="!p-3">
-            <p className="text-xs text-slate-500">Gecikenler</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Gecikenler</p>
             <p className="text-2xl font-semibold text-rose-600">{kpi.overdueCount}</p>
           </Card>
         </div>
@@ -89,10 +89,10 @@ export default async function OgretmenIsTakipPage() {
                 <Link key={t.id} href={`/ogretmen/is-takip/${t.id}`}>
                   <Card className="!p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-slate-900 dark:text-slate-50">{t.title}</p>
+                      <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{t.title}</p>
                       {overdue ? <Badge status="overdue">Gecikmiş</Badge> : <Badge status="pending">{STATUS_LABEL[t.status]}</Badge>}
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                       {t.category} · {t.dueDate ? `Son tarih: ${formatDate(t.dueDate)}` : "Son tarih yok"}
                     </p>
                   </Card>

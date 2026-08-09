@@ -51,10 +51,10 @@ export function TeacherAvailabilityReview({
 
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Mevcut müsaitlik</p>
-      <p className="text-sm text-slate-700 dark:text-slate-300">{windowsSummary(currentAvailability)}</p>
-      <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">Önerilen müsaitlik</p>
-      <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+      <p className="text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Mevcut müsaitlik</p>
+      <p className="text-sm text-[var(--color-text-muted)] dark:text-slate-300">{windowsSummary(currentAvailability)}</p>
+      <p className="mt-2 text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Önerilen müsaitlik</p>
+      <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">
         {windowsSummary(request.proposedAvailability)}
       </p>
 
@@ -63,7 +63,7 @@ export function TeacherAvailabilityReview({
         onChange={(e) => setReviewNote(e.target.value)}
         placeholder="İnceleme notu (opsiyonel)"
         rows={2}
-        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-amber-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none ring-amber-500/30 placeholder:text-[var(--color-text-muted)] focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
 
       {error ? <p className="mt-1 text-xs font-medium text-rose-600">{error}</p> : null}

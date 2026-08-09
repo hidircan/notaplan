@@ -43,15 +43,15 @@ export function ProgramTermYearNav({
   const label = term === "guz" ? `${academicYearStart}–${academicYearStart + 1} Güz` : `${academicYearStart} Yaz`;
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-center gap-1 rounded-md border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label="Akademik dönem seçimi">
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5 dark:border-slate-700" role="group" aria-label="Akademik dönem seçimi">
         <button
           type="button"
           aria-pressed={term === "guz"}
           onClick={() => navigate("guz", term === "guz" ? academicYearStart : academicYearStart)}
           className={cn(
             "rounded px-3 py-1.5 text-xs font-semibold transition",
-            term === "guz" ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+            term === "guz" ? "bg-amber-600 text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:text-[var(--color-text-muted)] dark:hover:bg-slate-800"
           )}
         >
           Güz
@@ -62,7 +62,7 @@ export function ProgramTermYearNav({
           onClick={() => navigate("yaz", term === "yaz" ? academicYearStart : academicYearStart)}
           className={cn(
             "rounded px-3 py-1.5 text-xs font-semibold transition",
-            term === "yaz" ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+            term === "yaz" ? "bg-amber-600 text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:text-[var(--color-text-muted)] dark:hover:bg-slate-800"
           )}
         >
           Yaz
@@ -74,7 +74,7 @@ export function ProgramTermYearNav({
           type="button"
           aria-label="Önceki akademik yıl"
           onClick={() => navigate(term, academicYearStart - 1)}
-          className="rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs font-semibold text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           ←
         </button>
@@ -83,7 +83,7 @@ export function ProgramTermYearNav({
           type="button"
           aria-label="Sonraki akademik yıl"
           onClick={() => navigate(term, academicYearStart + 1)}
-          className="rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs font-semibold text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           →
         </button>

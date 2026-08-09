@@ -58,7 +58,7 @@ export function CurriculumTopicUpdateForm({
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="mt-2 space-y-1.5 border-t border-slate-100 pt-2">
+    <form onSubmit={(e) => void onSubmit(e)} className="mt-2 space-y-1.5 border-t border-[var(--color-border)] pt-2">
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label>Durum</Label>

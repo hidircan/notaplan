@@ -54,13 +54,13 @@ export default async function OgretmenlerPage({
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader title="Öğretmenler" />
 
-      <div className="mb-4 flex items-center gap-1 rounded-md border border-slate-200 p-0.5 dark:border-slate-700" role="tablist" aria-label="Öğretmen durumu">
+      <div className="mb-4 flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5 dark:border-slate-700" role="tablist" aria-label="Öğretmen durumu">
         <Link
           href="/panel/ogretmenler"
           role="tab"
           aria-selected={!showArchived}
           className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
-            !showArchived ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400"
+            !showArchived ? "bg-amber-600 text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:text-[var(--color-text-muted)]"
           }`}
         >
           Aktif Öğretmenler
@@ -70,7 +70,7 @@ export default async function OgretmenlerPage({
           role="tab"
           aria-selected={showArchived}
           className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
-            showArchived ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400"
+            showArchived ? "bg-amber-600 text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:text-[var(--color-text-muted)]"
           }`}
         >
           Arşivlenmiş Öğretmenler
@@ -81,7 +81,7 @@ export default async function OgretmenlerPage({
         <div className="space-y-4 lg:col-span-2">
           {visibleTeachers.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 {showArchived ? "Arşivlenmiş öğretmen yok." : "Aktif öğretmen yok."}
               </p>
             </Card>
@@ -106,11 +106,11 @@ export default async function OgretmenlerPage({
                     <div>
                       <Link
                         href={`/panel/ogretmenler/${t.id}`}
-                        className="font-semibold text-slate-900 hover:text-[var(--color-primary)] dark:text-slate-50"
+                        className="font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)] dark:text-slate-50"
                       >
                         {t.name}
                       </Link>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {data.settings.branches.find((b) => b.id === t.branchId)?.shortName} ·{" "}
                         {t.email} · {t.phone}
                       </p>
@@ -129,22 +129,22 @@ export default async function OgretmenlerPage({
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Öğrenci</p>
+                  <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Öğrenci</p>
                     <p className="text-lg font-semibold">{studentCount}</p>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Kayıtlı ders</p>
+                  <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Kayıtlı ders</p>
                     <p className="text-lg font-semibold">{weekLessons}</p>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Günlük limit</p>
+                  <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Günlük limit</p>
                     <p className="text-lg font-semibold">{t.maxDailyLessons}</p>
                   </div>
                 </div>
 
                 <div className="mt-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
                     Müsaitlik
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -160,17 +160,17 @@ export default async function OgretmenlerPage({
                 </div>
 
                 {canSeePerformance ? (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                     {(() => {
                       const perf = computeTeacherPerformanceScore(data, t.id);
                       return (
                         <>
-                          <p className="mb-2 text-sm text-slate-700 dark:text-slate-300">
+                          <p className="mb-2 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
                             Performans skoru:{" "}
-                            <span className="font-semibold text-slate-900 dark:text-slate-50">
+                            <span className="font-semibold text-[var(--color-text)] dark:text-slate-50">
                               {perf.score === null ? "yetersiz veri" : `${perf.score}/100`}
                             </span>{" "}
-                            <span className="text-xs text-slate-400">
+                            <span className="text-xs text-[var(--color-text-muted)]">
                               ({perf.gradedLessonCount} işlenmiş ders · {perf.presentCount} geldi ·{" "}
                               {perf.schoolCancelledCount} okul iptal)
                             </span>
@@ -186,7 +186,7 @@ export default async function OgretmenlerPage({
                   </div>
                 ) : null}
 
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--color-border)] pt-4">
                   <Link
                     href={`/panel/ogretmenler/${t.id}`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)]/40 bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary-soft-text)] hover:bg-[var(--color-primary-soft)]/70"
@@ -195,13 +195,13 @@ export default async function OgretmenlerPage({
                   </Link>
                   <Link
                     href={`/panel/ogretmenler/${t.id}/hakedis`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
                   >
                     <Wallet className="h-3.5 w-3.5" /> Hakediş
                   </Link>
                   <Link
                     href={`/panel/ogretmenler/${t.id}/odemeler`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
                   >
                     <CreditCard className="h-3.5 w-3.5" /> Ödeme geçmişi
                   </Link>
@@ -212,7 +212,7 @@ export default async function OgretmenlerPage({
         </div>
 
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900 dark:text-slate-50">Yeni öğretmen</h2>
+          <h2 className="mb-4 font-semibold text-[var(--color-text)] dark:text-slate-50">Yeni öğretmen</h2>
           {kurum.scope.mode !== "single" ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               &quot;Tüm kurumlar&quot; görünümündesiniz — yeni öğretmen eklemek için üstteki kurum
@@ -267,7 +267,7 @@ export default async function OgretmenlerPage({
                 name="availabilityJson"
                 branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Şube seçilmezse pencere tüm şubeler için geçerli sayılır. Daha sonra öğretmen detay ekranından da düzenlenebilir.
               </p>
             </div>

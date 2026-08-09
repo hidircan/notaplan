@@ -63,7 +63,7 @@ export function TeacherInstrumentsEditor({
         type="button"
         disabled={pending || hasDuplicates}
         onClick={onSave}
-        className="mt-2 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
+        className="mt-2 rounded-md border border-stone-300 bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
       >
         {pending ? "Kaydediliyor…" : "Enstrümanları kaydet"}
       </button>

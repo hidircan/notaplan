@@ -64,7 +64,7 @@ export function LessonTimeCorrectionForm({
   }
 
   if (lessons.length === 0) {
-    return <p className="text-sm text-slate-500">Düzeltilecek ders bulunamadı.</p>;
+    return <p className="text-sm text-[var(--color-text-muted)]">Düzeltilecek ders bulunamadı.</p>;
   }
 
   return (
@@ -74,7 +74,7 @@ export function LessonTimeCorrectionForm({
         <select
           value={lessonId}
           onChange={(e) => setLessonId(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
         >
           {lessons.map((l) => (
             <option key={l.id} value={l.id}>
@@ -108,7 +108,7 @@ export function LessonTimeCorrectionForm({
           onChange={(e) => setNote(e.target.value)}
           rows={2}
           required
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
           placeholder="Örn. Saat kayması — öğretmen bildirimi"
         />
       </div>

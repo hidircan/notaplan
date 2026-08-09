@@ -15,9 +15,9 @@ export default function PanelChatPage() {
   return (
     <div>
       <PageHeader title="AI Asistan" />
-      <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/50">
+      <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-surface-muted)] px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/50">
         <Bot className="h-10 w-10 text-amber-400" />
-        <p className="max-w-sm text-sm text-slate-600 dark:text-slate-300">
+        <p className="max-w-sm text-sm text-[var(--color-text-muted)] dark:text-slate-300">
           {BRAND.assistantName} artık her ekranda kullanılabilir; hangi öğrenci, öğretmen veya
           program sayfasındaysanız oradan da bağlam alır. Aşağıdaki butonla açabilirsiniz.
         </p>

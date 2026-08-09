@@ -26,12 +26,12 @@ export default async function OgretmenIsTakipKanbanPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <Link href="/ogretmen/is-takip" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/ogretmen/is-takip" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> İş Takip
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Kanban</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Kanban</p>
           <span className="w-10" />
         </div>
       </header>

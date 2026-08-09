@@ -35,12 +35,12 @@ export default async function OgretmenIsTakipTakvimPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen/is-takip" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/ogretmen/is-takip" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> İş Takip
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Takvim</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Takvim</p>
           <span className="w-10" />
         </div>
       </header>
@@ -48,18 +48,18 @@ export default async function OgretmenIsTakipTakvimPage() {
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         {daysWithTasks.length === 0 ? (
           <Card>
-            <p className="text-sm text-slate-500">Bu ay için son tarihli görev yok.</p>
+            <p className="text-sm text-[var(--color-text-muted)]">Bu ay için son tarihli görev yok.</p>
           </Card>
         ) : (
           daysWithTasks.map((day) => (
             <div key={day.date}>
-              <p className="mb-1.5 px-1 text-xs font-semibold text-slate-500">{formatDate(day.date)}</p>
+              <p className="mb-1.5 px-1 text-xs font-semibold text-[var(--color-text-muted)]">{formatDate(day.date)}</p>
               <div className="space-y-1.5">
                 {day.tasks.map((t) => (
                   <Link key={t.id} href={`/ogretmen/is-takip/${t.id}`}>
                     <Card className="!p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{t.title}</p>
+                        <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">{t.title}</p>
                         {isTaskOverdue(t, todayYmd) ? <Badge status="overdue">Gecikmiş</Badge> : null}
                       </div>
                     </Card>
@@ -71,15 +71,15 @@ export default async function OgretmenIsTakipTakvimPage() {
         )}
 
         <div>
-          <p className="mb-1.5 px-1 text-xs font-semibold text-slate-500">Tarihsiz ({undated.length})</p>
+          <p className="mb-1.5 px-1 text-xs font-semibold text-[var(--color-text-muted)]">Tarihsiz ({undated.length})</p>
           {undated.length === 0 ? (
-            <p className="px-1 text-xs text-slate-400">Tarihsiz görev yok.</p>
+            <p className="px-1 text-xs text-[var(--color-text-muted)]">Tarihsiz görev yok.</p>
           ) : (
             <div className="space-y-1.5">
               {undated.map((t) => (
                 <Link key={t.id} href={`/ogretmen/is-takip/${t.id}`}>
                   <Card className="!p-3">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{t.title}</p>
+                    <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">{t.title}</p>
                   </Card>
                 </Link>
               ))}

@@ -395,15 +395,15 @@ function FormModal({ title, onClose, children }: { title: string; onClose: () =>
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/40"
+        className="my-8 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-[var(--color-surface)] shadow-2xl dark:bg-slate-900 dark:shadow-black/40"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-4 dark:border-slate-800">
-          <h3 className="font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] p-5 pb-4 dark:border-slate-800">
+          <h3 className="font-semibold text-[var(--color-text)] dark:text-slate-50">{title}</h3>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300"
+            className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-muted)] dark:text-slate-300"
             aria-label="Kapat"
           >
             <X className="h-5 w-5" />
@@ -1086,12 +1086,12 @@ export function ProgramStudio({
       {suggestError ? <p className="mt-3 text-sm text-rose-600">{suggestError}</p> : null}
 
       {suggestions ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+          <p className="mb-3 text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">
             Uygun saatler {suggestions.length === 0 ? "bulunamadı" : `(${suggestions.length})`}
           </p>
           {suggestions.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.</p>
+            <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Önümüzdeki günlerde bu öğrenci/enstrüman için boş bir saat bulunamadı.</p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {suggestions.map((s) => {
@@ -1102,11 +1102,11 @@ export function ProgramStudio({
                     key={`${s.startAt}-${s.teacherId}-${s.roomId}`}
                     type="button"
                     onClick={() => applySuggestion(s)}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-left text-xs hover:border-amber-300 hover:bg-amber-50"
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-left text-xs hover:border-amber-300 hover:bg-amber-50"
                   >
-                    <p className="font-semibold text-slate-900 dark:text-slate-50">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
-                    <p className="text-slate-600 dark:text-slate-400">{format(parseISO(s.startAt), "HH:mm")}</p>
-                    <p className="mt-1 text-slate-500 dark:text-slate-400">
+                    <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">{format(parseISO(s.startAt), "d MMM, EEEE", { locale: tr })}</p>
+                    <p className="text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{format(parseISO(s.startAt), "HH:mm")}</p>
+                    <p className="mt-1 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       {teacher?.name} · {room?.name}
                     </p>
                     <p className="mt-1 text-[11px] text-amber-600">{s.reasons.join(" · ")}</p>
@@ -1285,8 +1285,8 @@ export function ProgramStudio({
       {seriesError ? <p className="mt-3 text-sm text-rose-600">{seriesError}</p> : null}
 
       {seriesPreview ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{seriesPreview.previewText}</p>
+        <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+          <p className="text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">{seriesPreview.previewText}</p>
           {seriesPreview.conflictCount > 0 ? (
             <div className="mt-3">
               <p className="text-sm font-medium text-rose-700">{seriesPreview.conflictCount} tarihte çakışma var:</p>
@@ -1299,7 +1299,7 @@ export function ProgramStudio({
                     </p>
                   ))}
               </div>
-              <label className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <label className="mt-3 flex items-center gap-2 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 <input
                   type="checkbox"
                   checked={seriesSkipConflicts}
@@ -1400,15 +1400,15 @@ export function ProgramStudio({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Haftalık program</h2>
-            <p className="mt-0.5 hidden text-xs text-slate-400 lg:block">
+            <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Haftalık program</h2>
+            <p className="mt-0.5 hidden text-xs text-[var(--color-text-muted)] lg:block">
               Dersi taşımak için sürükleyin · Süreyi değiştirmek için kartın altından uzatın
             </p>
           </div>
           <div
             role="group"
             aria-label="Takvim görünümü"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900"
+            className="inline-flex rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-0.5 dark:border-slate-700 dark:bg-slate-900"
           >
             <button
               type="button"
@@ -1416,8 +1416,8 @@ export function ProgramStudio({
               onClick={() => setCalendarView("day")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 calendarView === "day"
-                  ? "bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  ? "bg-[var(--color-surface)] text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)] dark:hover:text-slate-200"
               }`}
             >
               Gün görünümü
@@ -1428,8 +1428,8 @@ export function ProgramStudio({
               onClick={() => setCalendarView("week")}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 calendarView === "week"
-                  ? "bg-white text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  ? "bg-[var(--color-surface)] text-amber-700 shadow-sm dark:bg-slate-700 dark:text-amber-300"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)] dark:hover:text-slate-200"
               }`}
             >
               Haftalık görünüm
@@ -1813,17 +1813,17 @@ function DetailPanel({
   return (
     <Card className="mb-6 border-slate-300">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900 dark:text-slate-50">Ders detayı</h3>
-        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:text-slate-300" aria-label="Kapat">
+        <h3 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Ders detayı</h3>
+        <button type="button" onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-slate-300" aria-label="Kapat">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mb-3 text-sm text-slate-700 dark:text-slate-300">
-        <p className="font-medium text-slate-900 dark:text-slate-50">
+      <div className="mb-3 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
+        <p className="font-medium text-[var(--color-text)] dark:text-slate-50">
           {format(parseISO(lesson.startAt), "d MMMM yyyy · HH:mm", { locale: tr })} — {lesson.instrument}
         </p>
-        <p className="mt-1 text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {student?.name} · {teacher?.name} · {room?.name}
           {branchName ? ` · ${branchName}` : ""}
         </p>
@@ -1837,7 +1837,7 @@ function DetailPanel({
             studentExcused={lesson.studentExcused}
           />
         </div>
-        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-2 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {(() => {
             const period = resolveLessonAcademicPeriod(lesson, student?.termType ?? "guz");
             const label =
@@ -1847,8 +1847,8 @@ function DetailPanel({
         </p>
       </div>
 
-      <div className="mb-3 border-t border-slate-100 pt-3 dark:border-slate-700">
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      <div className="mb-3 border-t border-[var(--color-border)] pt-3 dark:border-slate-700">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           Hızlı aksiyonlar
         </p>
         <LessonOpsActions
@@ -1912,7 +1912,7 @@ function DetailPanel({
       </div>
 
       {moveOpen ? (
-        <form onSubmit={onSubmitMove} className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+        <form onSubmit={onSubmitMove} className="mt-4 flex flex-wrap items-end gap-2 border-t border-[var(--color-border)] pt-4">
           <div>
             <Label>Yeni tarih/saat</Label>
             <Input
@@ -1937,13 +1937,13 @@ function DetailPanel({
 function CommunicationDraftCard({ label, msg }: { label: string; msg: LessonCommunicationMessage }) {
   const [markedSent, setMarkedSent] = useState(false);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-50">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{label}</p>
+      <p className="mt-1 text-sm font-medium text-[var(--color-text)] dark:text-slate-50">
         {msg.toName}
         {msg.toPhone ? ` · ${msg.toPhone}` : ""}
       </p>
-      <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+      <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-2 text-[11px] leading-relaxed text-[var(--color-text-muted)] dark:text-slate-300">
         {msg.body}
       </pre>
       {msg.waLink ? (
@@ -1956,7 +1956,7 @@ function CommunicationDraftCard({ label, msg }: { label: string; msg: LessonComm
       ) : (
         <p className="mt-2 text-xs text-rose-600">{msg.missingPhoneReason ?? "Telefon numarası eksik."}</p>
       )}
-      <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+      <label className="mt-2 flex items-center gap-2 text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
         <input type="checkbox" checked={markedSent} onChange={(e) => setMarkedSent(e.target.checked)} />
         Sistemde gönderildi olarak işaretle
       </label>

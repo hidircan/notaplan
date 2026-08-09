@@ -49,8 +49,8 @@ export function FeeRoundingModeSelector({
 
   return (
     <Card className="mb-6">
-      <h2 className="font-semibold text-slate-900 dark:text-slate-50">Kesirli ders süresi politikası</h2>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+      <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Kesirli ders süresi politikası</h2>
+      <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
         Bir dersin gerçek süresi, ödenecek dakikaya nasıl çevrilsin? Bu ayar yalnızca bundan
         sonra hesaplanacak hakedişleri etkiler — daha önce oluşturulmuş hakediş kayıtları asla
         yeniden hesaplanmaz.
@@ -69,7 +69,7 @@ export function FeeRoundingModeSelector({
               </option>
             ))}
           </Select>
-          <p className="mt-1 text-xs text-slate-400">{MODE_DESCRIPTIONS[mode]}</p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">{MODE_DESCRIPTIONS[mode]}</p>
         </div>
         <Button type="submit" disabled={submitting || !canWrite || mode === currentMode}>
           {submitting ? "Kaydediliyor…" : "Politikayı kaydet"}

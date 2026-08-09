@@ -37,8 +37,8 @@ export default async function DocumentPrintPage({
   if (!result.ok) {
     return (
       <div className="mx-auto max-w-lg px-6 py-20 text-center">
-        <p className="text-lg font-semibold text-slate-900">Evrak bulunamadı.</p>
-        <p className="mt-2 text-sm text-slate-500">Bu belge silinmiş olabilir veya kurumunuza ait değil.</p>
+        <p className="text-lg font-semibold text-[var(--color-text)]">Evrak bulunamadı.</p>
+        <p className="mt-2 text-sm text-[var(--color-text-muted)]">Bu belge silinmiş olabilir veya kurumunuza ait değil.</p>
         <Link href="/panel/evraklar" className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700">
           Evraklar Merkezine dön
         </Link>
@@ -51,35 +51,35 @@ export default async function DocumentPrintPage({
   const branch = doc.branchId ? data.settings.branches.find((b) => b.id === doc.branchId) : undefined;
 
   return (
-    <div className="min-h-screen bg-[#f4f2f8] px-4 py-8 print:bg-white print:p-0 sm:px-6">
+    <div className="min-h-screen bg-[#f4f2f8] px-4 py-8 print:bg-[var(--color-surface)] print:p-0 sm:px-6">
       <style>{"@media print { @page { size: A4; margin: 16mm; } }"}</style>
       <div className="mx-auto max-w-2xl">
         <DocumentPrintActions backHref={`/panel/evraklar/${doc.id}`} />
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border)] pb-6">
             <div>
-              <p className="text-lg font-semibold text-slate-900">{data.settings.name}</p>
-              <p className="text-sm text-slate-500">{branch?.address ?? data.settings.city}</p>
+              <p className="text-lg font-semibold text-[var(--color-text)]">{data.settings.name}</p>
+              <p className="text-sm text-[var(--color-text-muted)]">{branch?.address ?? data.settings.city}</p>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Referans</p>
-              <p className="mt-1 font-mono text-sm font-semibold text-slate-700">{doc.reference}</p>
-              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400">Belge Türü</p>
-              <p className="mt-1 text-sm text-slate-700">{documentKindLabel(doc.kind)}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Referans</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-[var(--color-text-muted)]">{doc.reference}</p>
+              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Belge Türü</p>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">{documentKindLabel(doc.kind)}</p>
             </div>
           </div>
 
-          <div className="mt-6 text-sm text-slate-500">
+          <div className="mt-6 text-sm text-[var(--color-text-muted)]">
             <p>Oluşturulma tarihi: {formatDate(doc.createdAt, "d MMMM yyyy")}</p>
           </div>
 
           {doc.renderedHtml ? (
-            <div className="prose prose-sm mt-6 max-w-none border-t border-slate-100 pt-6">
+            <div className="prose prose-sm mt-6 max-w-none border-t border-[var(--color-border)] pt-6">
               <div dangerouslySetInnerHTML={{ __html: doc.renderedHtml }} />
             </div>
           ) : (
-            <p className="mt-6 text-sm text-slate-400">İçerik yok.</p>
+            <p className="mt-6 text-sm text-[var(--color-text-muted)]">İçerik yok.</p>
           )}
 
           {/*
@@ -88,18 +88,18 @@ export default async function DocumentPrintPage({
             Bu aşağıdaki blok, şablondan bağımsız, yazdırma görünümünün genel
             "imza alanı" iskeletidir (makbuz sayfasıyla aynı konvansiyon).
           */}
-          <div className="mt-12 flex gap-10 border-t border-slate-100 pt-10 print:break-inside-avoid">
+          <div className="mt-12 flex gap-10 border-t border-[var(--color-border)] pt-10 print:break-inside-avoid">
             <div className="min-w-[200px] max-w-xs flex-1">
               <div className="h-16 border-b border-slate-400" />
-              <p className="mt-2 text-center text-xs font-medium text-slate-600">Tarih</p>
+              <p className="mt-2 text-center text-xs font-medium text-[var(--color-text-muted)]">Tarih</p>
             </div>
             <div className="min-w-[200px] max-w-xs flex-1">
               <div className="h-16 border-b border-slate-400" />
-              <p className="mt-2 text-center text-xs font-medium text-slate-600">İmza</p>
+              <p className="mt-2 text-center text-xs font-medium text-[var(--color-text-muted)]">İmza</p>
             </div>
           </div>
 
-          <p className="mt-10 text-center text-[11px] text-slate-400">Bu belge sistem tarafından oluşturulmuştur.</p>
+          <p className="mt-10 text-center text-[11px] text-[var(--color-text-muted)]">Bu belge sistem tarafından oluşturulmuştur.</p>
         </div>
       </div>
     </div>

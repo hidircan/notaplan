@@ -99,25 +99,25 @@ export default async function ProgramPage({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/panel/program?week=${prevWeekParam}`}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
         >
           <ChevronLeft className="h-4 w-4" /> Önceki hafta
         </Link>
 
-        <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200">
+        <span className="rounded-lg bg-[var(--color-surface)] px-3 py-1.5 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200">
           {format(weekStart, "d MMM", { locale: tr })} –{" "}
           {format(addDays(weekStart, 6), "d MMM yyyy", { locale: tr })}
         </span>
 
         <Link
           href={`/panel/program?week=${nextWeekParam}`}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
         >
           Sonraki hafta <ChevronRight className="h-4 w-4" />
         </Link>
 
         {isCurrentWeek ? (
-          <span className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-400">
+          <span className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)]">
             Bugün
           </span>
         ) : (
@@ -149,12 +149,12 @@ export default async function ProgramPage({
       />
 
       <Card className="mt-6">
-        <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Stüdyolar</h2>
+        <h2 className="mb-3 font-semibold text-[var(--color-text)] dark:text-slate-50">Stüdyolar</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {data.rooms.map((room) => (
-            <div key={room.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{room.name}</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <div key={room.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3">
+              <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">{room.name}</p>
+              <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 {data.settings.branches.find((b) => b.id === room.branchId)?.shortName} · Kapasite{" "}
                 {room.capacity} · {room.instruments.join(", ")}
               </p>

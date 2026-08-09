@@ -41,12 +41,12 @@ export default async function ParentHomeworkPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
-      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-amber-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{student.name} — Ödevler</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">{student.name} — Ödevler</p>
           <span className="w-10" />
         </div>
       </header>
@@ -59,17 +59,17 @@ export default async function ParentHomeworkPage() {
             <Card key={hw.id}>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-50">{hw.title}</p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{hw.description}</p>
-                  <p className="mt-1 text-xs text-slate-400">Son teslim: {formatDate(hw.dueDate)}</p>
+                  <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{hw.title}</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{hw.description}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">Son teslim: {formatDate(hw.dueDate)}</p>
                 </div>
                 <Badge status={submissions.length > 0 ? "completed" : "pending"}>
                   {submissions.length > 0 ? "Teslim edildi" : "Bekliyor"}
                 </Badge>
               </div>
               {submissions.map((s) => (
-                <div key={s.id} className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs dark:border-slate-800 dark:bg-slate-900">
-                  <p className="text-slate-500 dark:text-slate-400">Teslim: {formatDateTime(s.submittedAt)}</p>
+                <div key={s.id} className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2 text-xs dark:border-slate-800 dark:bg-slate-900">
+                  <p className="text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Teslim: {formatDateTime(s.submittedAt)}</p>
                   {s.teacherFeedback ? (
                     <p className="mt-1 rounded-md bg-amber-50 p-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                       Öğretmen geri bildirimi: {s.teacherFeedback}

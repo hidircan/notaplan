@@ -37,7 +37,7 @@ export function MakeupDecisionForm({
         rows={2}
         placeholder={placeholder ?? "Karar notu (zorunlu)…"}
         disabled={disabled}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none ring-amber-200 focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-text-muted)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
       />
       <TelafiSubmitButton pendingLabel={pendingLabel} variant={variant} disabled={disabled}>
         {children}

@@ -42,13 +42,13 @@ export default async function DuyurularPage() {
       />
 
       <Card className="mb-6">
-        <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Yeni duyuru</h2>
+        <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yeni duyuru</h2>
         <AnnouncementForm
           branches={data.settings.branches.map((b) => ({ id: b.id, shortName: b.shortName }))}
         />
       </Card>
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Duyurular</h2>
+      <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Duyurular</h2>
       {announcements.length === 0 ? (
         <EmptyState
           title="Henüz duyuru yok"
@@ -62,14 +62,14 @@ export default async function DuyurularPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     {a.pinned ? <Pin className="h-3.5 w-3.5 text-amber-600" /> : null}
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">{a.title}</h3>
+                    <h3 className="text-base font-semibold text-[var(--color-text)] dark:text-slate-50">{a.title}</h3>
                     <Badge status={a.status} />
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span className="rounded-full bg-[var(--color-surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-muted)] dark:bg-slate-800 dark:text-slate-300">
                       {AUDIENCE_LABELS[a.audienceType] ?? a.audienceType}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{a.body}</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{a.body}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                     Oluşturulma: {formatDateTime(a.createdAt)}
                   </p>
                 </div>

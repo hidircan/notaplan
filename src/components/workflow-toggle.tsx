@@ -45,7 +45,7 @@ export function WorkflowToggle({
           onClick={() => patch({ enabled: !enabled })}
           className={`rounded-xl px-3 py-1.5 text-xs font-medium ${
             enabled
-              ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              ? "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
               : "bg-emerald-600 text-white hover:bg-emerald-700"
           } disabled:opacity-50`}
         >

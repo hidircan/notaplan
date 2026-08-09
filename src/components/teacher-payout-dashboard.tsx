@@ -87,7 +87,7 @@ export function TeacherPayoutDashboard({
       <Card className="mb-6">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Ay</label>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Ay</label>
             <Select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
@@ -101,7 +101,7 @@ export function TeacherPayoutDashboard({
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Yıl</label>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Yıl</label>
             <Select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-auto">
               {years.map((y) => (
                 <option key={y} value={y}>
@@ -131,15 +131,15 @@ export function TeacherPayoutDashboard({
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
             <Card>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam ders</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{result.totalLessons}</p>
+              <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Toplam ders</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text)] dark:text-slate-50">{result.totalLessons}</p>
             </Card>
             <Card>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam dakika</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{result.totalMinutes}</p>
+              <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Toplam dakika</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text)] dark:text-slate-50">{result.totalMinutes}</p>
             </Card>
             <Card className="border-emerald-200 bg-emerald-50/40">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam hakediş</p>
+              <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Toplam hakediş</p>
               <p className="mt-1 text-2xl font-semibold text-emerald-700">{formatMoney(result.totalAmount)}</p>
             </Card>
           </div>
@@ -159,13 +159,13 @@ export function TeacherPayoutDashboard({
 
           <Card className="overflow-hidden p-0">
             {result.lines.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              <p className="p-6 text-center text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 {format(new Date(year, month - 1, 1), "MMMM yyyy", { locale: tr })} döneminde tamamlanmış ders
                 bulunamadı.
               </p>
             ) : (
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+                <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
                   <tr>
                     <th className="px-4 py-3">Tarih</th>
                     <th className="px-4 py-3">Öğrenci</th>
@@ -179,8 +179,8 @@ export function TeacherPayoutDashboard({
                 <tbody>
                   {result.lines.map((line) => (
                     <tr key={line.lessonId} className="border-b border-slate-50 dark:border-slate-800">
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(line.lessonDate)}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{formatDate(line.lessonDate)}</td>
+                      <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">
                         <Link
                           href={`/panel/ogrenciler/${line.studentId}`}
                           className="hover:text-amber-600 hover:underline"
@@ -194,10 +194,10 @@ export function TeacherPayoutDashboard({
                           Kaynak ders →
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{line.branchName ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{line.instrument}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{line.durationMinutes} dk</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{line.branchName ?? "—"}</td>
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{line.instrument}</td>
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{line.durationMinutes} dk</td>
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {line.perMinuteRate
                           ? `${formatMoney(Math.round(line.perMinuteRate * 60 * 100) / 100)}/sa`
                           : "—"}
@@ -206,7 +206,7 @@ export function TeacherPayoutDashboard({
                         {line.issue === "missing-fee-rule" ? (
                           <span className="inline-flex items-center gap-1.5">
                             <Badge status="pending">Ücret kuralı eksik</Badge>
-                            <span className="text-slate-400">—</span>
+                            <span className="text-[var(--color-text-muted)]">—</span>
                           </span>
                         ) : (
                           <span className="font-medium">{formatMoney(line.amount)}</span>

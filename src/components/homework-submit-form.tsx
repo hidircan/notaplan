@@ -73,13 +73,13 @@ export function HomeworkSubmitForm({ homeworkId }: { homeworkId: string }) {
         onChange={(e) => setNote(e.target.value)}
         placeholder="Not (opsiyonel)"
         rows={2}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none ring-emerald-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none ring-emerald-500/30 placeholder:text-[var(--color-text-muted)] focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
       <input
         type="file"
         accept="image/*,video/*,application/pdf"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+        className="block w-full text-xs text-[var(--color-text-muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
       />
       {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
       {success ? <p className="text-xs font-medium text-emerald-600">Teslim yüklendi.</p> : null}

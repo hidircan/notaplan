@@ -23,12 +23,12 @@ export default async function TeacherAssessmentStudentsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900">Gelişim Değerlendirmesi</p>
+          <p className="text-sm font-semibold text-[var(--color-text)]">Gelişim Değerlendirmesi</p>
           <span className="w-10" />
         </div>
       </header>
@@ -45,10 +45,10 @@ export default async function TeacherAssessmentStudentsPage() {
               <Card className="!p-4 hover:border-amber-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-slate-900">{student.name}</p>
-                    <p className="text-sm text-slate-500">{student.instruments.join(", ")}</p>
+                    <p className="font-medium text-[var(--color-text)]">{student.name}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">{student.instruments.join(", ")}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                  <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
                 </div>
               </Card>
             </Link>

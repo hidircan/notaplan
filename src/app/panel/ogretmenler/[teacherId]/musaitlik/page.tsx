@@ -71,14 +71,14 @@ export default async function TeacherAvailabilityReviewPage({
           Şu anki müsaitlik
         </p>
         {teacher.availability.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Kayıtlı müsaitlik yok.</p>
+          <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Kayıtlı müsaitlik yok.</p>
         ) : (
           <div className="space-y-1">
             {teacher.availability
               .slice()
               .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
               .map((w) => (
-                <p key={w.dayOfWeek} className="text-sm text-slate-700 dark:text-slate-300">
+                <p key={w.dayOfWeek} className="text-sm text-[var(--color-text-muted)] dark:text-slate-300">
                   {dayName(w.dayOfWeek)}: {w.start}–{w.end}
                 </p>
               ))}
@@ -87,7 +87,7 @@ export default async function TeacherAvailabilityReviewPage({
       </Card>
 
       <section className="mb-4">
-        <p className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+        <p className="mb-2 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
           Onay bekleyen öneriler
         </p>
         {pending.length === 0 ? (
@@ -103,18 +103,18 @@ export default async function TeacherAvailabilityReviewPage({
 
       {reviewed.length > 0 ? (
         <section>
-          <p className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <p className="mb-2 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Geçmiş öneriler
           </p>
           <div className="space-y-2">
             {reviewed.map((r) => (
               <Card key={r.id} className="!p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(r.createdAt)}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{formatDateTime(r.createdAt)}</p>
                   <Badge status={r.status}>{STATUS_LABEL[r.status] ?? r.status}</Badge>
                 </div>
                 {r.reviewNote ? (
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Not: {r.reviewNote}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Not: {r.reviewNote}</p>
                 ) : null}
               </Card>
             ))}

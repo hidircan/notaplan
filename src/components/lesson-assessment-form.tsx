@@ -103,11 +103,11 @@ export function LessonAssessmentForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="space-y-4">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Ders</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Ders</label>
         <select
           value={lessonId}
           onChange={(event) => setLessonId(event.target.value)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         >
           {lessons.length === 0 ? <option value="">Ders bulunamadı</option> : null}
           {lessons.map((l) => (
@@ -119,14 +119,14 @@ export function LessonAssessmentForm({
       </div>
 
       {ASSESSMENT_SECTIONS.map((section) => (
-        <div key={section.id} className="rounded-xl border border-slate-200 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div key={section.id} className="rounded-xl border border-[var(--color-border)] p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
             {section.id}. {section.label}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {section.items.map((item) => (
               <div key={item}>
-                <label className="mb-1 flex items-center justify-between text-xs text-slate-600">
+                <label className="mb-1 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
                   <span>{ASSESSMENT_ITEM_LABELS[item]}</span>
                   <span className="font-semibold text-amber-700">{scores[item]}</span>
                 </label>
@@ -146,43 +146,43 @@ export function LessonAssessmentForm({
       ))}
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Güçlü yönler</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Güçlü yönler</label>
         <textarea
           value={strengthNote}
           onChange={(event) => setStrengthNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Gelişime açık alanlar</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Gelişime açık alanlar</label>
         <textarea
           value={improvementNote}
           onChange={(event) => setImprovementNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Sonraki adımlar</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Sonraki adımlar</label>
         <textarea
           value={nextStepsNote}
           onChange={(event) => setNextStepsNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
           Veliye özel not (isteğe bağlı)
         </label>
         <textarea
           value={parentPrivateNote}
           onChange={(event) => setParentPrivateNote(event.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
-        <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+        <label className="mt-2 flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
           <input
             type="checkbox"
             checked={parentNoteVisibleToStudent}
@@ -193,11 +193,11 @@ export function LessonAssessmentForm({
         </label>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Öğretmen adı (dijital onay)</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Öğretmen adı (dijital onay)</label>
         <input
           value={teacherSignedName}
           onChange={(event) => setTeacherSignedName(event.target.value)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
       </div>
 

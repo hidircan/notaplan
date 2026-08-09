@@ -31,15 +31,15 @@ export default async function StudentCurriculumPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50">
-      <header className="border-b border-emerald-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-emerald-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Link
             href="/ogrenci"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900">Müfredatım</p>
+          <p className="text-sm font-semibold text-[var(--color-text)]">Müfredatım</p>
           <span className="w-10" aria-hidden />
         </div>
       </header>

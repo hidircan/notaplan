@@ -31,8 +31,8 @@ export default async function BildirimlerPage() {
         <div className="flex items-start gap-3">
           <MessageCircle className="mt-0.5 h-5 w-5 text-emerald-700" />
           <div>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">Nasıl kullanılır?</p>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">Nasıl kullanılır?</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               1) Telafi onayla veya yoklama al → 2) Hazır mesajlar bu sayfada birikir → 3) “WhatsApp’ta aç” ile veli/öğretmene gönder.
               Bu sayfa, manuel WhatsApp sürecini düzenli hale getirir.
             </p>
@@ -40,12 +40,12 @@ export default async function BildirimlerPage() {
         </div>
       </Card>
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">
+      <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">
         Canlı mesaj kuyruğu ({messages.length})
       </h2>
       {messages.length === 0 ? (
         <Card>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Şu an kuyrukta mesaj yok. Telafi oluştur veya gecikmiş ödeme ekle.
           </p>
         </Card>
@@ -56,13 +56,13 @@ export default async function BildirimlerPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-slate-900 dark:text-slate-50">{m.title}</p>
+                    <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">{m.title}</p>
                     <Badge>{m.audience}</Badge>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     Kime: {m.toName} · {m.toPhone}
                   </p>
-                  <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                  <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-[var(--color-surface-muted)] p-3 text-xs leading-relaxed text-[var(--color-text-muted)] dark:text-slate-300">
                     {m.body}
                   </pre>
                 </div>
@@ -78,13 +78,13 @@ export default async function BildirimlerPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Şablon kataloğu</h2>
+      <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Şablon kataloğu</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         {TEMPLATE_CATALOG.map((t) => (
           <Card key={t.key}>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">{t.title}</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t.when}</p>
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">{t.title}</p>
+            <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{t.when}</p>
+            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-[var(--color-surface-muted)] p-3 text-[11px] leading-relaxed text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               {t.sample}
             </pre>
           </Card>

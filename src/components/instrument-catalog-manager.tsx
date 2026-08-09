@@ -103,14 +103,14 @@ export function InstrumentCatalogManager({
                       type="button"
                       disabled={pending}
                       onClick={() => saveRename(entry)}
-                      className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+                      className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
                     >
                       Kaydet
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800"
+                      className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800"
                     >
                       Vazgeç
                     </button>
@@ -131,7 +131,7 @@ export function InstrumentCatalogManager({
                         setEditingId(entry.id);
                         setEditName(entry.name);
                       }}
-                      className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+                      className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
                     >
                       Düzenle
                     </button>
@@ -139,7 +139,7 @@ export function InstrumentCatalogManager({
                       type="button"
                       disabled={pending}
                       onClick={() => toggleStatus(entry)}
-                      className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
+                      className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2.5 py-1 text-xs font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
                     >
                       {entry.status === "active" ? "Pasife Al" : "Aktifleştir"}
                     </button>

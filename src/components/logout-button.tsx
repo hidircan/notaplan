@@ -19,7 +19,7 @@ export function LogoutButton({ className }: { className?: string }) {
     <button
       type="button"
       onClick={logout}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 ${className ?? ""}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-muted)] ${className ?? ""}`}
     >
       <LogOut className="h-4 w-4" />
       Çıkış

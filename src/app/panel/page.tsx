@@ -156,7 +156,7 @@ export default async function DashboardPage() {
       )}
 
       <div className="mb-6">
-        <h2 className="mb-3 text-sm font-semibold text-slate-600">Bugünün aksiyonları</h2>
+        <h2 className="mb-3 text-sm font-semibold text-[var(--color-text-muted)]">Bugünün aksiyonları</h2>
         {actionCards.length === 0 ? (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
             Bugün için bekleyen aksiyon bulunmuyor.
@@ -207,13 +207,13 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">Bugünün programı</h2>
+            <h2 className="font-semibold text-[var(--color-text)]">Bugünün programı</h2>
             <Link href="/panel/program" className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
               Tüm program →
             </Link>
           </div>
           {todayLessons.length === 0 ? (
-            <p className="text-sm text-slate-500">Bugün planlanmış ders yok.</p>
+            <p className="text-sm text-[var(--color-text-muted)]">Bugün planlanmış ders yok.</p>
           ) : (
             <div className="space-y-3">
               {todayLessons.map((lesson) => {
@@ -224,7 +224,7 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={lesson.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/70 px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -232,10 +232,10 @@ export default async function DashboardPage() {
                         style={{ background: teacher?.color ?? "#A56A00" }}
                       />
                       <div>
-                        <p className="font-medium text-slate-900">
+                        <p className="font-medium text-[var(--color-text)]">
                           {formatTime(lesson.startAt)}–{formatTime(lesson.endAt)} · {lesson.instrument}
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-[var(--color-text-muted)]">
                           {student?.name} · {teacher?.name} · {branch?.shortName} · {room?.name}
                         </p>
                       </div>
@@ -252,10 +252,10 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <RefreshCcw className="h-4 w-4 text-amber-600" />
-              <h2 className="font-semibold text-slate-900">Bekleyen telafiler</h2>
+              <h2 className="font-semibold text-[var(--color-text)]">Bekleyen telafiler</h2>
             </div>
             {openMakeups.length === 0 ? (
-              <p className="text-sm text-slate-500">Açık telafi yok — harika!</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Açık telafi yok — harika!</p>
             ) : (
               <ul className="space-y-3">
                 {openMakeups.map((m) => {
@@ -264,14 +264,14 @@ export default async function DashboardPage() {
                     <li key={m.id} className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{student?.name}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-sm font-medium text-[var(--color-text)]">{student?.name}</p>
+                          <p className="text-xs text-[var(--color-text-muted)]">
                             {m.instrument} · {m.reason}
                           </p>
                         </div>
                         <Badge status={m.status} />
                       </div>
-                      <p className="mt-1 text-[11px] text-slate-400">
+                      <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                         Son tarih: {formatDateTime(m.expiresAt)}
                       </p>
                     </li>
@@ -290,17 +290,17 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-rose-600" />
-              <h2 className="font-semibold text-slate-900">Tahsilat uyarısı</h2>
+              <h2 className="font-semibold text-[var(--color-text)]">Tahsilat uyarısı</h2>
             </div>
             {urgentPayments.length === 0 ? (
-              <p className="text-sm text-slate-500">Geciken ödeme yok.</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Geciken ödeme yok.</p>
             ) : (
               <ul className="space-y-2">
                 {urgentPayments.map((p) => {
                   const student = data.students.find((s) => s.id === p.studentId);
                   return (
                     <li key={p.id} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">{student?.name}</span>
+                      <span className="text-[var(--color-text-muted)]">{student?.name}</span>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{formatMoney(p.amount - p.paidAmount)}</span>
                         <Badge status={p.status} />
@@ -315,20 +315,20 @@ export default async function DashboardPage() {
           <Card>
             <div className="mb-3 flex items-center gap-2">
               <Wallet className="h-4 w-4 text-[var(--color-primary)]" />
-              <h2 className="font-semibold text-slate-900">Öğretmen Hakedişleri</h2>
+              <h2 className="font-semibold text-[var(--color-text)]">Öğretmen Hakedişleri</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="rounded-xl bg-amber-50 p-3">
                 <p className="text-lg font-semibold text-amber-700">
                   {formatMoney(payoutOverview.pendingTotal)}
                 </p>
-                <p className="text-[11px] text-slate-500">Bu ay bekleyen</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Bu ay bekleyen</p>
               </div>
               <div className="rounded-xl bg-emerald-50 p-3">
                 <p className="text-lg font-semibold text-emerald-700">
                   {formatMoney(payoutOverview.paidTotal)}
                 </p>
-                <p className="text-[11px] text-slate-500">Bu ay ödenen</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Bu ay ödenen</p>
               </div>
             </div>
             {payoutOverview.missingFeeRuleLessonCount > 0 ? (

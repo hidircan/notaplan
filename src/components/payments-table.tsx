@@ -64,7 +64,7 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Öğrenci adına göre ara..."
           aria-label="Öğrenci adına göre ara"
-          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 sm:w-auto"
+          className="w-full max-w-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 sm:w-auto"
         />
 
         <div className="flex flex-wrap gap-1.5">
@@ -79,7 +79,7 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
               className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                 !actionOnly && statusFilter === filter.value
                   ? "bg-slate-900 text-white"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  : "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {filter.label}
@@ -98,14 +98,14 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
           </button>
         </div>
 
-        <span className="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span className="ml-auto text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {filtered.length} sonuç
         </span>
       </div>
 
       <Card className="overflow-hidden p-0">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+          <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
             <tr>
               <th className="px-4 py-3">Öğrenci</th>
               <th className="px-4 py-3">Açıklama</th>
@@ -118,14 +118,14 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                   Bu filtreye uyan ödeme bulunamadı.
                 </td>
               </tr>
             ) : (
               filtered.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
+                  <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">
                     <Link
                       href={`/panel/odemeler/${p.studentId}`}
                       className="hover:text-amber-600 hover:underline"
@@ -133,10 +133,10 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                       {p.studentName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     {p.description}
                     {p.method ? (
-                      <span className="block text-xs text-slate-400">{p.method}</span>
+                      <span className="block text-xs text-[var(--color-text-muted)]">{p.method}</span>
                     ) : null}
                     {p.lessonId ? (
                       <Link
@@ -149,11 +149,11 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                       </Link>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">
                     <span className="font-medium">{formatMoney(p.amount)}</span>
                     {p.paidAmount > 0 && p.paidAmount < p.amount ? (
-                      <span className="block text-xs text-slate-400">
+                      <span className="block text-xs text-[var(--color-text-muted)]">
                         Ödenen: {formatMoney(p.paidAmount)}
                       </span>
                     ) : null}
@@ -163,7 +163,7 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                   </td>
                   <td className="px-4 py-3">
                     {p.status === "voided" ? (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-[var(--color-text-muted)]">
                         Ders iptal edildiği için tahsilat iptal edildi.
                       </span>
                     ) : p.status !== "paid" ? (

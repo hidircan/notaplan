@@ -143,15 +143,15 @@ export default async function TeacherStudentWorkspacePage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Link
             href="/ogretmen"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Öğrenci</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Öğrenci</p>
           <span className="w-10" aria-hidden />
         </div>
       </header>
@@ -172,12 +172,12 @@ export default async function TeacherStudentWorkspacePage({
                 .slice(0, 2)}
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{student.name}</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <h1 className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{student.name}</h1>
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 {student.instruments.join(", ")}
                 {branch ? ` · ${branch.shortName}` : ""}
               </p>
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
                 Veli: {student.parentName} · {student.parentPhone}
               </p>
             </div>
@@ -194,7 +194,7 @@ export default async function TeacherStudentWorkspacePage({
         </nav>
 
         <section id="genel" aria-labelledby="genel-heading">
-          <h2 id="genel-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h2 id="genel-heading" className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Genel bakış
           </h2>
           <Card className="!p-4">
@@ -220,7 +220,7 @@ export default async function TeacherStudentWorkspacePage({
               />
             </dl>
             {student.specialNotes || student.notes ? (
-              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              <p className="mt-3 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 text-xs text-[var(--color-text-muted)] dark:bg-slate-800 dark:text-slate-300">
                 {student.specialNotes || student.notes}
               </p>
             ) : null}
@@ -235,11 +235,11 @@ export default async function TeacherStudentWorkspacePage({
         </section>
 
         <section id="dersler" aria-labelledby="dersler-heading">
-          <h2 id="dersler-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h2 id="dersler-heading" className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Dersler
           </h2>
 
-          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
             Yaklaşan
           </p>
           {upcoming.length === 0 ? (
@@ -253,10 +253,10 @@ export default async function TeacherStudentWorkspacePage({
                   <Card key={lesson.id} className="!p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                        <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">
                           {formatDateTime(lesson.startAt)}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                           {lesson.instrument} · {room?.name ?? "—"}
                           {lesson.type === "makeup" ? " · Telafi" : ""}
                         </p>
@@ -274,7 +274,7 @@ export default async function TeacherStudentWorkspacePage({
             </div>
           )}
 
-          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
             Geçmiş
           </p>
           {past.length === 0 ? (
@@ -287,10 +287,10 @@ export default async function TeacherStudentWorkspacePage({
                   <Card key={lesson.id} className="!p-3">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <div>
-                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                        <p className="font-medium text-[var(--color-text)] dark:text-slate-200">
                           {formatDate(lesson.startAt)} · {formatTime(lesson.startAt)}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{lesson.instrument}</p>
+                        <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{lesson.instrument}</p>
                       </div>
                       <Badge status={attendance?.status ?? lesson.status} />
                     </div>
@@ -302,7 +302,7 @@ export default async function TeacherStudentWorkspacePage({
         </section>
 
         <section id="odevler" aria-labelledby="odevler-heading">
-          <h2 id="odevler-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h2 id="odevler-heading" className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Ödevler
           </h2>
 
@@ -328,9 +328,9 @@ export default async function TeacherStudentWorkspacePage({
                 <Card key={hw.id} className="!p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-slate-50">{hw.title}</p>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{hw.description}</p>
-                      <p className="mt-1 text-xs text-slate-400">Son teslim: {formatDate(hw.dueDate)}</p>
+                      <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{hw.title}</p>
+                      <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{hw.description}</p>
+                      <p className="mt-1 text-xs text-[var(--color-text-muted)]">Son teslim: {formatDate(hw.dueDate)}</p>
                     </div>
                     <Badge status={submissions.length > 0 ? "completed" : "pending"}>
                       {submissions.length > 0 ? "Teslim edildi" : "Bekliyor"}
@@ -339,14 +339,14 @@ export default async function TeacherStudentWorkspacePage({
                   {submissions.map((sub) => (
                     <div
                       key={sub.id}
-                      className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-800/50"
+                      className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5 dark:border-slate-800 dark:bg-slate-800/50"
                     >
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         Teslim: {formatDateTime(sub.submittedAt)}
                         {sub.fileName ? ` · ${sub.fileName}` : ""}
                       </p>
                       {sub.note ? (
-                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{sub.note}</p>
+                        <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-slate-300">{sub.note}</p>
                       ) : null}
                       {sub.fileData ? (
                         <a
@@ -376,12 +376,12 @@ export default async function TeacherStudentWorkspacePage({
         </section>
 
         <section id="materyal" aria-labelledby="materyal-heading">
-          <h2 id="materyal-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h2 id="materyal-heading" className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Materyal / müfredat
           </h2>
 
           <Card className="mb-3 !p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Profil</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Profil</p>
             <dl className="mt-2 grid grid-cols-2 gap-3 text-sm">
               <ProfileField label="Program türü" value={student.studentType ?? "Belirtilmemiş"} />
               <ProfileField label="Seviye" value={student.level ?? "Belirtilmemiş"} />
@@ -397,7 +397,7 @@ export default async function TeacherStudentWorkspacePage({
                 %{curriculumOverall}
               </p>
             </div>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{curriculumExplain}</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{curriculumExplain}</p>
           </Card>
 
           <Card className="mb-3">
@@ -416,15 +416,15 @@ export default async function TeacherStudentWorkspacePage({
                 <Card key={topic.id} className="!p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-slate-50">{topic.title}</p>
+                      <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{topic.title}</p>
                       {topic.description ? (
-                        <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{topic.description}</p>
+                        <p className="mt-0.5 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{topic.description}</p>
                       ) : null}
-                      <p className="mt-1 text-[11px] text-slate-400">
+                      <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                         Son güncelleme: {formatDateTime(topic.updatedAt)} · {topic.updatedBy}
                       </p>
                       {topic.notes ? (
-                        <p className="mt-1 text-xs text-slate-500">Not: {topic.notes}</p>
+                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">Not: {topic.notes}</p>
                       ) : null}
                     </div>
                     <div className="text-right">
@@ -434,10 +434,10 @@ export default async function TeacherStudentWorkspacePage({
                   </div>
                   {topic.history?.length ? (
                     <details className="mt-2">
-                      <summary className="cursor-pointer text-[11px] font-medium text-slate-500">
+                      <summary className="cursor-pointer text-[11px] font-medium text-[var(--color-text-muted)]">
                         Geçmiş ({topic.history.length})
                       </summary>
-                      <ul className="mt-1 space-y-1 text-[11px] text-slate-500">
+                      <ul className="mt-1 space-y-1 text-[11px] text-[var(--color-text-muted)]">
                         {[...topic.history].reverse().slice(0, 8).map((ev, i) => (
                           <li key={`${topic.id}-h-${i}`}>
                             {formatDateTime(ev.at)} · {ev.action}
@@ -460,7 +460,7 @@ export default async function TeacherStudentWorkspacePage({
             </div>
           )}
 
-          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
             Paylaşılan materyaller
           </p>
           {materials.length === 0 ? (
@@ -472,9 +472,9 @@ export default async function TeacherStudentWorkspacePage({
             <div className="space-y-2">
               {materials.map((m) => (
                 <Card key={m.id} className="!p-4">
-                  <p className="font-medium text-slate-900 dark:text-slate-50">{m.title}</p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{m.description}</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{m.title}</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{m.description}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                     {[m.targetStudentType, m.targetInstrument, m.targetLevel].filter(Boolean).join(" · ") ||
                       "Tüm öğrencilere görünür"}
                   </p>
@@ -491,13 +491,13 @@ export default async function TeacherStudentWorkspacePage({
         </section>
 
         <section id="gelisim" aria-labelledby="gelisim-heading">
-          <h2 id="gelisim-heading" className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h2 id="gelisim-heading" className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">
             Gelişim
           </h2>
 
           {trend.length > 0 ? (
             <Card className="mb-3 !p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
                 Son skor trendi
               </p>
               <div className="mt-2 flex flex-wrap items-end gap-2">
@@ -509,14 +509,14 @@ export default async function TeacherStudentWorkspacePage({
                     <span className="text-sm font-semibold text-amber-700">
                       {point.overallScore.toFixed(1)}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-[var(--color-text-muted)]">
                       {formatDate(point.date, "d MMM")}
                     </span>
                   </div>
                 ))}
               </div>
               {pastAssessments.length > 0 ? (
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
                   Son ortalama:{" "}
                   <span className="font-semibold text-amber-700">
                     {computeOverallScore(pastAssessments[0]!).toFixed(1)} / 5
@@ -538,7 +538,7 @@ export default async function TeacherStudentWorkspacePage({
               Yeni gelişim değerlendirmesi
             </p>
             {assessmentLessons.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Bu öğrenciyle henüz ders kaydı yok; değerlendirme bir derse bağlanır.
               </p>
             ) : (
@@ -550,7 +550,7 @@ export default async function TeacherStudentWorkspacePage({
             )}
           </Card>
 
-          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
             Geçmiş değerlendirmeler
           </p>
           {pastAssessments.length === 0 ? (
@@ -567,10 +567,10 @@ export default async function TeacherStudentWorkspacePage({
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-amber-500" aria-hidden />
                         <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                          <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">
                             {formatDate(a.createdAt, "d MMMM yyyy")}
                           </p>
-                          <p className="text-xs text-slate-400 line-clamp-1">{a.strengthNote}</p>
+                          <p className="text-xs text-[var(--color-text-muted)] line-clamp-1">{a.strengthNote}</p>
                         </div>
                       </div>
                       <p className="text-sm font-semibold text-amber-700">
@@ -591,11 +591,11 @@ export default async function TeacherStudentWorkspacePage({
 function NotFoundShell({ backHref, message }: { backHref: string; message: string }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-4">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> Geri
           </Link>
@@ -620,7 +620,7 @@ function SectionChip({
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:border-cyan-200 hover:text-cyan-800"
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-muted)] hover:border-cyan-200 hover:text-cyan-800"
     >
       {icon}
       {label}
@@ -631,8 +631,8 @@ function SectionChip({
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">{value}</dd>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">{label}</dt>
+      <dd className="mt-0.5 font-medium text-[var(--color-text)] dark:text-slate-200">{value}</dd>
     </div>
   );
 }
@@ -640,8 +640,8 @@ function ProfileField({ label, value }: { label: string; value: string }) {
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <Card className="!p-2 text-center">
-      <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{value}</p>
-      <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{value}</p>
+      <p className="text-[10px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{label}</p>
     </Card>
   );
 }

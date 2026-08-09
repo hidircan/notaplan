@@ -110,7 +110,7 @@ export function TeacherAvailabilityForm({ current }: { current: AvailabilityWind
       {rows.map((row, idx) => (
         <div
           key={idx}
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 dark:border-slate-700 dark:bg-slate-900"
         >
           <Select
             value={row.dayOfWeek}
@@ -130,7 +130,7 @@ export function TeacherAvailabilityForm({ current }: { current: AvailabilityWind
             onChange={(e) => updateRow(idx, { start: e.target.value })}
             className="!w-28"
           />
-          <span className="text-xs text-slate-400">–</span>
+          <span className="text-xs text-[var(--color-text-muted)]">–</span>
           <Input
             type="time"
             value={row.end}

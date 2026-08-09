@@ -130,9 +130,9 @@ export function CsvImportSection<T,>({
     <Card>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
-          <p className="mt-1 text-xs text-slate-400">Sütunlar: {columns.join(", ")}</p>
+          <h3 className="font-semibold text-[var(--color-text)] dark:text-slate-50">{title}</h3>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{description}</p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">Sütunlar: {columns.join(", ")}</p>
         </div>
         <a
           href={downloadHref}
@@ -153,20 +153,20 @@ export function CsvImportSection<T,>({
             ? "border-amber-400 bg-amber-50"
             : fileName
               ? "border-emerald-300 bg-emerald-50/40"
-              : "border-slate-300 bg-slate-50/60"
+              : "border-slate-300 bg-[var(--color-surface-muted)]/60"
         )}
       >
         {fileName ? (
           <>
             <FileText className="h-6 w-6 text-emerald-600" />
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{fileName}</p>
+            <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-200">{fileName}</p>
             <span className="pointer-events-none text-xs font-medium text-amber-600">Değiştir</span>
           </>
         ) : (
           <>
-            <UploadCloud className="h-6 w-6 text-slate-400" />
-            <p className="text-sm text-slate-600 dark:text-slate-400">CSV dosyanızı buraya sürükleyin veya seçin</p>
-            <span className="pointer-events-none inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200">
+            <UploadCloud className="h-6 w-6 text-[var(--color-text-muted)]" />
+            <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">CSV dosyanızı buraya sürükleyin veya seçin</p>
+            <span className="pointer-events-none inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] shadow-sm ring-1 ring-slate-200">
               Dosya seç
             </span>
           </>
@@ -200,7 +200,7 @@ export function CsvImportSection<T,>({
           <button
             type="button"
             onClick={handleResetFile}
-            className="text-xs font-medium text-slate-400 hover:text-slate-600 dark:text-slate-400"
+            className="text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]"
           >
             Dosyayı kaldır
           </button>
@@ -210,22 +210,22 @@ export function CsvImportSection<T,>({
       {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
 
       {preview ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
+        <div className="mt-4 border-t border-[var(--color-border)] pt-4">
           {preview.totalRows === 1 ? (
             <p className="mb-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
               Dosyadan yalnızca 1 kayıt okunabildi. CSV ayıracı ve satır formatını kontrol edin.
             </p>
           ) : null}
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <p className="text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">
             Toplam {preview.totalRows} satır · Geçerli {preview.validCount} · Hatalı {preview.errorCount}
           </p>
 
           {preview.readRows.length > 0 ? (
             <div className="mt-2">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Okunan kayıtlar {preview.totalRows > preview.readRows.length ? `(ilk ${preview.readRows.length})` : ""}
               </p>
-              <div className="mt-1 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-700 dark:text-slate-300">
+              <div className="mt-1 max-h-52 space-y-1 overflow-y-auto rounded-lg bg-[var(--color-surface-muted)] p-2 text-xs text-[var(--color-text-muted)] dark:text-slate-300">
                 {preview.readRows.map((r) => (
                   <p key={r.row}>
                     Satır {r.row} — {r.summary}

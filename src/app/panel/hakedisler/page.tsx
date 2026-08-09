@@ -87,16 +87,16 @@ export default async function TeacherPayoutOverviewPage({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/panel/hakedisler?month=${prevMonthParam}`}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
         >
           <ChevronLeft className="h-4 w-4" /> Önceki ay
         </Link>
-        <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200">
+        <span className="rounded-lg bg-[var(--color-surface)] px-3 py-1.5 text-sm font-semibold text-[var(--color-text)] ring-1 ring-slate-200">
           {format(monthAnchor, "MMMM yyyy", { locale: tr })}
         </span>
         <Link
           href={`/panel/hakedisler?month=${nextMonthParam}`}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
         >
           Sonraki ay <ChevronRight className="h-4 w-4" />
         </Link>
@@ -115,7 +115,7 @@ export default async function TeacherPayoutOverviewPage({
             <select
               name="teacherId"
               defaultValue={teacherFilter ?? ""}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-muted)]"
             >
               <option value="">Tüm öğretmenler</option>
               {activeTeachers.map((t) => (
@@ -127,7 +127,7 @@ export default async function TeacherPayoutOverviewPage({
             <select
               name="status"
               defaultValue={statusFilter ?? ""}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-muted)]"
             >
               <option value="">Tüm durumlar</option>
               <option value="pending">Bekliyor</option>
@@ -136,20 +136,20 @@ export default async function TeacherPayoutOverviewPage({
             </select>
             <button
               type="submit"
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               Filtrele
             </button>
             {teacherFilter || statusFilter ? (
               <Link
                 href={`/panel/hakedisler?month=${monthParam}`}
-                className="text-xs font-medium text-slate-500 hover:text-rose-600"
+                className="text-xs font-medium text-[var(--color-text-muted)] hover:text-rose-600"
               >
                 Filtreleri Temizle
               </Link>
             ) : null}
           </form>
-          <span className="ml-auto text-xs font-medium text-slate-500">
+          <span className="ml-auto text-xs font-medium text-[var(--color-text-muted)]">
             {filteredRows.length} öğretmen
           </span>
         </div>
@@ -160,7 +160,7 @@ export default async function TeacherPayoutOverviewPage({
       ) : (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
               <tr>
                 <th className="px-4 py-3">Öğretmen</th>
                 <th className="px-4 py-3">Ders sayısı</th>
@@ -172,8 +172,8 @@ export default async function TeacherPayoutOverviewPage({
             <tbody>
               {filteredRows.map((r) => (
                 <tr key={r.teacher.id} className="border-b border-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{r.teacher.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{r.lessonCount}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--color-text)]">{r.teacher.name}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)]">{r.lessonCount}</td>
                   <td className="px-4 py-3 font-medium">{formatMoney(r.totalAmount)}</td>
                   <td className="px-4 py-3">
                     <Badge status={r.status === "no_lessons" ? undefined : r.status}>

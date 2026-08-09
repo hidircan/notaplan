@@ -19,7 +19,7 @@ export default async function SubelerPage() {
         <div className="space-y-4 lg:col-span-2">
           {branches.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Henüz şube eklenmedi.</p>
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Henüz şube eklenmedi.</p>
             </Card>
           ) : (
             branches.map((b) => {
@@ -30,32 +30,32 @@ export default async function SubelerPage() {
                 <Card key={b.id}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">{b.name}</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <h3 className="font-semibold text-[var(--color-text)] dark:text-slate-50">{b.name}</h3>
+                      <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {b.shortName} · {b.city}
                       </p>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                         {b.address} · {b.phone}
                       </p>
                     </div>
-                    <div className="flex gap-2 text-center text-xs text-slate-500 dark:text-slate-400">
-                      <div className="rounded-lg bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{teacherCount}</p>
+                    <div className="flex gap-2 text-center text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
+                        <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">{teacherCount}</p>
                         Öğretmen
                       </div>
-                      <div className="rounded-lg bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{studentCount}</p>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
+                        <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">{studentCount}</p>
                         Öğrenci
                       </div>
-                      <div className="rounded-lg bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{roomCount}</p>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
+                        <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">{roomCount}</p>
                         Oda
                       </div>
                     </div>
                   </div>
 
-                  <details className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                    <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-400">
+                  <details className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/50 p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       Düzenle
                     </summary>
                     <form action={actionUpdateBranch} className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -94,7 +94,7 @@ export default async function SubelerPage() {
         </div>
 
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900 dark:text-slate-50">Yeni şube</h2>
+          <h2 className="mb-4 font-semibold text-[var(--color-text)] dark:text-slate-50">Yeni şube</h2>
           <form action={actionAddBranch} className="space-y-3">
             <div>
               <Label>Ad</Label>

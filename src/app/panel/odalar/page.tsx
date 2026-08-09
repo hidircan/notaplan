@@ -31,7 +31,7 @@ export default async function OdalarPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 overflow-hidden p-0">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
               <tr>
                 <th className="px-4 py-3">Oda</th>
                 <th className="px-4 py-3">Şube</th>
@@ -43,18 +43,18 @@ export default async function OdalarPage() {
             <tbody>
               {rooms.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     Henüz aktif oda yok.
                   </td>
                 </tr>
               ) : (
                 rooms.map((room) => (
                   <tr key={room.id} className="border-b border-slate-50 align-top dark:border-slate-800">
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{room.name}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                    <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">{room.name}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       {data.settings.branches.find((b) => b.id === room.branchId)?.shortName}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{room.capacity}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{room.capacity}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {room.instruments.map((i) => (
@@ -75,7 +75,7 @@ export default async function OdalarPage() {
         </Card>
 
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900 dark:text-slate-50">Yeni oda</h2>
+          <h2 className="mb-4 font-semibold text-[var(--color-text)] dark:text-slate-50">Yeni oda</h2>
           <form action={actionAddRoom} className="space-y-3">
             <div>
               <Label>Ad</Label>
@@ -97,9 +97,9 @@ export default async function OdalarPage() {
             </div>
             <div>
               <Label>Desteklenen enstrümanlar</Label>
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 p-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--color-border)] p-3">
                 {INSTRUMENTS.map((instrument) => (
-                  <label key={instrument} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                  <label key={instrument} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
                     <input type="checkbox" name="instruments" value={instrument} />
                     {instrument}
                   </label>
@@ -115,16 +115,16 @@ export default async function OdalarPage() {
 
       {canManage && archivedRooms.length > 0 ? (
         <Card className="mt-6">
-          <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Pasif Odalar</h2>
+          <h2 className="mb-3 font-semibold text-[var(--color-text)] dark:text-slate-50">Pasif Odalar</h2>
           <div className="space-y-2">
             {archivedRooms.map((room) => (
               <div
                 key={room.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/60"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5 dark:border-slate-800 dark:bg-slate-900/60"
               >
                 <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{room.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">{room.name}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     {data.settings.branches.find((b) => b.id === room.branchId)?.shortName} · Kapasite {room.capacity}
                   </p>
                 </div>

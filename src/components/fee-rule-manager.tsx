@@ -132,17 +132,17 @@ export function FeeRuleManager({
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2 overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Mevcut kurallar</h2>
-          <span className="text-xs text-slate-400">{sortedRules.length} kural</span>
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] p-4">
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Mevcut kurallar</h2>
+          <span className="text-xs text-[var(--color-text-muted)]">{sortedRules.length} kural</span>
         </div>
         {sortedRules.length === 0 ? (
-          <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          <p className="p-6 text-center text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Henüz hiçbir öğretmen için ücret kuralı tanımlanmadı.
           </p>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
               <tr>
                 <th className="px-4 py-3">Öğretmen</th>
                 <th className="px-4 py-3">Şube</th>
@@ -155,13 +155,13 @@ export function FeeRuleManager({
             <tbody>
               {sortedRules.map((r) => (
                 <tr key={r.id} className={`border-b border-slate-50 ${editingRuleId === r.id ? "bg-amber-50/50" : ""}`}>
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{teacherName(r.teacherId)}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{branchName(r.branchId)}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                  <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">{teacherName(r.teacherId)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{branchName(r.branchId)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     {r.instrument ?? <Badge>Tüm enstrümanlar</Badge>}
                   </td>
                   <td className="px-4 py-3 font-medium">{formatMoney(roundToCents(r.perMinuteRate * 60))}/sa</td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     {formatDate(r.effectiveFrom)} –{" "}
                     {r.effectiveTo ? formatDate(r.effectiveTo) : "süresiz"}
                   </td>
@@ -185,14 +185,14 @@ export function FeeRuleManager({
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">
             {editingRuleId ? "Kuralı düzenle" : "Yeni kural ekle"}
           </h2>
           {editingRuleId ? (
             <button
               type="button"
               onClick={cancelEdit}
-              className="text-slate-400 hover:text-slate-700 dark:text-slate-300"
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-slate-300"
               aria-label="Düzenlemeyi iptal et"
             >
               <X className="h-4 w-4" />

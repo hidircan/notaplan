@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import {
   CalendarDays,
@@ -79,10 +78,7 @@ export default async function LandingPage() {
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/95">
-            <Image src={BRAND.logoMarkPath} alt={BRAND.name} width={36} height={28} className="h-6 w-auto" />
-          </div>
-          <span className="font-semibold tracking-wide">{BRAND.name}</span>
+          <span className="text-xl font-extrabold uppercase tracking-wide">{BRAND.name}</span>
         </div>
         <nav className="hidden items-center gap-6 text-sm text-slate-300 sm:flex">
           <a href="#ozellikler" className="hover:text-white">
@@ -93,14 +89,14 @@ export default async function LandingPage() {
           </a>
           <Link
             href="/login"
-            className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-amber-100"
+            className="rounded-xl bg-[var(--color-surface)] px-4 py-2 font-medium text-[var(--color-text)] hover:bg-amber-100"
           >
             Giriş
           </Link>
         </nav>
         <Link
           href="/login"
-          className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-900 sm:hidden"
+          className="rounded-xl bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text)] sm:hidden"
         >
           Giriş
         </Link>
@@ -134,13 +130,13 @@ export default async function LandingPage() {
           </Link>
           <Link
             href="/login?next=/veli"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[var(--color-surface)]/5 px-5 py-3 text-sm font-medium hover:bg-[var(--color-surface)]/10"
           >
             Veli portalı
           </Link>
           <Link
             href="/login?next=/ogretmen"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[var(--color-surface)]/5 px-5 py-3 text-sm font-medium hover:bg-[var(--color-surface)]/10"
           >
             Öğretmen portalı
           </Link>
@@ -150,18 +146,18 @@ export default async function LandingPage() {
       {/* Features */}
       <section id="ozellikler" className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="text-center text-3xl font-semibold">Okulun her gün kullandığı araçlar</h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-slate-400">
+        <p className="mx-auto mt-3 max-w-xl text-center text-[var(--color-text-muted)]">
           Excel ve WhatsApp gruplarını bırakın. Okul, öğretmen, veli ve öğrenci verisini tek yerden yönetin.
         </p>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {features.map((f) => (
             <div
               key={f.title}
-              className="rounded-lg border border-white/10 bg-white/[0.04] p-6"
+              className="rounded-lg border border-white/10 bg-[var(--color-surface)]/[0.04] p-6"
             >
               <f.icon className="h-8 w-8 text-amber-300" />
               <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -173,11 +169,11 @@ export default async function LandingPage() {
       {/* Workflow */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="text-center text-3xl font-semibold">Gerçek kullanım akışı</h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-slate-400">
+        <p className="mx-auto mt-3 max-w-xl text-center text-[var(--color-text-muted)]">
           Uygulamayı bir müzik okulu yöneticisi gibi kullanın: yoklamayı kaydedin, telafi hakkını yönetin, uygun slotları önerin ve veli/öğretmene bildirim gönderin.
         </p>
         <div className="mt-10 grid gap-5 md:grid-cols-4">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div className="rounded-3xl border border-white/10 bg-[var(--color-surface)]/[0.03] p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               1. Yoklama
             </p>
@@ -185,7 +181,7 @@ export default async function LandingPage() {
               Dersi seçin, devamsızlık veya okul iptalini işaretleyin. Sistem otomatik telafi hakkı oluşturur.
             </p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div className="rounded-3xl border border-white/10 bg-[var(--color-surface)]/[0.03] p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               2. Telafi talebi
             </p>
@@ -193,7 +189,7 @@ export default async function LandingPage() {
               Açık telafi talepleri panelde görünür. Hangi öğrencinin hangi dersi telafi edeceğini izleyin.
             </p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div className="rounded-3xl border border-white/10 bg-[var(--color-surface)]/[0.03] p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               3. Uygun slot
             </p>
@@ -201,7 +197,7 @@ export default async function LandingPage() {
               Şube, öğretmen ve oda müsaitliğine göre öneriler sunar. Tek tıkla en iyi telafi zamanını seçin.
             </p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div className="rounded-3xl border border-white/10 bg-[var(--color-surface)]/[0.03] p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
               4. Bildirim
             </p>
@@ -213,10 +209,10 @@ export default async function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="fiyat" className="border-t border-white/10 bg-white/[0.02] py-20">
+      <section id="fiyat" className="border-t border-white/10 bg-[var(--color-surface)]/[0.02] py-20">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-semibold">Fiyatlandırma</h2>
-          <p className="mx-auto mt-3 max-w-lg text-center text-slate-400">
+          <p className="mx-auto mt-3 max-w-lg text-center text-[var(--color-text-muted)]">
             İlk okula pilot + kurulum. Fiyatlar referans; sözleşmede netleşir.
           </p>
           <div className="mt-10 grid gap-5 lg:grid-cols-3">
@@ -226,7 +222,7 @@ export default async function LandingPage() {
                 className={`rounded-3xl border p-6 ${
                   p.highlighted
                     ? "border-amber-400/50 bg-gradient-to-b from-amber-600/30 to-transparent shadow-xl shadow-amber-900/40"
-                    : "border-white/10 bg-white/[0.03]"
+                    : "border-white/10 bg-[var(--color-surface)]/[0.03]"
                 }`}
               >
                 {p.highlighted ? (
@@ -235,10 +231,10 @@ export default async function LandingPage() {
                   </span>
                 ) : null}
                 <h3 className="mt-2 text-xl font-semibold">{p.name}</h3>
-                <p className="mt-1 text-sm text-slate-400">{p.blurb}</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">{p.blurb}</p>
                 <p className="mt-4">
                   <span className="text-3xl font-semibold">{p.price}</span>
-                  <span className="text-slate-400">{p.period}</span>
+                  <span className="text-[var(--color-text-muted)]">{p.period}</span>
                 </p>
                 <ul className="mt-5 space-y-2">
                   {p.features.map((f) => (
@@ -252,8 +248,8 @@ export default async function LandingPage() {
                   href="/panel"
                   className={`mt-6 flex w-full items-center justify-center rounded-xl py-2.5 text-sm font-semibold ${
                     p.highlighted
-                      ? "bg-white text-slate-900 hover:bg-amber-100"
-                      : "border border-white/15 hover:bg-white/10"
+                      ? "bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-amber-100"
+                      : "border border-white/15 hover:bg-[var(--color-surface)]/10"
                   }`}
                 >
                   {p.cta}
@@ -267,7 +263,7 @@ export default async function LandingPage() {
       {/* CTA */}
       <section className="mx-auto max-w-6xl px-6 py-16 text-center">
         <h2 className="text-2xl font-semibold sm:text-3xl">Okula götürmeye hazır demo</h2>
-        <p className="mx-auto mt-3 max-w-xl text-slate-400">
+        <p className="mx-auto mt-3 max-w-xl text-[var(--color-text-muted)]">
           Panel, veli ve öğretmen arayüzleri hazır. Veri yerel demo store&apos;da; sıfırdan
           sıfırlanabilir.
         </p>
@@ -281,7 +277,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+      <footer className="border-t border-white/10 py-8 text-center text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
         {BRAND.name} · github.com/hidircan
       </footer>
     </div>

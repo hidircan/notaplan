@@ -15,7 +15,7 @@ export function WeekDatePicker({ value }: { value: string }) {
         }
       }}
       aria-label="Tarih seç"
-      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
     />
   );
 }

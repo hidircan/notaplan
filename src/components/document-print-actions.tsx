@@ -9,7 +9,7 @@ export function DocumentPrintActions({ backHref }: { backHref: string }) {
     <div className="mb-4 flex items-center justify-between print:hidden">
       <Link
         href={backHref}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
       >
         <ArrowLeft className="h-4 w-4" /> Evrak detayına dön
       </Link>

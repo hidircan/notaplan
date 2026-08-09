@@ -72,18 +72,18 @@ export default async function ParentTeacherFeedbackPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-slate-50">
-      <header className="border-b border-amber-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-amber-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+          <Link href="/veli" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900">Öğretmen değerlendirmesi</p>
+          <p className="text-sm font-semibold text-[var(--color-text)]">Öğretmen değerlendirmesi</p>
           <span className="w-10" />
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
-        <p className="px-1 text-xs text-slate-500">
+        <p className="px-1 text-xs text-[var(--color-text-muted)]">
           Bu geri bildirim yalnızca okul yönetimi tarafından görüntülenir; öğretmenin kendisine veya başka
           bir veliye gösterilmez.
         </p>

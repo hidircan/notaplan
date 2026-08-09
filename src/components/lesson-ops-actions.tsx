@@ -153,7 +153,7 @@ export function LessonOpsActions({
         "inline-flex items-center rounded-md border px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-50",
         compact && "px-2 py-1 text-[11px]",
         active && TONE_CLASS[tone],
-        !active && "border-stone-300 bg-white text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+        !active && "border-stone-300 bg-[var(--color-surface)] text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
       )}
     >
       {busy === flag ? "…" : label}
@@ -203,7 +203,7 @@ export function LessonOpsActions({
             <button
               type="button"
               onClick={() => setPendingSwitch(null)}
-              className="rounded-md border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-700 hover:bg-stone-50"
+              className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2 py-1 text-[11px] font-semibold text-stone-700 hover:bg-stone-50"
             >
               Vazgeç
             </button>

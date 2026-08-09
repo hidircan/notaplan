@@ -30,12 +30,12 @@ export default async function TeacherOwnPayoutsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <Link href="/ogretmen" className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             <ArrowLeft className="h-4 w-4" /> Geri
           </Link>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geçmiş Hakedişlerim</p>
+          <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Geçmiş Hakedişlerim</p>
           <span className="w-10" />
         </div>
       </header>
@@ -43,7 +43,7 @@ export default async function TeacherOwnPayoutsPage() {
       <main className="mx-auto max-w-lg space-y-3 px-4 py-6 pb-24">
         {payouts.length === 0 ? (
           <Card>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Henüz oluşturulmuş bir hakediş kaydınız yok.</p>
+            <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Henüz oluşturulmuş bir hakediş kaydınız yok.</p>
           </Card>
         ) : (
           payouts.map((p) => (
@@ -51,14 +51,14 @@ export default async function TeacherOwnPayoutsPage() {
               <Card className="transition hover:border-cyan-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
+                    <p className="font-medium text-[var(--color-text)] dark:text-slate-50">
                       {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       {p.totalMinutes} dk · {formatMoney(p.totalAmount)}
                     </p>
                     {p.status === "paid" && p.paidAt ? (
-                      <p className="mt-0.5 text-[11px] text-slate-400">
+                      <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
                         Ödendi: {formatDate(p.paidAt)}
                         {p.method ? ` · ${p.method}` : ""}
                       </p>

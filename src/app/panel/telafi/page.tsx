@@ -74,7 +74,7 @@ export default async function TelafiPage() {
 
       {open.length > 0 ? (
         <Card className="mb-6">
-          <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+          <p className="mb-2 text-sm font-medium text-[var(--color-text)] dark:text-slate-200">
             {open.length} açık talep — hangisine önce bakmalısınız?
           </p>
           <AiInsightTrigger
@@ -98,7 +98,7 @@ export default async function TelafiPage() {
         </Card>
       ) : null}
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Aksiyon bekleyenler</h2>
+      <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Aksiyon bekleyenler</h2>
       {open.length === 0 ? (
         <EmptyState
           title="Açık telafi talebi yok"
@@ -114,20 +114,20 @@ export default async function TelafiPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{student?.name}</h3>
+                      <h3 className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{student?.name}</h3>
                       <Badge status={req.status} />
                       <Badge status="makeup">{req.instrument}</Badge>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       Tercih öğretmen: <span className="font-medium">{teacher?.name}</span> ·{" "}
                       {data.settings.branches.find((b) => b.id === req.branchId)?.shortName} ·{" "}
                       {req.reason}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                       Oluşturulma: {formatDateTime(req.createdAt)} · Son kullanım:{" "}
                       {formatDateTime(req.expiresAt)}
                     </p>
-                    <p className="mt-2 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:text-slate-400">
+                    <p className="mt-2 inline-flex rounded-lg bg-[var(--color-surface-muted)] px-2 py-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       {req.policyNote}
                     </p>
                     {canWrite ? (
@@ -164,11 +164,11 @@ export default async function TelafiPage() {
                 </div>
 
                 {req.suggestedSlots.length > 0 ? (
-                  <div className="mt-5 border-t border-slate-100 pt-4">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                  <div className="mt-5 border-t border-[var(--color-border)] pt-4">
+                    <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-200">
                       Önerilen slotlar (skora göre sıralı)
                     </p>
-                    <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mb-3 mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       Bunlar en yüksek puanlı uygun seçeneklerdir; başka bir saat da
                       planlayabilirsiniz.
                     </p>
@@ -180,18 +180,18 @@ export default async function TelafiPage() {
                         return (
                           <div
                             key={`${slot.startAt}-${slot.teacherId}-${idx}`}
-                            className="rounded-xl border border-slate-200 bg-slate-50/80 p-4"
+                            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/80 p-4"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className="font-semibold text-slate-900 dark:text-slate-50">
+                                <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">
                                   {formatDateTime(slot.startAt)}
                                 </p>
-                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                                   {formatTime(slot.startAt)}–{formatTime(slot.endAt)} ·{" "}
                                   {slotTeacher?.name}
                                 </p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                                   {branch?.shortName} · {room?.name}
                                 </p>
                               </div>
@@ -201,7 +201,7 @@ export default async function TelafiPage() {
                             </div>
                             <ul className="mt-2 space-y-0.5">
                               {slot.reasons.map((r) => (
-                                <li key={r} className="text-[11px] text-slate-500 dark:text-slate-400">
+                                <li key={r} className="text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                                   · {r}
                                 </li>
                               ))}
@@ -232,7 +232,7 @@ export default async function TelafiPage() {
                     </form>
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-4 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     Henüz saat önerilmedi. “En uygun saatleri bul” ile öğretmen müsaitliği, oda ve
                     çakışmaları tarayın.
                   </p>
@@ -247,7 +247,7 @@ export default async function TelafiPage() {
                     .map((r) => ({ id: r.id, name: r.name, branchId: r.branchId }));
                   if (!student || teachers.length === 0 || rooms.length === 0) return null;
                   return (
-                    <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                       <ManualMakeupPlanForm
                         requestId={req.id}
                         preferredTeacherId={req.teacherId}
@@ -267,10 +267,10 @@ export default async function TelafiPage() {
       )}
 
       <div className="mb-3 mt-10 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Geçmiş / tamamlanan</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Geçmiş / tamamlanan</h2>
         <a
           href="/api/v1/export?entity=makeupRequests"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <Download className="h-3.5 w-3.5" /> Tüm talepleri CSV indir
         </a>
@@ -278,7 +278,7 @@ export default async function TelafiPage() {
       {done.length > 0 ? (
           <Card className="overflow-hidden p-0">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+              <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
                 <tr>
                   <th className="px-4 py-3">Öğrenci</th>
                   <th className="px-4 py-3">Enstrüman</th>
@@ -295,24 +295,24 @@ export default async function TelafiPage() {
                   const lesson = data.lessons.find((l) => l.id === req.confirmedLessonId);
                   return (
                     <tr key={req.id} className="border-b border-slate-50 dark:border-slate-800">
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{student?.name}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{req.instrument}</td>
+                      <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">{student?.name}</td>
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{req.instrument}</td>
                       <td className="px-4 py-3">
                         <Badge status={req.status} />
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {lesson ? formatDateTime(lesson.startAt) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {req.slaDeadline ? formatDateTime(req.slaDeadline) : "—"}
                         {(req.slaEscalationLevel ?? 0) >= 5 ? (
                           <span className="ml-1 font-semibold text-rose-600">Aşıldı</span>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {req.decisionNote ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {req.decidedAt ? formatDateTime(req.decidedAt) : "—"}
                       </td>
                     </tr>

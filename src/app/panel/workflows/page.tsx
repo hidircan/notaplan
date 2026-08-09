@@ -30,16 +30,16 @@ export default async function WorkflowsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{w.name}</h2>
+                  <h2 className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{w.name}</h2>
                   <Badge status={w.state.enabled ? "confirmed" : "cancelled"}>
                     {w.state.enabled ? "aktif" : "kapalı"}
                   </Badge>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-[var(--color-text-muted)]">
                     her {w.intervalMinutes} dk
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{w.description}</p>
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{w.description}</p>
+                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
                   id: <code className="font-mono">{w.id}</code>
                   {w.state.lastRunAt
                     ? ` · son: ${formatDateTime(w.state.lastRunAt)}`
@@ -65,12 +65,12 @@ export default async function WorkflowsPage() {
       </div>
 
       <Card className="mt-8 overflow-hidden p-0">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Son çalıştırmalar</h2>
+        <div className="border-b border-[var(--color-border)] px-4 py-3">
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Son çalıştırmalar</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className="bg-[var(--color-surface-muted)] text-xs uppercase text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               <tr>
                 <th className="px-3 py-2">Workflow</th>
                 <th className="px-3 py-2">Zaman</th>
@@ -82,7 +82,7 @@ export default async function WorkflowsPage() {
             <tbody>
               {runs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-3 py-6 text-center text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                     Henüz çalıştırma yok. “Şimdi çalıştır” veya tick endpoint kullanın.
                   </td>
                 </tr>

@@ -117,10 +117,10 @@ export function DocumentTemplateManager({ templates }: { templates: TemplateRow[
 
       <div className="space-y-1.5">
         {templates.map((t) => (
-          <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+          <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--color-surface-muted)] px-3 py-2 text-sm">
             <div>
-              <span className="font-medium text-slate-800">{t.name}</span>{" "}
-              <span className="text-xs text-slate-500">
+              <span className="font-medium text-[var(--color-text)]">{t.name}</span>{" "}
+              <span className="text-xs text-[var(--color-text-muted)]">
                 ({KIND_OPTIONS.find((k) => k.value === t.kind)?.label ?? t.kind} · v{t.version}
                 {!t.active ? " · Arşivlendi" : ""})
               </span>
@@ -151,7 +151,7 @@ export function DocumentTemplateManager({ templates }: { templates: TemplateRow[
             </div>
           </div>
         ))}
-        {templates.length === 0 ? <p className="text-xs text-slate-500">Henüz şablon yok.</p> : null}
+        {templates.length === 0 ? <p className="text-xs text-[var(--color-text-muted)]">Henüz şablon yok.</p> : null}
       </div>
 
       {showForm ? (
@@ -181,7 +181,7 @@ export function DocumentTemplateManager({ templates }: { templates: TemplateRow[
               placeholder={editingId ? "Boş bırakılırsa mevcut içerik korunur…" : "<h1>Başlık</h1><p>{{student.fullName}}</p>"}
               className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 font-mono text-xs text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]/30"
             />
-            <p className="mt-1 text-[11px] text-slate-500">{PLACEHOLDER_HELP}</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">{PLACEHOLDER_HELP}</p>
             <p className="mt-1 text-[11px] text-amber-700">
               Kaydedilen içerik sunucuda otomatik temizlenir — script, iframe, event handler ve tehlikeli
               bağlantılar kaldırılır.

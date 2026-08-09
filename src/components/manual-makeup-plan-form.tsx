@@ -123,7 +123,7 @@ export function ManualMakeupPlanForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
       >
         <CalendarPlus className="h-4 w-4" /> Başka bir saat planla
       </button>
@@ -133,36 +133,36 @@ export function ManualMakeupPlanForm({
   return (
     <form
       onSubmit={(event) => void onSubmit(event)}
-      className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+      className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]/70 p-4"
     >
-      <p className="mb-3 text-sm font-medium text-slate-800 dark:text-slate-200">Başka bir saat planla</p>
+      <p className="mb-3 text-sm font-medium text-[var(--color-text)] dark:text-slate-200">Başka bir saat planla</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Tarih</label>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Tarih</label>
           <input
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
             required
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Başlangıç saati</label>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Başlangıç saati</label>
           <input
             type="time"
             value={time}
             onChange={(event) => setTime(event.target.value)}
             required
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Öğretmen</label>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Öğretmen</label>
           <select
             value={teacherId}
             onChange={(event) => onTeacherChange(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
           >
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>
@@ -172,11 +172,11 @@ export function ManualMakeupPlanForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Oda</label>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Oda</label>
           <select
             value={roomId}
             onChange={(event) => setRoomId(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
           >
             {availableRooms.length === 0 ? (
               <option value="">Bu öğretmenin şubesinde uygun oda yok</option>
@@ -191,7 +191,7 @@ export function ManualMakeupPlanForm({
         </div>
       </div>
       <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           Karar notu (zorunlu)
         </label>
         <textarea
@@ -200,7 +200,7 @@ export function ManualMakeupPlanForm({
           required
           rows={2}
           placeholder="Bu saat neden seçildi?"
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
         />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -210,7 +210,7 @@ export function ManualMakeupPlanForm({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-300"
+          className="text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] dark:text-slate-300"
         >
           Vazgeç
         </button>

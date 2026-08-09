@@ -166,7 +166,7 @@ export function DocumentCreateForm({
         {busy ? "İşleniyor…" : "Oluştur ve yazdır"}
       </Button>
       {printHtml ? (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 prose prose-sm max-w-none">
+        <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 prose prose-sm max-w-none">
           <div dangerouslySetInnerHTML={{ __html: printHtml }} />
         </div>
       ) : null}

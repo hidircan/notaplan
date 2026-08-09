@@ -22,8 +22,8 @@ function NoticeScreen({
 }) {
   return (
     <div className="mx-auto max-w-lg px-6 py-20 text-center">
-      <p className="text-lg font-semibold text-slate-900">{title}</p>
-      <p className="mt-2 text-sm text-slate-500">{description}</p>
+      <p className="text-lg font-semibold text-[var(--color-text)]">{title}</p>
+      <p className="mt-2 text-sm text-[var(--color-text-muted)]">{description}</p>
       <Link
         href={backHref}
         className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700"
@@ -95,50 +95,50 @@ export default async function ReceiptPage({
   const issuedAtIso = new Date().toISOString();
 
   return (
-    <div className="min-h-screen bg-[#f4f2f8] px-4 py-8 print:bg-white print:p-0 sm:px-6">
+    <div className="min-h-screen bg-[#f4f2f8] px-4 py-8 print:bg-[var(--color-surface)] print:p-0 sm:px-6">
       <style>{"@media print { @page { size: A4; margin: 14mm; } }"}</style>
       <div className="mx-auto max-w-2xl">
         <ReceiptActions backHref={backHref} />
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
-            <p className="text-lg font-semibold text-slate-900">Ödeme Makbuzu</p>
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-10">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border)] pb-6">
+            <p className="text-lg font-semibold text-[var(--color-text)]">Ödeme Makbuzu</p>
             <div className="shrink-0 text-right">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Referans</p>
-              <p className="mt-1 font-mono text-sm font-semibold text-slate-700">{model.reference}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Referans</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-[var(--color-text-muted)]">{model.reference}</p>
             </div>
           </div>
 
           <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Düzenlenme tarihi</p>
-              <p className="mt-1 text-slate-800">{formatDate(issuedAtIso, "d MMMM yyyy")}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Düzenlenme tarihi</p>
+              <p className="mt-1 text-[var(--color-text)]">{formatDate(issuedAtIso, "d MMMM yyyy")}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Ödeme tarihi</p>
-              <p className="mt-1 text-slate-800">{formatDate(model.paymentDateIso, "d MMMM yyyy")}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Ödeme tarihi</p>
+              <p className="mt-1 text-[var(--color-text)]">{formatDate(model.paymentDateIso, "d MMMM yyyy")}</p>
             </div>
           </div>
 
-          <div className="mt-6 border-t border-slate-100 pt-6 text-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Öğrenci</p>
-            <p className="mt-1 truncate text-base font-semibold text-slate-900">{model.studentName}</p>
+          <div className="mt-6 border-t border-[var(--color-border)] pt-6 text-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Öğrenci</p>
+            <p className="mt-1 truncate text-base font-semibold text-[var(--color-text)]">{model.studentName}</p>
             {model.parentLine ? (
-              <p className="mt-0.5 truncate text-slate-500">Veli: {model.parentLine}</p>
+              <p className="mt-0.5 truncate text-[var(--color-text-muted)]">Veli: {model.parentLine}</p>
             ) : null}
           </div>
 
-          <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mt-6 border-t border-[var(--color-border)] pt-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Açıklama</p>
-                <p className="mt-1 truncate text-slate-800">{model.description}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Açıklama</p>
+                <p className="mt-1 truncate text-[var(--color-text)]">{model.description}</p>
                 {model.method ? (
-                  <p className="mt-1 text-xs text-slate-400">Yöntem: {model.method}</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">Yöntem: {model.method}</p>
                 ) : null}
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
                   Tahsil edilen tutar
                 </p>
                 <p className="mt-1 text-2xl font-bold text-emerald-700">{formatMoney(model.amount)}</p>
@@ -149,16 +149,16 @@ export default async function ReceiptPage({
             </div>
           </div>
 
-          <div className="mt-12 flex border-t border-slate-100 pt-10 print:break-inside-avoid">
+          <div className="mt-12 flex border-t border-[var(--color-border)] pt-10 print:break-inside-avoid">
             <div className="min-w-[220px] max-w-xs flex-1">
               <div className="h-16 border-b border-slate-400" />
-              <p className="mt-2 text-center text-xs font-medium text-slate-600">
+              <p className="mt-2 text-center text-xs font-medium text-[var(--color-text-muted)]">
                 Teslim Eden
               </p>
             </div>
           </div>
 
-          <p className="mt-10 text-center text-[11px] text-slate-400">
+          <p className="mt-10 text-center text-[11px] text-[var(--color-text-muted)]">
             Bu makbuz sistem tarafından oluşturulmuştur.
           </p>
         </div>

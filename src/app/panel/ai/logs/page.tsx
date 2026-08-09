@@ -41,7 +41,7 @@ export default async function AiLogsPage() {
         actions={
           <Link
             href="/panel/ai"
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
           >
             Dashboard
           </Link>
@@ -51,13 +51,13 @@ export default async function AiLogsPage() {
       <AiCapabilityLogTable rows={capabilityRows} />
 
       <details className="group mt-8">
-        <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] dark:text-[var(--color-text-muted)] dark:hover:text-slate-100">
           Sohbet / araç yürütmeleri ({logs.length}) — AI Asistan (/panel/chat) geçmişi, ayrı gösterge
         </summary>
         <Card className="mt-3 overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+              <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
                 <tr>
                   <th className="px-3 py-2">Zaman</th>
                   <th className="px-3 py-2">Faz</th>
@@ -71,14 +71,14 @@ export default async function AiLogsPage() {
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
+                    <td colSpan={7} className="px-3 py-8 text-center text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       Kayıt yok. AI Asistan ile bir sohbet başlatın.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
                     <tr key={log.id} className="border-b border-slate-50 dark:border-slate-800">
-                      <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
+                      <td className="whitespace-nowrap px-3 py-2 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {formatDateTime(log.at)}
                       </td>
                       <td className="px-3 py-2">
@@ -87,7 +87,7 @@ export default async function AiLogsPage() {
                       <td className="px-3 py-2 font-mono text-xs">{log.toolName || "—"}</td>
                       <td className="px-3 py-2 text-xs">
                         {log.provider}
-                        <span className="block text-[10px] text-slate-400">{log.model}</span>
+                        <span className="block text-[10px] text-[var(--color-text-muted)]">{log.model}</span>
                       </td>
                       <td className="px-3 py-2 text-xs">{log.durationMs} ms</td>
                       <td className="px-3 py-2">
@@ -100,7 +100,7 @@ export default async function AiLogsPage() {
                           </span>
                         ) : null}
                       </td>
-                      <td className="px-3 py-2 text-[10px] text-slate-500 dark:text-slate-400">
+                      <td className="px-3 py-2 text-[10px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         <div className="max-w-[120px] truncate">{log.conversationId || "—"}</div>
                         <div className="truncate">{log.userId}</div>
                       </td>

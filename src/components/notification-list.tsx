@@ -22,7 +22,7 @@ export function NotificationList({ notifications }: { notifications: Notificatio
   if (notifications.length === 0) {
     return (
       <Card>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Henüz bildiriminiz yok.</p>
+        <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Henüz bildiriminiz yok.</p>
       </Card>
     );
   }
@@ -38,9 +38,9 @@ export function NotificationList({ notifications }: { notifications: Notificatio
             <div className="flex items-start gap-2">
               <Bell className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{n.title}</p>
-                <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{n.body}</p>
-                <p className="mt-1 text-xs text-slate-400">{formatDateTime(n.createdAt)}</p>
+                <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">{n.title}</p>
+                <p className="mt-0.5 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{n.body}</p>
+                <p className="mt-1 text-xs text-[var(--color-text-muted)]">{formatDateTime(n.createdAt)}</p>
               </div>
             </div>
             {!n.readAt ? (
@@ -48,7 +48,7 @@ export function NotificationList({ notifications }: { notifications: Notificatio
                 type="button"
                 onClick={() => void onMarkRead(n.id)}
                 disabled={pendingId === n.id}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               >
                 <Check className="h-3 w-3" /> Okundu
               </button>

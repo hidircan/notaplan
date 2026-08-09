@@ -23,14 +23,14 @@ export function CurriculumSummaryCard({
     <section aria-labelledby="curriculum-summary-heading" className="space-y-2">
       <Card className="!p-4">
         <div className="flex items-center justify-between">
-          <h2 id="curriculum-summary-heading" className="text-sm font-semibold text-slate-800">
+          <h2 id="curriculum-summary-heading" className="text-sm font-semibold text-[var(--color-text)]">
             Müfredat ilerlemesi
           </h2>
           <p className="text-lg font-semibold text-amber-700" aria-label="Genel ilerleme">
             %{overallPercent}
           </p>
         </div>
-        <p className="mt-1 text-[11px] text-slate-500">{progressExplanation}</p>
+        <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">{progressExplanation}</p>
       </Card>
 
       {topics.length === 0 ? (
@@ -40,8 +40,8 @@ export function CurriculumSummaryCard({
           <Card key={t.id} className="!p-3">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-medium text-slate-900">{t.title}</p>
-                <p className="text-[11px] text-slate-400">Güncellendi: {formatDate(t.updatedAt)}</p>
+                <p className="text-sm font-medium text-[var(--color-text)]">{t.title}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Güncellendi: {formatDate(t.updatedAt)}</p>
               </div>
               <div className="text-right">
                 <Badge status={t.status}>{t.status}</Badge>

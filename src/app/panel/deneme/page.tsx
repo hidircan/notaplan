@@ -36,7 +36,7 @@ export default async function TrialLessonsPage() {
         <TrialLessonCreateForm teachers={teachers} branches={branches} />
       </Card>
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-800">Kayıtlar ({trials.length})</h2>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text)]">Kayıtlar ({trials.length})</h2>
         {trials.length === 0 ? (
           <EmptyState title="Henüz deneme dersi yok" />
         ) : (
@@ -45,8 +45,8 @@ export default async function TrialLessonsPage() {
               <Card key={t.id} className="!p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-slate-900">{t.name}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="font-medium text-[var(--color-text)]">{t.name}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">
                       {t.phone} · {t.instrument} · {formatDateTime(t.startAt)} · {t.durationMinutes} dk
                     </p>
                   </div>

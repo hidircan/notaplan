@@ -56,13 +56,13 @@ export default async function StudentPaymentProfilePage({
               href={`/panel/is-takip?newTaskStudentId=${student.id}&returnTo=${encodeURIComponent(
                 `/panel/odemeler/${student.id}`
               )}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               Bu kayıt için görev oluştur
             </Link>
             <Link
               href="/panel/odemeler"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               <ArrowLeft className="h-4 w-4" /> Tüm ödemeler
             </Link>
@@ -95,8 +95,8 @@ export default async function StudentPaymentProfilePage({
         </Card>
       ) : null}
 
-      <details className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+      <details className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">
           Yeni ödeme kaydı ekle
         </summary>
         <form action={actionAddPayment} className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -119,7 +119,7 @@ export default async function StudentPaymentProfilePage({
         </form>
       </details>
 
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Ödeme geçmişi</h2>
+      <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Ödeme geçmişi</h2>
       {payments.length === 0 ? (
         <EmptyState
           title="Ödeme kaydı yok"
@@ -128,7 +128,7 @@ export default async function StudentPaymentProfilePage({
       ) : (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
               <tr>
                 <th className="px-4 py-3">Dönem / açıklama</th>
                 <th className="px-4 py-3">Vade</th>
@@ -143,7 +143,7 @@ export default async function StudentPaymentProfilePage({
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">
+                  <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">
                     {p.description}
                     {p.lessonId ? (
                       <Link
@@ -154,13 +154,13 @@ export default async function StudentPaymentProfilePage({
                       </Link>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDate(p.dueDate)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3">{formatMoney(p.amount)}</td>
                   <td className="px-4 py-3">{formatMoney(p.paidAmount)}</td>
                   <td className="px-4 py-3 font-medium">
                     {formatMoney(Math.max(p.amount - p.paidAmount, 0))}
                   </td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{p.method ?? "—"}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{p.method ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge status={p.status} />
                   </td>

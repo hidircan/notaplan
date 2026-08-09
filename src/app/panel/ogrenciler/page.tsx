@@ -71,13 +71,13 @@ export default async function OgrencilerPage() {
 
       {atRisk.length > 0 ? (
         <Card className="mb-6 border-amber-200 bg-amber-50/40">
-          <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+          <p className="mb-2 text-sm font-medium text-[var(--color-text)] dark:text-slate-200">
             Devamsızlık riski ({atRisk.length} öğrenci)
           </p>
           <ul className="mb-3 space-y-1 text-sm">
             {atRisk.slice(0, 8).map((r) => (
               <li key={r.studentId} className="flex items-center justify-between gap-2">
-                <span className="text-slate-700 dark:text-slate-300">{r.student?.name}</span>
+                <span className="text-[var(--color-text-muted)] dark:text-slate-300">{r.student?.name}</span>
                 <span
                   className={
                     r.riskLevel === "high"
@@ -114,7 +114,7 @@ export default async function OgrencilerPage() {
         </div>
 
         <Card>
-          <h2 className="mb-4 font-semibold text-slate-900 dark:text-slate-50">Yeni öğrenci</h2>
+          <h2 className="mb-4 font-semibold text-[var(--color-text)] dark:text-slate-50">Yeni öğrenci</h2>
           {kurum.scope.mode !== "single" ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               &quot;Tüm kurumlar&quot; görünümündesiniz — yeni öğrenci eklemek için üstteki kurum

@@ -102,7 +102,7 @@ export function TeachingMaterialForm() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-cyan-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] outline-none ring-cyan-500/30 placeholder:text-[var(--color-text-muted)] focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -137,7 +137,7 @@ export function TeachingMaterialForm() {
         type="file"
         accept="image/*,video/*,application/pdf"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+        className="block w-full text-xs text-[var(--color-text-muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
       />
       {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
       {success ? <p className="text-xs font-medium text-emerald-600">Materyal paylaşıldı.</p> : null}

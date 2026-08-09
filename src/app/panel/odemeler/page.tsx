@@ -64,8 +64,8 @@ export default async function OdemelerPage() {
       </div>
 
       {kurum.scope.mode === "single" ? (
-        <details className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-          <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+        <details className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <summary className="cursor-pointer text-sm font-medium text-[var(--color-text-muted)] dark:text-slate-300">
             Yeni ödeme kaydı ekle
           </summary>
           <form action={actionAddPayment} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

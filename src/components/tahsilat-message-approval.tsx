@@ -131,12 +131,12 @@ export function TahsilatMessageApproval({
   const isTerminal = status === "paid" || status === "lost";
 
   return (
-    <div className="mt-3 rounded-xl border border-amber-100 bg-white p-3">
+    <div className="mt-3 rounded-xl border border-amber-100 bg-[var(--color-surface)] p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Veli mesajı · {parentName}</p>
+        <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-200">Veli mesajı · {parentName}</p>
         <span
           className={`inline-flex items-center gap-1 text-xs font-semibold ${
-            status === "paid" ? "text-emerald-700" : status === "lost" ? "text-slate-500" : approved ? "text-emerald-700" : "text-amber-700"
+            status === "paid" ? "text-emerald-700" : status === "lost" ? "text-[var(--color-text-muted)]" : approved ? "text-emerald-700" : "text-amber-700"
           }`}
         >
           {approved && !isTerminal && <CheckCircle2 className="h-4 w-4" />}
@@ -147,7 +147,7 @@ export function TahsilatMessageApproval({
       </div>
 
       {isTerminal ? (
-        <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-2.5 text-sm leading-relaxed text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {message}
         </p>
       ) : editing ? (
@@ -155,16 +155,16 @@ export function TahsilatMessageApproval({
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           rows={5}
-          className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2"
           aria-label={`${studentName} için veli mesajı`}
         />
       ) : (
-        <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{message}</p>
+        <p className="whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-2.5 text-sm leading-relaxed text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{message}</p>
       )}
 
       {isTerminal ? (
         status === "lost" ? (
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-3 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Bu takip sonuçsuz kapatıldı. Ödeme hâlâ bekliyorsa aşağıdaki &quot;Ödemeyi görüntüle&quot;
             bağlantısından yeniden takip başlatabilirsiniz.
           </p>
@@ -177,7 +177,7 @@ export function TahsilatMessageApproval({
       ) : (
         <>
           {status === "draft" && canUseAiDraft ? (
-            <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-white p-2.5 dark:border-amber-800 dark:bg-slate-900">
+            <div className="mt-3 rounded-lg border border-dashed border-amber-200 bg-[var(--color-surface)] p-2.5 dark:border-amber-800 dark:bg-slate-900">
               <button
                 type="button"
                 disabled={ai.isLoading}
@@ -195,7 +195,7 @@ export function TahsilatMessageApproval({
                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                     AI taslağı · onayınız gerekiyor
                   </p>
-                  <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{ai.draft.text}</p>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-text-muted)] dark:text-slate-300">{ai.draft.text}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -214,14 +214,14 @@ export function TahsilatMessageApproval({
                       type="button"
                       disabled={ai.isLoading}
                       onClick={() => void ai.rejectDraft(ai.draft!.invocationId)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
                     >
                       Vazgeç
                     </button>
                   </div>
                 </div>
               ) : ai.status === "rejected" ? (
-                <p className="mt-1.5 text-xs text-slate-400">AI taslağı reddedildi — mevcut metin korunuyor.</p>
+                <p className="mt-1.5 text-xs text-[var(--color-text-muted)]">AI taslağı reddedildi — mevcut metin korunuyor.</p>
               ) : ai.status === "approved" ? (
                 <p className="mt-1.5 text-xs text-emerald-700 dark:text-emerald-400">
                   AI taslağı kullanıldı — aşağıdaki metni düzenleyip onaylayabilirsiniz.
@@ -230,7 +230,7 @@ export function TahsilatMessageApproval({
             </div>
           ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={() => setEditing((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={() => setEditing((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]">
             <PencilLine className="h-4 w-4" /> {editing ? "Taslağı kaydet" : "Düzenle"}
           </button>
           {status === "draft" && (
@@ -249,7 +249,7 @@ export function TahsilatMessageApproval({
               WhatsApp&apos;ta aç
             </a>
           ) : approved ? (
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               <Send className="h-4 w-4" /> Veli telefonu eksik — WhatsApp linki oluşturulamıyor
             </span>
           ) : null}
@@ -258,7 +258,7 @@ export function TahsilatMessageApproval({
               type="button"
               disabled={busy}
               onClick={() => void saveStatus("sent")}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
             >
               Sistemde gönderildi olarak kaydet
             </button>
@@ -266,7 +266,7 @@ export function TahsilatMessageApproval({
           {status === "sent" || status === "replied" ? (
             <>
               {status === "sent" && (
-                <button type="button" disabled={busy} onClick={() => void saveStatus("replied")} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                <button type="button" disabled={busy} onClick={() => void saveStatus("replied")} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50">
                   Yanıt alındı / ödeme sözü verildi
                 </button>
               )}
@@ -277,7 +277,7 @@ export function TahsilatMessageApproval({
                 type="button"
                 disabled={busy}
                 onClick={markLost}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" /> Sonuçsuz kapat
               </button>

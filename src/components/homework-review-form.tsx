@@ -43,7 +43,7 @@ export function HomeworkReviewForm({ submissionId }: { submissionId: string }) {
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
         placeholder="Geri bildirim yaz…"
-        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none ring-cyan-500/30 placeholder:text-slate-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text)] outline-none ring-cyan-500/30 placeholder:text-[var(--color-text-muted)] focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
       <Button type="submit" disabled={busy} className="!px-2.5 !py-1 !text-xs">
         Gönder

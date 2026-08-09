@@ -88,7 +88,7 @@ export default async function KurulumPage() {
             ? "Temel kurulum tamamlandı"
             : `${progress.completedCount}/${progress.totalCount} temel adım tamamlandı`}
         </p>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
           {progress.isReady
             ? "Okulunuz günlük operasyona hazır. İhtiyaç halinde aşağıdaki ekranlardan yeni kayıt ekleyebilirsiniz."
             : "Aşağıdaki eksik adımları tamamlayarak okulunuzu operasyona hazır hale getirin."}
@@ -115,8 +115,8 @@ export default async function KurulumPage() {
                     <Circle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
                   )}
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-slate-50">{step.label}</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{step.description}</p>
+                    <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">{step.label}</p>
+                    <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{step.description}</p>
                   </div>
                 </div>
                 <Badge status={step.done ? "paid" : "pending"}>
@@ -133,17 +133,17 @@ export default async function KurulumPage() {
           );
         })}
 
-        <Card className={progress.hasPayment ? "border-emerald-100" : "border-slate-200"}>
+        <Card className={progress.hasPayment ? "border-emerald-100" : "border-[var(--color-border)]"}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               {progress.hasPayment ? (
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
               ) : (
-                <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
+                <Circle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-text-muted)]" />
               )}
               <div>
-                <p className="font-semibold text-slate-900 dark:text-slate-50">İlk ödeme (isteğe bağlı)</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">İlk ödeme (isteğe bağlı)</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                   Tahsilat takibini başlatmak için ilk ödeme kaydını ekleyin. Kurulumun
                   tamamlanması için zorunlu değildir.
                 </p>
@@ -162,12 +162,12 @@ export default async function KurulumPage() {
         </Card>
       </div>
 
-      <Card className="mt-6 border-slate-200">
+      <Card className="mt-6 border-[var(--color-border)]">
         <div className="flex items-start gap-3">
-          <Download className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <Download className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900 dark:text-slate-50">Veri &amp; Güvenlik</p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">Veri &amp; Güvenlik</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               Yalnızca oturum açtığınız kuruma ait kayıtları CSV olarak indirin. Diğer
               kurumların hiçbir kaydı bu dışa aktarıma dahil edilmez. &quot;Tüm kurumlar&quot;
               görünümündeyken dışa aktarım yapılamaz — önce tek bir kurum seçin.
@@ -177,7 +177,7 @@ export default async function KurulumPage() {
                 <a
                   key={entity}
                   href={`/api/v1/export?entity=${entity}`}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <Download className="h-3.5 w-3.5" /> {EXPORT_LABELS[entity]} (CSV)
                 </a>
@@ -187,12 +187,12 @@ export default async function KurulumPage() {
         </div>
       </Card>
 
-      <Card className="mt-6 border-slate-200">
+      <Card className="mt-6 border-[var(--color-border)]">
         <div className="flex items-start gap-3">
-          <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900 dark:text-slate-50">Tahsilat Otomasyonu</p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">Tahsilat Otomasyonu</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               Gecikmiş ödemeler için taslak mesaj ve veli bildirimi ne sıklıkla hazırlansın?
               Veliler kendi iletişim tercihlerini veli portalından değiştirebilir.
             </p>
@@ -210,12 +210,12 @@ export default async function KurulumPage() {
         </div>
       </Card>
 
-      <Card className="mt-6 border-slate-200 bg-slate-50">
+      <Card className="mt-6 border-[var(--color-border)] bg-[var(--color-surface-muted)]">
         <div className="flex items-start gap-3">
-          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900 dark:text-slate-50">Demo ortamı</p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">Demo ortamı</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               Demo verisini sıfırlamak mevcut demo öğretmen/öğrenci/ders/ödeme örneklerini geri
               yükler — sunum ve deneme amaçlıdır. Bu işlem yalnızca yönetici yetkisiyle yapılabilir
               ve geri alınamaz.
@@ -242,8 +242,8 @@ export default async function KurulumPage() {
         <div className="flex items-start gap-3">
           <RefreshCcw className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
           <div className="flex-1">
-            <p className="font-semibold text-slate-900 dark:text-slate-50">Boş şablona sıfırla</p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">Boş şablona sıfırla</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               Demo sıfırlamadan FARKLI bir işlem: hiçbir örnek kayıt bırakmaz, yalnızca kurum
               kimliğinizi (ad, kurulum ayarları) koruyan boş bir kurulum iskeleti bırakır. Gerçek
               operasyona sıfırdan başlamak için kullanın.

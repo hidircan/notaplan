@@ -57,8 +57,8 @@ export default async function OgrenciPortalPage({
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-emerald-50 to-slate-50 px-4">
         <Card className="max-w-sm text-center">
-          <p className="text-sm font-semibold text-slate-900">Hesabınız pasif durumda</p>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="text-sm font-semibold text-[var(--color-text)]">Hesabınız pasif durumda</p>
+          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
             Kaydınız kurum tarafından pasife alınmış. Ders, ödev, materyal ve rapor
             bilgilerine erişim geçici olarak kapalı. Sorularınız için kurumla iletişime
             geçin.
@@ -121,22 +121,22 @@ export default async function OgrenciPortalPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50">
-      <header className="border-b border-emerald-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-emerald-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
               <Music2 className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">{data.settings.shortName}</p>
-              <p className="text-[11px] text-slate-500">Öğrenci portalı</p>
+              <p className="text-sm font-semibold text-[var(--color-text)]">{data.settings.shortName}</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Öğrenci portalı</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/gorunum-ayarlari" className="text-slate-400 hover:text-slate-600" aria-label="Görünüm ayarları">
+            <Link href="/gorunum-ayarlari" className="text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)]" aria-label="Görünüm ayarları">
               <Palette className="h-4 w-4" />
             </Link>
-            <LogoutButton className="!text-xs text-slate-500" />
+            <LogoutButton className="!text-xs text-[var(--color-text-muted)]" />
             <Link href="/" className="text-xs text-emerald-600">
               <Home className="h-4 w-4" />
             </Link>
@@ -145,10 +145,10 @@ export default async function OgrenciPortalPage({
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
-        <Card className="border-emerald-100 bg-white">
+        <Card className="border-emerald-100 bg-[var(--color-surface)]">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Merhaba</p>
-          <h1 className="mt-1 text-xl font-semibold text-slate-900">{student.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="mt-1 text-xl font-semibold text-[var(--color-text)]">{student.name}</h1>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
             {student.instruments.join(", ")} · Öğretmen: {teacher?.name ?? "—"}
           </p>
         </Card>
@@ -156,7 +156,7 @@ export default async function OgrenciPortalPage({
         {student.studentType || student.level || student.targetExam || student.educationMethod ? (
           <Card className="!p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Program bilgim</p>
-            <div className="mt-1 space-y-0.5 text-sm text-slate-600">
+            <div className="mt-1 space-y-0.5 text-sm text-[var(--color-text-muted)]">
               {student.studentType ? <p>Tür: {student.studentType}</p> : null}
               {student.level ? <p>Seviye: {student.level}</p> : null}
               {student.educationMethod ? <p>Eğitim metodu: {student.educationMethod}</p> : null}
@@ -169,7 +169,7 @@ export default async function OgrenciPortalPage({
           <Link href="/ogrenci/mufredat">
             <Card className="!p-4 hover:border-emerald-200">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">Müfredat ilerlemem</p>
+                <p className="text-sm font-semibold text-[var(--color-text)]">Müfredat ilerlemem</p>
                 <p className="text-sm font-semibold text-emerald-600">%{overallPercent}</p>
               </div>
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-100">
@@ -186,25 +186,25 @@ export default async function OgrenciPortalPage({
           <Link href="/ogrenci/odevlerim">
             <Card className="!p-4 hover:border-emerald-200">
               <BookOpen className="h-4 w-4 text-emerald-600" />
-              <p className="mt-1 text-sm font-semibold text-slate-900">Ödevlerim</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">Ödevlerim</p>
             </Card>
           </Link>
           <Link href="/ogrenci/materyaller">
             <Card className="!p-4 hover:border-emerald-200">
               <Video className="h-4 w-4 text-emerald-600" />
-              <p className="mt-1 text-sm font-semibold text-slate-900">Materyaller</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">Materyaller</p>
             </Card>
           </Link>
           <Link href="/ogrenci/mufredat" className="col-span-2">
             <Card className="!p-4 hover:border-emerald-200">
-              <p className="text-sm font-semibold text-slate-900">Müfredatım</p>
-              <p className="mt-0.5 text-xs text-slate-500">Konu hedefleri ve ilerleme özeti</p>
+              <p className="text-sm font-semibold text-[var(--color-text)]">Müfredatım</p>
+              <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">Konu hedefleri ve ilerleme özeti</p>
             </Card>
           </Link>
           <Link href="/ogrenci/degerlendirme" className="col-span-2">
             <Card className="!p-4 hover:border-emerald-200">
-              <p className="text-sm font-semibold text-slate-900">Öğretmen Değerlendirmesi</p>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="text-sm font-semibold text-[var(--color-text)]">Öğretmen Değerlendirmesi</p>
+              <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
                 Yalnızca okul yönetimi görür — öğretmene kimliğiniz gösterilmez
               </p>
             </Card>
@@ -215,7 +215,7 @@ export default async function OgrenciPortalPage({
           <Card className="!p-4 hover:border-emerald-200">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-emerald-600" />
-              <p className="text-sm font-semibold text-slate-900">Gelişim raporunu görüntüle</p>
+              <p className="text-sm font-semibold text-[var(--color-text)]">Gelişim raporunu görüntüle</p>
             </div>
           </Card>
         </Link>
@@ -223,7 +223,7 @@ export default async function OgrenciPortalPage({
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <Bell className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-sm font-semibold text-slate-800">Bildirimler</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">Bildirimler</h2>
           </div>
           <NotificationList notifications={notifications} />
         </section>
@@ -232,13 +232,13 @@ export default async function OgrenciPortalPage({
           <section>
             <div className="mb-2 flex items-center gap-2 px-1">
               <Megaphone className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-sm font-semibold text-slate-800">Duyurular</h2>
+              <h2 className="text-sm font-semibold text-[var(--color-text)]">Duyurular</h2>
             </div>
             <div className="space-y-2">
               {announcements.map((a) => (
                 <Card key={a.id} className={a.pinned ? "!p-4 border-emerald-200 bg-emerald-50/60" : "!p-4"}>
-                  <p className="text-sm font-semibold text-slate-900">{a.title}</p>
-                  <p className="mt-1 text-sm text-slate-600">{a.body}</p>
+                  <p className="text-sm font-semibold text-[var(--color-text)]">{a.title}</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">{a.body}</p>
                 </Card>
               ))}
             </div>
@@ -248,14 +248,14 @@ export default async function OgrenciPortalPage({
         <section id="haftalik-program">
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-sm font-semibold text-slate-800">Haftalık ders programım</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">Haftalık ders programım</h2>
           </div>
 
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
             <Link
               href={prevWeekHref}
               aria-label="Önceki hafta"
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               <ChevronLeft className="h-3.5 w-3.5" /> Önceki
             </Link>
@@ -269,7 +269,7 @@ export default async function OgrenciPortalPage({
             ) : (
               <Link
                 href={todayWeekHref}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
               >
                 Bugün
               </Link>
@@ -277,19 +277,19 @@ export default async function OgrenciPortalPage({
             <Link
               href={nextWeekHref}
               aria-label="Sonraki hafta"
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
             >
               Sonraki <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <p className="mb-2 px-1 text-center text-[11px] text-slate-500">
+          <p className="mb-2 px-1 text-center text-[11px] text-[var(--color-text-muted)]">
             {formatDate(weekStart.toISOString(), "d MMM")} – {formatDate(addDays(weekStart, 6).toISOString(), "d MMM yyyy")} ·{" "}
             {studentTerm === "yaz" ? "Yaz dönemi" : "Güz dönemi"}
           </p>
 
           {weekDays.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500">Bu dönem için açık gün yok.</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Bu dönem için açık gün yok.</p>
             </Card>
           ) : (
             <div className="space-y-2">
@@ -300,7 +300,7 @@ export default async function OgrenciPortalPage({
                 return (
                   <Card key={day.toISOString()} className={today ? "!p-4 border-emerald-200 bg-emerald-50/30" : "!p-4"}>
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{formatDate(day.toISOString(), "EEEE d MMM")}</p>
+                      <p className="text-sm font-semibold text-[var(--color-text)]">{formatDate(day.toISOString(), "EEEE d MMM")}</p>
                       <div className="flex items-center gap-1.5">
                         {dayStatus.status === "closed" ? (
                           <span className="rounded-full bg-black px-2 py-0.5 text-[10px] font-semibold text-white" title={dayStatus.label}>
@@ -311,9 +311,9 @@ export default async function OgrenciPortalPage({
                       </div>
                     </div>
                     {dayStatus.status === "closed" ? (
-                      <p className="text-xs text-slate-400">{dayStatus.label} — bu gün ders yok.</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">{dayStatus.label} — bu gün ders yok.</p>
                     ) : dayLessons.length === 0 ? (
-                      <p className="text-xs text-slate-400">Bu gün dersiniz yok.</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">Bu gün dersiniz yok.</p>
                     ) : (
                       <div className="space-y-2">
                         {dayLessons.map((l) => {
@@ -322,13 +322,13 @@ export default async function OgrenciPortalPage({
                           return (
                             <div
                               key={l.id}
-                              className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs"
+                              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2 text-xs"
                               style={{ borderLeftWidth: 3, borderLeftColor: lessonTeacher?.color ?? "#10b981" }}
                             >
-                              <p className="font-semibold text-slate-800">
+                              <p className="font-semibold text-[var(--color-text)]">
                                 {formatTime(l.startAt)}–{formatTime(l.endAt)} · {l.instrument}
                               </p>
-                              <p className="text-slate-500">{lessonTeacher?.name ?? "—"}</p>
+                              <p className="text-[var(--color-text-muted)]">{lessonTeacher?.name ?? "—"}</p>
                               <div className="mt-1 flex flex-wrap items-center gap-1">
                                 <Badge status={l.type === "makeup" ? "makeup" : liveStatus} />
                                 <LessonOpsBadges
@@ -355,21 +355,21 @@ export default async function OgrenciPortalPage({
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-emerald-600" />
-            <h2 className="text-sm font-semibold text-slate-800">Geçmiş dersler</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">Geçmiş dersler</h2>
           </div>
           {past.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500">Henüz geçmiş ders yok.</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Henüz geçmiş ders yok.</p>
             </Card>
           ) : (
             <div className="space-y-2">
               {past.map((l) => (
                 <Card key={l.id} className="!p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-slate-900">{formatDateTime(l.startAt)}</p>
+                    <p className="font-medium text-[var(--color-text)]">{formatDateTime(l.startAt)}</p>
                     <Badge status={l.type === "makeup" ? "makeup" : l.status} />
                   </div>
-                  <p className="text-sm text-slate-500">{l.instrument}</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">{l.instrument}</p>
                   <div className="mt-1.5">
                     <LessonOpsBadges
                       studentAttended={l.studentAttended}
@@ -385,7 +385,7 @@ export default async function OgrenciPortalPage({
           )}
         </section>
 
-        <p className="px-1 text-center text-[11px] text-slate-400">
+        <p className="px-1 text-center text-[11px] text-[var(--color-text-muted)]">
           Demo görünüm ·{" "}
           <Link href="/panel" className="text-emerald-600">
             Yönetim paneli

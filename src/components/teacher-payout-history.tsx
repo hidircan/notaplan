@@ -28,11 +28,11 @@ function PendingPayoutRow({ payout }: { payout: TeacherPayout }) {
 
   return (
     <tr className="border-b border-slate-50 dark:border-slate-800">
-      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
         {formatDate(payout.periodStart)} – {formatDate(payout.periodEnd)}
       </td>
-      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{payout.totalMinutes} dk</td>
-      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{formatMoney(payout.totalAmount)}</td>
+      <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{payout.totalMinutes} dk</td>
+      <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">{formatMoney(payout.totalAmount)}</td>
       <td className="px-4 py-3">
         <Badge status={payout.status} />
       </td>
@@ -73,15 +73,15 @@ export function TeacherPayoutHistory({ payouts }: { payouts: TeacherPayout[] }) 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Bekleyen alacaklar</h2>
+        <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Bekleyen alacaklar</h2>
         {pending.length === 0 ? (
           <Card>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Bekleyen hakediş kaydı yok.</p>
+            <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Bekleyen hakediş kaydı yok.</p>
           </Card>
         ) : (
           <Card className="overflow-hidden p-0">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+              <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
                 <tr>
                   <th className="px-4 py-3">Dönem</th>
                   <th className="px-4 py-3">Dakika</th>
@@ -101,15 +101,15 @@ export function TeacherPayoutHistory({ payouts }: { payouts: TeacherPayout[] }) 
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-50">Geçmiş ödemeler</h2>
+        <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Geçmiş ödemeler</h2>
         {paid.length === 0 ? (
           <Card>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Henüz ödenmiş hakediş kaydı yok.</p>
+            <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Henüz ödenmiş hakediş kaydı yok.</p>
           </Card>
         ) : (
           <Card className="overflow-hidden p-0">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+              <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
                 <tr>
                   <th className="px-4 py-3">Dönem</th>
                   <th className="px-4 py-3">Dakika</th>
@@ -121,13 +121,13 @@ export function TeacherPayoutHistory({ payouts }: { payouts: TeacherPayout[] }) 
               <tbody>
                 {paid.map((p) => (
                   <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.totalMinutes} dk</td>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-50">{formatMoney(p.totalAmount)}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.paidAt ? formatDate(p.paidAt) : "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{p.method ?? "—"}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{p.totalMinutes} dk</td>
+                    <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">{formatMoney(p.totalAmount)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{p.paidAt ? formatDate(p.paidAt) : "—"}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{p.method ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

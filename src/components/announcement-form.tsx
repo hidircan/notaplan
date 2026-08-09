@@ -80,31 +80,31 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Başlık</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Başlık</label>
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           required
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">İçerik</label>
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">İçerik</label>
         <textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
           required
           rows={3}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Hedef kitle</label>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Hedef kitle</label>
           <select
             value={audienceType}
             onChange={(event) => setAudienceType(event.target.value as AnnouncementAudienceType)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             {(Object.keys(AUDIENCE_LABELS) as AnnouncementAudienceType[]).map((key) => (
               <option key={key} value={key}>
@@ -115,11 +115,11 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
         </div>
         {audienceType === "branch" ? (
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Şube</label>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Şube</label>
             <select
               value={branchId}
               onChange={(event) => setBranchId(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -131,13 +131,13 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
         ) : null}
         {audienceType === "studentType" ? (
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               Öğrenci türü
             </label>
             <select
               value={studentType}
               onChange={(event) => setStudentType(event.target.value as typeof studentType)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {STUDENT_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -150,19 +150,19 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
       </div>
       {audienceType === "selected" ? (
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             Kullanıcı ID listesi (virgül veya satırla ayırın)
           </label>
           <textarea
             value={userIdsText}
             onChange={(event) => setUserIdsText(event.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-muted)] outline-none ring-amber-200 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
           <input
             type="checkbox"
             checked={publishNow}
@@ -171,7 +171,7 @@ export function AnnouncementForm({ branches }: { branches: BranchOption[] }) {
           />
           Hemen yayınla
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] dark:text-slate-300">
           <input
             type="checkbox"
             checked={pinned}

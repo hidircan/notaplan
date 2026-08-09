@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowRight, CircleDollarSign, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, CircleDollarSign, Target, TrendingUp } from "lucide-react";
 import { Card, PageHeader, StatCard } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { TahsilatQueue } from "@/components/tahsilat-queue";
@@ -9,7 +9,6 @@ import { buildTahsilatQueue } from "@/lib/tahsilat/queue";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
-import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { CollectionsIntakeScan } from "@/components/collections-intake-scan";
 
 export const dynamic = "force-dynamic";
@@ -107,76 +106,13 @@ export default async function TahsilatAgentPage({
         />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Card className="border-emerald-200 bg-emerald-50/40">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-700" />
-            <p className="text-sm font-medium text-emerald-900">Onay kuralı</p>
-          </div>
-          <p className="mt-1 text-xs text-emerald-800">
-            Hiçbir mesaj insan onayı olmadan gönderilmez. Taslağı düzenleyip onayladıktan sonra
-            WhatsApp&apos;ta siz açarsınız.
-          </p>
-        </Card>
-        <Card className="lg:col-span-2">
-          <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">Vaka aşamaları</p>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
-            {(["draft", "approved", "sent", "replied"] as const).map((st) => (
-              <span key={st} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    st === "draft"
-                      ? "bg-slate-400"
-                      : st === "approved"
-                        ? "bg-sky-500"
-                        : st === "sent"
-                          ? "bg-indigo-500"
-                          : "bg-amber-500"
-                  }`}
-                />
-                {followUpCases.filter((c) => c.status === st).length} ·{" "}
-                {st === "draft" ? "Taslak" : st === "approved" ? "Onaylı" : st === "sent" ? "Gönderildi" : "Yanıt geldi"}
-              </span>
-            ))}
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-800">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              {followUpCases.filter((c) => c.status === "paid").length} · Ödendi
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-500 dark:text-slate-400">
-              <span className="h-2 w-2 rounded-full bg-slate-400" />
-              {followUpCases.filter((c) => c.status === "lost").length} · Sonuçsuz
-            </span>
-          </div>
-        </Card>
-      </div>
-
-      {session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN" ? (
-        <Card className="mt-6 border-amber-200 bg-amber-50/30">
-          <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-            İşletme sahibi analizi
-          </p>
-          <AiInsightTrigger
-            capabilityId="collectionsROIReport"
-            label="AI analiz üret"
-            payload={{
-              trackedOutstanding,
-              overdueCount,
-              attributedThisMonth: roi.attributedThisMonth,
-              resolvedThisMonth: roi.resolvedThisMonth,
-              lostThisMonth: roi.lostThisMonth,
-              successRate: roi.successRate,
-            }}
-          />
-        </Card>
-      ) : null}
-
       {(session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN") && kurum.scope.mode === "single" ? (
         (() => {
           const untracked = rows.filter((r) => r.caseStatus === "draft");
           if (untracked.length === 0) return null;
           return (
             <Card className="mt-6">
-              <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+              <p className="mb-2 text-sm font-medium text-[var(--color-text)] dark:text-slate-200">
                 Takibi başlamamış {untracked.length} kayıt — hangisi öncelikli?
               </p>
               <CollectionsIntakeScan
@@ -198,7 +134,7 @@ export default async function TahsilatAgentPage({
 
       <Card className="mt-6">
         <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bugünün takip kuyruğu</h2>
+          <h2 className="font-semibold text-[var(--color-text)] dark:text-slate-50">Bugünün takip kuyruğu</h2>
         </div>
         <TahsilatQueue
           rows={rows}

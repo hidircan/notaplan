@@ -59,7 +59,7 @@ export default async function OgretmenPortalPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
       <AssistantPageContext entity={{ kind: "teacher", id: teacher.id, label: teacher.name }} />
-      <header className="border-b border-cyan-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-cyan-100 bg-[var(--color-surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <div
@@ -73,18 +73,18 @@ export default async function OgretmenPortalPage() {
                 .slice(0, 2)}
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{teacher.name}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">{teacher.name}</p>
+              <p className="text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Öğretmen · {branch?.shortName} · {teacher.instruments.join(", ")}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/gorunum-ayarlari" className="text-slate-400 hover:text-slate-600" aria-label="Görünüm ayarları">
+            <Link href="/gorunum-ayarlari" className="text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)]" aria-label="Görünüm ayarları">
               <Palette className="h-4 w-4" />
             </Link>
             <LogoutButton className="!text-xs" />
-            <Link href="/" className="text-slate-400">
+            <Link href="/" className="text-[var(--color-text-muted)]">
               <Home className="h-4 w-4" />
             </Link>
           </div>
@@ -97,8 +97,8 @@ export default async function OgretmenPortalPage() {
             <Music2 className="h-4 w-4" />
             <p className="text-xs font-medium uppercase tracking-wide">{data.settings.name}</p>
           </div>
-          <h1 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-50">Bugünkü programın</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <h1 className="mt-2 text-xl font-semibold text-[var(--color-text)] dark:text-slate-50">Bugünkü programın</h1>
+          <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
             {todayLessons.length} ders · {students.length} aktif öğrenci
           </p>
           <Link
@@ -112,11 +112,11 @@ export default async function OgretmenPortalPage() {
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-cyan-700" />
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Bugün</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Bugün</h2>
           </div>
           {todayLessons.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Bugün dersin yok.</p>
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Bugün dersin yok.</p>
             </Card>
           ) : (
             <div className="space-y-3">
@@ -129,10 +129,10 @@ export default async function OgretmenPortalPage() {
                   <Card key={lesson.id} className="!p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-50">
+                        <p className="font-semibold text-[var(--color-text)] dark:text-slate-50">
                           {formatTime(lesson.startAt)} · {student?.name}
                         </p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                           {lesson.instrument} · {room?.name}
                           {lesson.type === "makeup" ? " · Telafi" : ""}
                         </p>
@@ -204,13 +204,13 @@ export default async function OgretmenPortalPage() {
 
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
-            <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Öğrencilerim</h2>
+            <Users className="h-4 w-4 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]" />
+            <h2 className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Öğrencilerim</h2>
           </div>
           <div className="space-y-2">
             {students.length === 0 ? (
               <Card>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Aktif öğrenciniz yok.</p>
+                <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Aktif öğrenciniz yok.</p>
               </Card>
             ) : (
               students.map((s) => (
@@ -218,8 +218,8 @@ export default async function OgretmenPortalPage() {
                   <Card className="!p-3 transition hover:border-cyan-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-50">{s.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-sm font-medium text-[var(--color-text)] dark:text-slate-50">{s.name}</p>
+                        <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                           {s.instruments.join(", ")} · Veli: {s.parentName}
                         </p>
                         {s.studentType || s.targetExam ? (
@@ -243,26 +243,26 @@ export default async function OgretmenPortalPage() {
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <Wallet className="h-4 w-4 text-cyan-700" />
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Hakedişim</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Hakedişim</h2>
           </div>
           <Card className="!p-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
               {format(now, "MMMM yyyy", { locale: tr })}
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{currentMonthEarnings.totalLessons}</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Ders</p>
+                <p className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{currentMonthEarnings.totalLessons}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Ders</p>
               </div>
               <div>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">{currentMonthEarnings.totalMinutes}</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Dakika</p>
+                <p className="text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">{currentMonthEarnings.totalMinutes}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Dakika</p>
               </div>
               <div>
                 <p className="text-lg font-semibold text-emerald-700">
                   {formatMoney(currentMonthEarnings.totalAmount)}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Hakediş</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Hakediş</p>
               </div>
             </div>
             {currentMonthEarnings.missingFeeRuleLessonIds.length > 0 ? (
@@ -280,10 +280,10 @@ export default async function OgretmenPortalPage() {
                   <Card className="!p-3 transition hover:border-cyan-200">
                     <div className="flex items-center justify-between text-sm">
                       <div>
-                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                        <p className="font-medium text-[var(--color-text)] dark:text-slate-200">
                           {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{formatMoney(p.totalAmount)}</p>
+                        <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{formatMoney(p.totalAmount)}</p>
                       </div>
                       <Badge status={p.status} />
                     </div>
@@ -303,8 +303,8 @@ export default async function OgretmenPortalPage() {
         <section>
           <Link href="/ogretmen/is-takip">
             <Card className="!p-4 transition hover:border-cyan-200">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">İş Takip</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">İş Takip</p>
+              <p className="mt-0.5 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Size atanan/takipçisi olduğunuz görevler
               </p>
             </Card>
@@ -314,8 +314,8 @@ export default async function OgretmenPortalPage() {
         <section>
           <Link href="/ogretmen/geri-bildirim">
             <Card className="!p-4 transition hover:border-cyan-200">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geri Bildirim Özeti</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-50">Geri Bildirim Özeti</p>
+              <p className="mt-0.5 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                 Anonim, toplulaştırılmış — yeterli yanıt olduğunda görünür
               </p>
             </Card>
@@ -323,7 +323,7 @@ export default async function OgretmenPortalPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Yaklaşan seanslar</h2>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yaklaşan seanslar</h2>
           <div className="space-y-2">
             {weekLessons.map((l) => {
               const student = data.students.find((s) => s.id === l.studentId);
@@ -331,8 +331,8 @@ export default async function OgretmenPortalPage() {
                 <Card key={l.id} className="!p-3">
                   <div className="flex items-center justify-between text-sm">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{formatDateTime(l.startAt)}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="font-medium text-[var(--color-text)] dark:text-slate-200">{formatDateTime(l.startAt)}</p>
+                      <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                         {student?.name} · {l.instrument}
                       </p>
                     </div>
@@ -344,7 +344,7 @@ export default async function OgretmenPortalPage() {
           </div>
         </section>
 
-        <p className="px-1 text-center text-[11px] text-slate-400">
+        <p className="px-1 text-center text-[11px] text-[var(--color-text-muted)]">
           Demo ·{" "}
           <Link href="/panel" className="text-cyan-700">
             Yönetim paneli

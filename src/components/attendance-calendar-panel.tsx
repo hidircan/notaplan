@@ -516,7 +516,7 @@ export function AttendanceCalendarPanel({
                       type="button"
                       disabled={savingMonth === key}
                       onClick={() => void onSaveAmount(key)}
-                      className="rounded-md border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
+                      className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2 py-1 text-[11px] font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
                     >
                       {savingMonth === key ? "…" : "Kaydet"}
                     </button>
@@ -633,7 +633,7 @@ function DayDetail({
           <button
             type="button"
             onClick={() => void onToggleOverride(day)}
-            className="rounded-md border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
+            className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2 py-1 text-[11px] font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee]"
           >
             {day.status === "closed" ? "Zorla Aç" : "Kapat"}
           </button>
