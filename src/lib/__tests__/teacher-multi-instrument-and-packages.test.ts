@@ -17,6 +17,10 @@ import type { ServiceContext } from "../services/context";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
 const SOCIAL_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "social-media-consents.json");
+/** Katalog dosyası da sıfırlanmalı — aksi halde başka bir test dosyasının
+ * bıraktığı enstrüman katalog durumu (ör. temel kümenin farklı biçimde
+ * seed edilmiş olması) bu dosyanın testlerini etkileyebilir. */
+const CATALOG_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "instrument-catalog.json");
 
 function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
   return {
@@ -31,6 +35,7 @@ function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
 beforeEach(async () => {
   await fs.rm(DATA_FILE, { force: true });
   await fs.rm(SOCIAL_FILE, { force: true });
+  await fs.rm(CATALOG_FILE, { force: true });
 });
 
 describe("ÖNCELİK 4 (devam) — öğretmen çoklu enstrüman + seviye", () => {

@@ -1118,6 +1118,10 @@ export async function addTeacher(
   });
   if (!branch) throw new Error("Şube bulunamadı");
   const colors = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
+  // Paket 7 — kayıt anında da girilebilen tarih alanları: `...teacher` blind
+  // spread bunları HAM ISO STRING olarak geçirirdi (Prisma DateTime kolonu
+  // bir Date nesnesi bekler, updateTeacherProfile'daki AYNI dönüşüm kuralı
+  // burada da uygulanır) — aksi halde runtime hata verirdi.
   await prisma.teacher.create({
     data: {
       ...teacher,
@@ -1129,6 +1133,10 @@ export async function addTeacher(
       instruments: teacher.instruments,
       instrumentLevels: teacher.instrumentLevels ?? undefined,
       availability: teacher.availability,
+      birthDate: teacher.birthDate ? new Date(teacher.birthDate) : undefined,
+      contractStartDate: teacher.contractStartDate ? new Date(teacher.contractStartDate) : undefined,
+      contractEndDate: teacher.contractEndDate ? new Date(teacher.contractEndDate) : undefined,
+      hireDate: teacher.hireDate ? new Date(teacher.hireDate) : undefined,
     },
   });
   return readData();

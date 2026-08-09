@@ -1035,6 +1035,20 @@ export type DocumentTemplateKind =
   | "petition"
   | "custom";
 
+/** Evraklar — kategori (kind) seçenekleri, tek kaynak (belge yükleme/filtre UI'ları buradan besler). */
+export const DOCUMENT_TEMPLATE_KINDS: DocumentTemplateKind[] = [
+  "student_enrollment_contract",
+  "parent_social_media_consent",
+  "kvkk",
+  "teacher_contract",
+  "teacher_info_form",
+  "trial_form",
+  "makeup_request",
+  "payment_commitment",
+  "petition",
+  "custom",
+];
+
 export type DocumentInstanceStatus =
   | "draft"
   | "printed"
@@ -1145,6 +1159,13 @@ export type TaskCategory =
 
 export const TASK_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED", "ARCHIVED"];
 export const TASK_PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+/** İş Takip önceliklerinin Türkçe görünen adı — enum değeri (LOW/MEDIUM/...) hiçbir UI'da ham gösterilmemeli. */
+export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
+  LOW: "Düşük",
+  MEDIUM: "Orta",
+  HIGH: "Yüksek",
+  URGENT: "Acil",
+};
 export const TASK_CATEGORIES: TaskCategory[] = [
   "Kayıt",
   "Eğitim",

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
@@ -7,6 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { listTasksTool } from "@/lib/services";
 import { TaskKanbanBoard } from "@/components/task-kanban-board";
 import { listAssignableStaff } from "@/lib/staff-directory";
+import { IsTakipViewLink } from "@/components/is-takip-view-preference";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +40,9 @@ export default async function IsTakipKanbanPage() {
         title="İş Takip — Kanban"
         description="Görevleri durumlarına göre sürükleyip bırakmak yerine, her kartın altındaki menüden durumunu değiştirin."
         actions={
-          <Link href="/panel/is-takip" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+          <IsTakipViewLink href="/panel/is-takip" view="liste" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
             ← Liste görünümü
-          </Link>
+          </IsTakipViewLink>
         }
       />
       <TaskKanbanBoard tasks={tasks} isAdmin assigneeLabels={assigneeLabels} />

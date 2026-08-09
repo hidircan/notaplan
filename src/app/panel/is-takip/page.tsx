@@ -6,13 +6,14 @@ import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, Select } from "@/components/ui";
 import { StatCard } from "@/components/ui";
 import { getTaskKpiSummaryTool, listTasksTool, getDocumentInstanceTool } from "@/lib/services";
-import { TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, type TaskStatus } from "@/lib/types";
+import { TASK_CATEGORIES, TASK_PRIORITIES, TASK_PRIORITY_LABEL, TASK_STATUSES, type TaskStatus } from "@/lib/types";
 import { actionCreateTaskForm } from "@/lib/actions";
 import { cn, formatDate } from "@/lib/utils";
 import { resolveSafeReturnTo } from "@/lib/safe-return-to";
 import { listAssignableStaff, resolveStaffLabel } from "@/lib/staff-directory";
 import { TaskReminderPreferencesModal } from "@/components/task-reminder-preferences-modal";
 import { documentKindLabel } from "@/lib/documents";
+import { IsTakipDefaultViewRedirect, IsTakipViewLink } from "@/components/is-takip-view-preference";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +131,7 @@ export default async function IsTakipPage({
 
   return (
     <div>
+      <IsTakipDefaultViewRedirect />
       <KurumScopeNote scope={kurum.scope} />
       {safeReturnTo ? (
         <Link
@@ -143,9 +145,9 @@ export default async function IsTakipPage({
         title="İş Takip"
         actions={
           <div className="flex items-center gap-3">
-            <Link href="/panel/is-takip/kanban" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+            <IsTakipViewLink href="/panel/is-takip/kanban" view="kanban" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
               Kanban görünümü
-            </Link>
+            </IsTakipViewLink>
             <Link href="/panel/is-takip/takvim" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
               Takvim görünümü
             </Link>
@@ -206,7 +208,7 @@ export default async function IsTakipPage({
               <option value="">Tümü</option>
               {TASK_PRIORITIES.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {TASK_PRIORITY_LABEL[p]}
                 </option>
               ))}
             </Select>
@@ -285,7 +287,7 @@ export default async function IsTakipPage({
                       <div>
                         <p className="font-semibold text-[var(--color-text)]">{t.title}</p>
                         <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                          {t.category} · Öncelik: {t.priority}
+                          {t.category} · Öncelik: {TASK_PRIORITY_LABEL[t.priority]}
                           {assigneeName ? ` · Sorumlu: ${assigneeName}` : ""}
                         </p>
                       </div>
@@ -357,7 +359,7 @@ export default async function IsTakipPage({
                 <Select name="priority" defaultValue="MEDIUM">
                   {TASK_PRIORITIES.map((p) => (
                     <option key={p} value={p}>
-                      {p}
+                      {TASK_PRIORITY_LABEL[p]}
                     </option>
                   ))}
                 </Select>

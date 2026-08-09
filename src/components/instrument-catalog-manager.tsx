@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu ekranı. Sabit temel
- * liste salt-okunur gösterilir (asla pasife alınamaz — TS tipinin
- * güvencesidir); kurumun eklediği ek enstrümanlar burada yönetilir.
+ * Yönetilebilir Enstrüman Kataloğu ekranı. Artık "sabit/temel" ile "kuruma
+ * özel" ayrımı YOK — hepsi (Piyano dahil) aynı, tek listede, aynı şekilde
+ * yeniden adlandırılabilir/pasife alınabilir (bkz. instrument-catalog.ts
+ * ensureDefaultCatalogSeeded — eski sabit küme artık yalnızca ilk seed
+ * kaynağı, ayrı bir salt-okunur liste değil).
  */
 
 import { useState, useTransition } from "react";
@@ -14,11 +16,9 @@ import type { InstrumentCatalogEntry } from "@/lib/types";
 
 export function InstrumentCatalogManager({
   entries,
-  staticInstruments,
   canWrite,
 }: {
   entries: InstrumentCatalogEntry[];
-  staticInstruments: string[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -74,19 +74,7 @@ export function InstrumentCatalogManager({
       ) : null}
 
       <Card>
-        <h2 className="mb-3 font-semibold text-[var(--color-text)]">Temel enstrümanlar (sabit)</h2>
-        <div className="flex flex-wrap gap-2">
-          {staticInstruments.map((i) => (
-            <Badge key={i}>{i}</Badge>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
-          Bu liste sistemin temelidir ve buradan pasife alınamaz. Kuruma özel ek enstrümanları aşağıda yönetin.
-        </p>
-      </Card>
-
-      <Card>
-        <h2 className="mb-3 font-semibold text-[var(--color-text)]">Kuruma özel enstrümanlar</h2>
+        <h2 className="mb-3 font-semibold text-[var(--color-text)]">Enstrümanlar</h2>
         {entries.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">Henüz ek enstrüman tanımlanmamış.</p>
         ) : (

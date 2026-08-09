@@ -9,6 +9,7 @@ import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { STUDENT_TYPES } from "@/lib/types";
+import { listInstrumentCatalogTool } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,10 @@ export default async function NewStudentPage() {
   }
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
+  const catalogResult = await listInstrumentCatalogTool(session, {});
+  const instrumentOptions = catalogResult.ok
+    ? catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)
+    : ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"];
 
   return (
     <div>
@@ -140,7 +145,7 @@ export default async function NewStudentPage() {
                 </Select>
               </div>
               <StudentInstrumentTeacherFields
-                instrumentOptions={["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]}
+                instrumentOptions={instrumentOptions}
                 teachers={data.teachers.map((t) => ({
                   id: t.id,
                   name: t.name,

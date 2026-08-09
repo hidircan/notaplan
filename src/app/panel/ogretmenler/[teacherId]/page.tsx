@@ -59,7 +59,7 @@ export default async function TeacherDetailPage({
   const catalogResult = await listInstrumentCatalogTool(session, {});
   const instrumentOptions = (
     catalogResult.ok
-      ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+      ? catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)
       : undefined
   ) as Instrument[] | undefined;
 

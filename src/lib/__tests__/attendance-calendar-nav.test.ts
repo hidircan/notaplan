@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { termMonthList, currentAnchorYear } from "../../components/attendance-calendar-panel";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("ÖNCELİK 4 — takvim yıl/dönem gezinme (saf yardımcılar)", () => {
   it("2025 dışında bir akademik yıla geçilebilir (ör. 2030 Güz)", () => {
@@ -22,15 +26,37 @@ describe("ÖNCELİK 4 — takvim yıl/dönem gezinme (saf yardımcılar)", () =>
     expect(termMonthList("guz", next)[0]).toEqual({ year: 2027, month: 9 });
   });
 
-  it("currentAnchorYear Güz'de Eylül-Aralık aralığında içinde bulunulan takvim yılını, Ocak-Ağustos'ta bir önceki yılı döner", () => {
-    // Bilinen referans: 2026-08-07 Cuma (Ağustos → hâlâ 2025 Güz dönemi çapası)
-    // Doğrudan tarihe bağlı olmayan, formülün kendisini test ediyoruz.
+  it("currentAnchorYear Güz'de Temmuz-Aralık aralığında yaklaşan/içinde bulunulan takvim yılını, Ocak-Haziran'da bir önceki yılı döner", () => {
+    // Düzeltme: Temmuz/Ağustos (yaz tatili) artık "geçen yılın bitmiş
+    // Güz dönemi"ne değil, yaklaşan yeni Güz dönemine (bu Eylül'den
+    // başlayan) çapalanır — aksi halde Temmuz/Ağustos'ta takvim, o anda
+    // hiçbir güncel/yaklaşan ders içermeyen kapanmış bir aralık gösterir.
     const now = new Date();
-    const expected = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    const expected = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
     expect(currentAnchorYear("guz")).toBe(expected);
   });
 
   it("currentAnchorYear Yaz'da her zaman içinde bulunulan takvim yılını döner", () => {
     expect(currentAnchorYear("yaz")).toBe(new Date().getFullYear());
+  });
+
+  it("düzeltme: Ağustos'ta (yoklama takviminde veri gelmiyor hatası) Güz çapası yaklaşan yılı gösterir", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-09T12:00:00"));
+    expect(currentAnchorYear("guz")).toBe(2026);
+    const months = termMonthList("guz", currentAnchorYear("guz"));
+    expect(months[0]).toEqual({ year: 2026, month: 9 });
+  });
+
+  it("Ocak-Haziran'da Güz çapası hâlâ önceki yıl (devam eden dönem) döner", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-15T12:00:00"));
+    expect(currentAnchorYear("guz")).toBe(2025);
+  });
+
+  it("Eylül'de Güz çapası içinde bulunulan yıl döner", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-15T12:00:00"));
+    expect(currentAnchorYear("guz")).toBe(2026);
   });
 });

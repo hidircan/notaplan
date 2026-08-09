@@ -7,6 +7,7 @@ import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
 
 const DATA_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "store.json");
+const CATALOG_FILE = path.join(resolveDataDir(path.join(process.cwd(), "data")), "instrument-catalog.json");
 
 function ctx(overrides?: Partial<ServiceContext>): ServiceContext {
   return {
@@ -38,6 +39,7 @@ function baseStudentInput(overrides?: Record<string, unknown>) {
 
 beforeEach(async () => {
   await fs.rm(DATA_FILE, { force: true });
+  await fs.rm(CATALOG_FILE, { force: true });
 });
 
 /**

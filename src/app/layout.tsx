@@ -55,9 +55,9 @@ const notoSans = Noto_Sans({ subsets: ["latin"], variable: "--font-noto-sans", d
 export const metadata: Metadata = {
   title: `${BRAND.name} — ${BRAND.tagline}`,
   description: BRAND.description,
-  icons: {
-    icon: BRAND.faviconPath,
-  },
+  // Sekme simgesi (favicon) — Next.js'in `src/app/icon.png` dosya
+  // kuralıyla otomatik sunulur; burada AYRICA `icons.icon` tanımlamak
+  // aynı URL'ye ikinci, çakışan/gereksiz bir <link rel="icon"> ekliyordu.
   openGraph: {
     title: `${BRAND.name} — ${BRAND.tagline}`,
     description: BRAND.description,

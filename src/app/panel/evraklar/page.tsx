@@ -6,6 +6,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { DocumentsTable, type DocumentRow } from "@/components/documents-table";
 import { DocumentTemplateManager } from "@/components/document-template-manager";
+import { DocumentDirectUploadForm } from "@/components/document-direct-upload-form";
 import { readData } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,14 @@ export default async function DocumentsCenterPage({
 
       <Card className="mb-6">
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">
-          Yeni Evrak Oluştur
+          Dosya Yükle
+        </p>
+        <DocumentDirectUploadForm students={students} teachers={teachers} />
+      </Card>
+
+      <Card className="mb-6">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">
+          Yeni Evrak Oluştur (şablondan)
         </p>
         {templates.length === 0 ? (
           <EmptyState title="Şablon yok" description="Aşağıdaki 'Şablon Yönetimi' bölümünden yeni bir şablon oluşturun." />

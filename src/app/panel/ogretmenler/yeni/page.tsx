@@ -30,7 +30,7 @@ export default async function NewTeacherPage() {
   const catalogResult = await listInstrumentCatalogTool(session, {});
   const instrumentOptions = (
     catalogResult.ok
-      ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+      ? catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)
       : undefined
   ) as Instrument[] | undefined;
 
@@ -121,6 +121,98 @@ export default async function NewTeacherPage() {
                   Şube seçilmezse pencere tüm şubeler için geçerli sayılır. Daha sonra öğretmen detay
                   ekranından da düzenlenebilir.
                 </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-primary)]">
+              Kişisel ve eğitim bilgileri
+            </h2>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Doğum tarihi (opsiyonel)</Label>
+                  <Input name="birthDate" type="date" />
+                </div>
+                <div>
+                  <Label>Ev adresi (opsiyonel)</Label>
+                  <Input name="address" placeholder="Opsiyonel" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label>Lise (opsiyonel)</Label>
+                  <Input name="highSchool" placeholder="Örn. Bornova Anadolu Lisesi" />
+                </div>
+                <div>
+                  <Label>Üniversite (opsiyonel)</Label>
+                  <Input name="university" placeholder="Örn. İzmir DEÜ" />
+                </div>
+                <div>
+                  <Label>Mezuniyet yılı (opsiyonel)</Label>
+                  <Input name="graduationYear" type="number" min={1950} max={2100} placeholder="2015" />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-primary)]">
+              Özlük bilgileri
+            </h2>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Çalışma şekli (opsiyonel)</Label>
+                  <Select name="employmentType" defaultValue="">
+                    <option value="">Belirtilmemiş</option>
+                    <option value="tam_zamanli">Tam zamanlı</option>
+                    <option value="yari_zamanli">Yarı zamanlı</option>
+                    <option value="serbest">Serbest</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>İşe giriş tarihi (opsiyonel)</Label>
+                  <Input name="hireDate" type="date" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Sözleşme başlangıcı (opsiyonel)</Label>
+                  <Input name="contractStartDate" type="date" />
+                </div>
+                <div>
+                  <Label>Sözleşme bitişi (opsiyonel)</Label>
+                  <Input name="contractEndDate" type="date" />
+                </div>
+              </div>
+              <div>
+                <Label>Haftalık ders saati eşiği (opsiyonel)</Label>
+                <Input name="weeklyHoursThreshold" type="number" min={1} max={80} placeholder="Örn. 20" />
+                <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                  Bu eşiğin üstü nakit, altı havale ödeme türü varsayılan alınır.
+                </p>
+              </div>
+              <div>
+                <Label>Özlük notu (opsiyonel)</Label>
+                <Input name="personnelNotes" placeholder="Yalnızca yöneticiler görür" />
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-primary)]">
+              Acil durum iletişimi
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Ad soyad (opsiyonel)</Label>
+                <Input name="emergencyContactName" placeholder="Acil durumda aranacak kişi" />
+              </div>
+              <div>
+                <Label>Telefon (opsiyonel)</Label>
+                <Input name="emergencyContactPhone" placeholder="05xx xxx xxxx" />
               </div>
             </div>
           </Card>

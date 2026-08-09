@@ -787,6 +787,28 @@ export async function actionAddTeacher(formData: FormData) {
           instrument: String(formData.get("instrument") || "Piyano"),
           instrumentLevels,
           availability,
+          highSchool: String(formData.get("highSchool") || "") || undefined,
+          university: String(formData.get("university") || "") || undefined,
+          graduationYear: (() => {
+            const raw = String(formData.get("graduationYear") || "");
+            return raw ? Number(raw) : undefined;
+          })(),
+          birthDate: String(formData.get("birthDate") || "") || undefined,
+          address: String(formData.get("address") || "") || undefined,
+          contractStartDate: String(formData.get("contractStartDate") || "") || undefined,
+          contractEndDate: String(formData.get("contractEndDate") || "") || undefined,
+          employmentType: (() => {
+            const raw = String(formData.get("employmentType") || "");
+            return raw === "tam_zamanli" || raw === "yari_zamanli" || raw === "serbest" ? raw : undefined;
+          })(),
+          hireDate: String(formData.get("hireDate") || "") || undefined,
+          emergencyContactName: String(formData.get("emergencyContactName") || "") || undefined,
+          emergencyContactPhone: String(formData.get("emergencyContactPhone") || "") || undefined,
+          weeklyHoursThreshold: (() => {
+            const raw = String(formData.get("weeklyHoursThreshold") || "");
+            return raw ? Number(raw) : undefined;
+          })(),
+          personnelNotes: String(formData.get("personnelNotes") || "") || undefined,
         })
       );
 

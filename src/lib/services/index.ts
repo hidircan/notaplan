@@ -107,6 +107,7 @@ export {
   listDocumentInstancesTool,
   archiveDocumentInstanceTool,
   uploadSignedDocumentTool,
+  uploadDocumentDirectTool,
   deleteSignedDocumentVersionTool,
   getDocumentInstanceTool,
   resolveCollectionsIbanTool,

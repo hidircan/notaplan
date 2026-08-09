@@ -21,7 +21,7 @@ import Link from "next/link";
 import { actionChangeTaskStatus } from "@/lib/actions";
 import { Badge, Card } from "@/components/ui";
 import { formatDate, cn } from "@/lib/utils";
-import type { Task, TaskStatus } from "@/lib/types";
+import { TASK_PRIORITY_LABEL, type Task, type TaskStatus } from "@/lib/types";
 
 type Column = { status: TaskStatus; label: string };
 
@@ -186,7 +186,7 @@ export function TaskKanbanBoard({
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             <Badge status={t.priority === "URGENT" || t.priority === "HIGH" ? "overdue" : "pending"}>
-                              {t.priority}
+                              {TASK_PRIORITY_LABEL[t.priority]}
                             </Badge>
                             {overdue ? <Badge status="overdue">Gecikmiş</Badge> : null}
                             {t.dueDate ? (

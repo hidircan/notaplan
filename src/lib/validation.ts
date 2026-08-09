@@ -183,6 +183,26 @@ export const teacherSchema = z
      * değil. Boş dizi de geçerlidir (hiç müsaitlik yok).
      */
     availability: z.array(teacherAvailabilityWindowSchema).optional(),
+    /**
+     * Paket 7 — kayıt sırasında da girilebilsin diye eklenen özlük/eğitim/
+     * acil durum alanları. Hepsi opsiyonel — daha önce yalnızca öğretmen
+     * detay ekranından (updateTeacherProfileTool) girilebiliyordu; artık
+     * kayıt anında da girilebilir, kayıt sonrası zorunlu ek bilgi girişi
+     * gerekmez.
+     */
+    highSchool: optionalTrimmed,
+    university: optionalTrimmed,
+    graduationYear: z.coerce.number().int().min(1950).max(2100).optional(),
+    birthDate: optionalTrimmed,
+    address: optionalTrimmed,
+    contractStartDate: optionalTrimmed,
+    contractEndDate: optionalTrimmed,
+    employmentType: z.enum(["tam_zamanli", "yari_zamanli", "serbest"]).optional(),
+    hireDate: optionalTrimmed,
+    emergencyContactName: optionalTrimmed,
+    emergencyContactPhone: optionalTrimmed,
+    weeklyHoursThreshold: z.coerce.number().int().min(1).max(80).optional(),
+    personnelNotes: optionalTrimmed,
   })
   .refine(
     (v) => {
@@ -680,6 +700,36 @@ export const setNationalIdSchema = z.object({
   entity: z.enum(["student","teacher"]),
   entityId: z.string().min(1),
   nationalId: z.string().min(11).max(20),
+});
+
+/**
+ * Evraklar — şablon-bağımsız doğrudan dosya yükleme (kategori seçip dosya
+ * yüklemek için; "Yeni Evrak Oluştur" akışının aksine bir form doldurmayı
+ * gerektirmez). Dosya kuralları uploadSignedDocumentSchema ile AYNI
+ * (tools.ts'teki validateSignedDocumentFilePayload tekrar kullanılır).
+ */
+export const uploadDocumentDirectSchema = z.object({
+  kind: z.enum([
+    "student_enrollment_contract",
+    "parent_social_media_consent",
+    "kvkk",
+    "teacher_contract",
+    "teacher_info_form",
+    "trial_form",
+    "makeup_request",
+    "payment_commitment",
+    "petition",
+    "custom",
+  ]),
+  fileName: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."), "Geçersiz dosya adı"),
+  fileMimeType: z.string().min(1).max(100),
+  fileData: z.string().min(1).max(2_800_000),
+  studentId: z.string().optional(),
+  teacherId: z.string().optional(),
 });
 
 export const createDocumentInstanceSchema = z.object({

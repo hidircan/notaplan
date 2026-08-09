@@ -61,7 +61,7 @@ export default async function ProgramPage({
   // tenant'ın aktif ek enstrümanları, ders planlama seçicilerine akar.
   const catalogResult = await listInstrumentCatalogTool(session, {});
   const catalogInstruments = catalogResult.ok
-    ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
+    ? catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)
     : undefined;
   const weekStart = resolveWeekStart(week);
   const todayWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });

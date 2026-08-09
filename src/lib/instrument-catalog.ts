@@ -60,11 +60,6 @@ export async function createInstrumentCatalogEntry(input: {
   const trimmed = input.name.trim();
   if (!trimmed) return { ok: false, message: "Enstrüman adı boş olamaz." };
 
-  const isDuplicateOfStatic = (INSTRUMENTS as string[]).some((i) => normalizedName(i) === normalizedName(trimmed));
-  if (isDuplicateOfStatic) {
-    return { ok: false, message: `"${trimmed}" zaten temel enstrüman listesinde var.` };
-  }
-
   const now = new Date().toISOString();
 
   if (isDbMode) {
@@ -168,13 +163,13 @@ export async function updateInstrumentCatalogEntry(
 }
 
 /**
- * Bas Gitar/Ukulele — öğretmen CSV örnek şablonunda kullanılan iki
- * enstrüman — sabit `INSTRUMENTS` kümesinde yok. Bir tenant'ın kataloğu
- * hiç dokunulmamışsa (0 kayıt) bu iki tanesi güvenle, otomatik olarak
- * "seed" edilir — bu bir demo/backfill değildir, yalnızca kurumun ilk
- * kez kataloğu görüntülediği/kullandığı anda gerçekleşen tek seferlik bir
- * varsayılan doldurma (idempotent: ikinci çağrıda satır zaten var, tekrar
- * eklenmez).
+ * Bir tenant'ın kataloğu hiç dokunulmamışsa (0 kayıt) hem eski sabit
+ * `INSTRUMENTS` kümesi (Piyano, Yan Flüt, Gitar, Bateri, Keman, Şan) hem de
+ * Bas Gitar/Ukulele buraya, düzenlenebilir/pasife alınabilir gerçek katalog
+ * satırları olarak, otomatik "seed" edilir — artık "sabit ve asla
+ * değiştirilemez" ayrı bir liste YOK, hepsi aynı yönetilebilir kataloğun
+ * parçası. Tek seferlik, idempotent bir varsayılan doldurma (ikinci
+ * çağrıda satırlar zaten var, tekrar eklenmez).
  */
 async function listInstrumentCatalogRaw(tenantId: string): Promise<InstrumentCatalogEntry[]> {
   if (isDbMode) {
@@ -196,10 +191,19 @@ async function listInstrumentCatalogRaw(tenantId: string): Promise<InstrumentCat
     .map(toPublic);
 }
 
+/**
+ * Tek seferlik toplu seed — yalnızca tenant'ın kataloğu TAMAMEN boşsa
+ * çalışır. Bilinçli olarak isim-bazlı "eksikse tamamla" YAPILMAZ: bir
+ * yönetici "Piyano"yu "Klasik Piyano" olarak yeniden adlandırdıysa, bir
+ * sonraki listelemede eski "Piyano" adı sahte biçimde yeniden EKLENMEMELİ
+ * (isim eşleşmesi artık yok diye tekrar seed edilirse rename etkisiz
+ * kalırdı) — tek seferlik ilk doldurma, kalıcı bir "varsayılana dön"
+ * mekanizması değildir.
+ */
 async function ensureDefaultCatalogSeeded(tenantId: string): Promise<void> {
   const existing = await listInstrumentCatalogRaw(tenantId);
   if (existing.length > 0) return;
-  for (const name of ["Bas Gitar", "Ukulele"]) {
+  for (const name of [...INSTRUMENTS, "Bas Gitar", "Ukulele"]) {
     await createInstrumentCatalogEntry({ tenantId, name, createdBy: "seed" });
   }
 }
@@ -211,15 +215,17 @@ export async function listInstrumentCatalog(tenantId: string): Promise<Instrumen
 }
 
 /**
- * Server-side doğrulama için TEK kaynak: sabit `INSTRUMENTS` + bu tenant'ın
- * AKTİF katalog kayıtlarının adları. CSV import, ders planlama, öğrenci/
- * öğretmen form doğrulaması BUNU kullanmalı — asla yalnızca istemci
- * enum'una güvenilmemeli.
+ * Server-side doğrulama için TEK kaynak: bu tenant'ın AKTİF katalog
+ * kayıtlarının adları. CSV import, ders planlama, öğrenci/öğretmen form
+ * doğrulaması BUNU kullanmalı — asla yalnızca istemci enum'una
+ * güvenilmemeli. Eskiden sabit `INSTRUMENTS` kümesi burada KOŞULSUZ eklenip
+ * bir yönetici bu enstrümanlardan birini pasife alsa bile listeden hiç
+ * çıkmıyordu — artık `INSTRUMENTS` yalnızca ilk katalog seed'inin
+ * kaynağıdır (ensureDefaultCatalogSeeded), tek gerçek kaynak katalogdur.
  */
 export async function resolveActiveInstrumentNames(tenantId: string): Promise<string[]> {
   const catalog = await listInstrumentCatalog(tenantId);
-  const active = catalog.filter((c) => c.status === "active").map((c) => c.name);
-  return [...INSTRUMENTS, ...active];
+  return catalog.filter((c) => c.status === "active").map((c) => c.name);
 }
 
 /** Demo reset için. */

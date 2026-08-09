@@ -25,12 +25,11 @@ export default async function InstrumentCatalogPage() {
 
   const result = await listInstrumentCatalogTool(session, {});
   const entries = result.ok ? result.data.entries : [];
-  const staticInstruments = result.ok ? result.data.staticInstruments : [];
 
   return (
     <div>
       <PageHeader title="Enstrümanlar" />
-      <InstrumentCatalogManager entries={entries} staticInstruments={staticInstruments} canWrite />
+      <InstrumentCatalogManager entries={entries} canWrite />
     </div>
   );
 }

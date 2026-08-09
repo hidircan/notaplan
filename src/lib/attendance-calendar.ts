@@ -72,10 +72,20 @@ export type TermMonth = { year: number; month: number }; // month: 1-12
  * Bugünün tarihine göre "içinde bulunulan" akademik yıl-çapası. Sunucu
  * bileşenlerinden (RSC) de çağrılabilmesi için burada — "use client" olan
  * `attendance-calendar-panel.tsx` bunu re-export eder, kendi kopyasını TUTMAZ.
+ *
+ * Düzeltme (Temmuz/Ağustos boşluğu — "yoklama takviminde veri gelmiyor"):
+ * eskiden yalnızca Eylül (ay indeksi 8) ve sonrası "bu yılın" çapasını
+ * (bu Eylül – gelecek Haziran) alırdı; Temmuz/Ağustos (indeks 6-7) hâlâ
+ * ÖNCEKİ yılın çapasına (geçen Eylül – bu Haziran, ki bu ZATEN BİTMİŞTİR)
+ * düşüyordu. Sonuç: Temmuz/Ağustos ayında Güz dönemli bir öğrenci için
+ * takvim, güncel/yaklaşan hiçbir ders içermeyen, çoktan kapanmış bir
+ * aralığı varsayılan gösteriyordu — o dersler her zaman var olmasına
+ * rağmen ekranda hiç görünmüyordu. Eşik artık Temmuz (indeks 6) —
+ * Temmuz'dan itibaren yaklaşan (bu Eylül'den başlayan) çapa gösterilir.
  */
 export function currentAcademicAnchorYear(term: StudentTermType): number {
   const now = new Date();
-  return term === "yaz" ? now.getFullYear() : now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  return term === "yaz" ? now.getFullYear() : now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
 /**

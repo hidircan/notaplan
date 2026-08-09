@@ -203,6 +203,7 @@ import {
   updateRoomSchema,
   setNationalIdSchema,
   createDocumentInstanceSchema,
+  uploadDocumentDirectSchema,
   createDocumentTemplateSchema,
   updateDocumentTemplateSchema,
   archiveDocumentTemplateSchema,
@@ -1228,6 +1229,19 @@ export async function createTeacherTool(
         { dayOfWeek: 5, start: "10:00", end: "16:00" },
       ],
       maxDailyLessons: 8,
+      highSchool: v.data.highSchool,
+      university: v.data.university,
+      graduationYear: v.data.graduationYear,
+      birthDate: v.data.birthDate,
+      address: v.data.address,
+      contractStartDate: v.data.contractStartDate,
+      contractEndDate: v.data.contractEndDate,
+      employmentType: v.data.employmentType,
+      hireDate: v.data.hireDate,
+      emergencyContactName: v.data.emergencyContactName,
+      emergencyContactPhone: v.data.emergencyContactPhone,
+      weeklyHoursThreshold: v.data.weeklyHoursThreshold,
+      personnelNotes: v.data.personnelNotes,
     });
     const after = await readData();
     const created = after.teachers.find((t) => !ids.has(t.id));
@@ -1339,6 +1353,10 @@ export async function createInstrumentCatalogTool(
   const v = parseOrFail(createInstrumentCatalogSchema, input);
   if (!v.ok) return v;
 
+  // Katalog hiç görüntülenmemişse (seed hiç çalışmamışsa) önce seed'i
+  // tetikler — aksi halde "Piyano" gibi eski sabit isimlerle çakışma
+  // kontrolü, henüz hiç satır yokken yanlışlıkla geçer.
+  await listInstrumentCatalog(ctx.tenantId);
   const result = await createInstrumentCatalogEntry({ tenantId: ctx.tenantId, name: v.data.name, createdBy: ctx.userId });
   if (!result.ok) return fail("VALIDATION_ERROR", result.message);
   audit(ctx, "instrument.create", "InstrumentCatalogEntry", result.entry.id, { name: result.entry.name });
@@ -4446,6 +4464,74 @@ export async function uploadSignedDocumentTool(
     return ok({ documentId: doc.id, status: doc.status });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "uploadSignedDocument failed");
+  }
+}
+
+/**
+ * Evraklar — şablon doldurmadan, doğrudan kategori (kind) seçip dosya
+ * yükleme. `createDocumentInstance`'ın gerektirdiği `templateId` alanı
+ * boş string olarak geçilir (DocumentInstance.templateId'nin Prisma'da
+ * bir foreign key/ilişkisi YOK — yalnız serbest bir referans metni,
+ * bkz. prisma/schema.prisma) — her kategoride önceden şablon
+ * oluşturulmuş olmasına gerek kalmadan çalışır. Aynı anda
+ * `uploadSignedDocumentFile` ile dosya eklenip status "uploaded" yapılır
+ * — iki ayrı adım (önce boş belge, sonra yükleme) kullanıcıya HİÇ
+ * gösterilmez, tek işlemmiş gibi çalışır.
+ */
+export async function uploadDocumentDirectTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ documentId: string; reference: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(uploadDocumentDirectSchema, input);
+  if (!v.ok) return v;
+
+  const fileCheck = validateSignedDocumentFilePayload(v.data);
+  if (!fileCheck.ok) return fail("VALIDATION_ERROR", fileCheck.message);
+
+  const data = await readData();
+  const student = v.data.studentId ? data.students.find((s) => s.id === v.data.studentId) : undefined;
+  if (v.data.studentId && !student) {
+    return fail("VALIDATION_ERROR", "Seçilen öğrenci bulunamadı veya bu kuruma ait değil.");
+  }
+  const teacher = v.data.teacherId ? data.teachers.find((t) => t.id === v.data.teacherId) : undefined;
+  if (v.data.teacherId && !teacher) {
+    return fail("VALIDATION_ERROR", "Seçilen öğretmen bulunamadı veya bu kuruma ait değil.");
+  }
+  const branch = student ? data.settings.branches.find((b) => b.id === student.branchId) : undefined;
+
+  try {
+    const instance = await createDocumentInstance({
+      tenantId: ctx.tenantId,
+      templateId: "",
+      kind: v.data.kind,
+      fieldValues: {},
+      studentId: v.data.studentId,
+      teacherId: v.data.teacherId,
+      branchId: branch?.id,
+      createdBy: ctx.userId,
+    });
+    const uploaded = await uploadSignedDocumentFile(
+      ctx.tenantId,
+      instance.id,
+      {
+        fileName: v.data.fileName,
+        fileMimeType: v.data.fileMimeType,
+        fileData: v.data.fileData,
+        fileSize: fileCheck.byteLength,
+      },
+      ctx.userId
+    );
+    if (!uploaded) return fail("INTERNAL_ERROR", "Belge oluşturuldu ama dosya yüklenemedi.");
+    audit(ctx, "document.upload_direct", "DocumentInstance", instance.id, {
+      kind: v.data.kind,
+      fileName: v.data.fileName,
+      fileSize: fileCheck.byteLength,
+    });
+    return ok({ documentId: instance.id, reference: instance.reference });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "uploadDocumentDirect failed");
   }
 }
 

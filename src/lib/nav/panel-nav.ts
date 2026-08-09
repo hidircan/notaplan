@@ -88,6 +88,8 @@ export const PANEL_SYSTEM_NAV: PanelNavItem[] = [
   { href: "/panel/kurulum", label: "Kurulum Merkezi", icon: Settings },
   { href: "/panel/veri-aktar", label: "Veri Aktarım Merkezi", icon: Upload },
   { href: "/gorunum-ayarlari", label: "Görünüm Ayarları", icon: Palette },
+  /** Kim, ne zaman, hangi ekranda/varlıkta hangi kritik işlemi yaptı. */
+  { href: "/panel/denetim-kaydi", label: "Denetim Kaydı", icon: ScrollText, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
 ];
 
 export function isNavActive(pathname: string, href: string): boolean {

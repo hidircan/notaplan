@@ -25,7 +25,7 @@ import {
 } from "@/lib/actions";
 import { Badge, Button, Input, Label } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
-import type { Task, TaskChecklistItem, TaskComment, TaskActivity, TaskAttachment, TaskStatus } from "@/lib/types";
+import { TASK_PRIORITY_LABEL, type Task, type TaskChecklistItem, type TaskComment, type TaskActivity, type TaskAttachment, type TaskStatus } from "@/lib/types";
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -191,7 +191,7 @@ export function TaskDetailPanel({
 
       <div className="grid gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm sm:grid-cols-2">
         <div>
-          <span className="text-[var(--color-text-muted)]">Öncelik:</span> {task.priority}
+          <span className="text-[var(--color-text-muted)]">Öncelik:</span> {TASK_PRIORITY_LABEL[task.priority]}
         </div>
         <div>
           <span className="text-[var(--color-text-muted)]">Kategori:</span> {task.category}
