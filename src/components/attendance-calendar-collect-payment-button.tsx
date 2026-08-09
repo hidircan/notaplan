@@ -64,6 +64,17 @@ export function AttendanceCalendarCollectPaymentButton({
     : "";
   const [method, setMethod] = useState<StudentPaymentMethod | "">(initialMethod);
   const [amount, setAmount] = useState(String(registeredAmount));
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function onRequestCollect() {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Geçerli bir tutar girin.");
+      return;
+    }
+    setError(null);
+    setConfirmOpen(true);
+  }
 
   function onCollect() {
     const parsedAmount = Number(amount);
@@ -72,6 +83,7 @@ export function AttendanceCalendarCollectPaymentButton({
       return;
     }
     setError(null);
+    setConfirmOpen(false);
     startTransition(async () => {
       try {
         const res = await fetch(`/api/v1/payments/${paymentId}/pay`, {
@@ -131,7 +143,7 @@ export function AttendanceCalendarCollectPaymentButton({
         <button
           type="button"
           disabled={pending}
-          onClick={onCollect}
+          onClick={onRequestCollect}
           className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
         >
           {pending ? "İşleniyor…" : "Tahsil Et"}
@@ -141,6 +153,42 @@ export function AttendanceCalendarCollectPaymentButton({
         <p className="font-medium text-[#8b3a3a]" role="alert">
           {error}
         </p>
+      ) : null}
+
+      {confirmOpen ? (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Tahsilatı onayla"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-[var(--color-text)]">Tahsilatı onaylıyor musunuz?</h3>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+              {Number(amount).toLocaleString("tr-TR")} ₺
+              {method ? ` — ${PAYMENT_METHOD_OPTIONS.find((o) => o.value === method)?.label}` : ""} tutarında bir
+              tahsilat kaydedilecek ve ödeme durumu &quot;Ödendi&quot; olarak işaretlenecek. Bu işlem geri alınamaz.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={pending}
+                className="rounded-lg border border-[var(--color-border)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onCollect}
+                className="rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {pending ? "İşleniyor…" : "Evet, tahsil et"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

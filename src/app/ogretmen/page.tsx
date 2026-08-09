@@ -40,9 +40,12 @@ export default async function OgretmenPortalPage() {
     .filter((l) => l.teacherId === teacher.id && l.startAt.startsWith(today))
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
+  const fiveDaysAhead = new Date();
+  fiveDaysAhead.setDate(fiveDaysAhead.getDate() + 5);
+  fiveDaysAhead.setHours(23, 59, 59, 999);
   const weekLessons = data.lessons
     .filter((l) => l.teacherId === teacher.id && l.status === "scheduled")
-    .filter((l) => new Date(l.startAt) >= new Date())
+    .filter((l) => new Date(l.startAt) >= new Date() && new Date(l.startAt) <= fiveDaysAhead)
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
     .slice(0, 8);
 
@@ -331,7 +334,7 @@ export default async function OgretmenPortalPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yaklaşan seanslar</h2>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yaklaşan seanslar (5 gün içinde)</h2>
           <div className="space-y-2">
             {weekLessons.map((l) => {
               const student = data.students.find((s) => s.id === l.studentId);

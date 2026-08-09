@@ -11,6 +11,11 @@ import { readData } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
+/** Kullanıcı isteğiyle şimdilik kapatıldı — "Yeni Evrak Oluştur" ve "Şablon
+ * Yönetimi" bölümleri tekrar açılana kadar gizli. Diğer her şey (Dosya Yükle,
+ * evrak listesi) etkilenmez. */
+const SHOW_TEMPLATE_SECTIONS = false;
+
 /** PRODUCT_BACKLOG §6 — Evraklar Merkezi: profesyonel doküman merkezi görünümü. */
 export default async function DocumentsCenterPage({
   searchParams,
@@ -68,41 +73,45 @@ export default async function DocumentsCenterPage({
         <DocumentDirectUploadForm students={students} teachers={teachers} />
       </Card>
 
-      <Card className="mb-6">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">
-          Yeni Evrak Oluştur (şablondan)
-        </p>
-        {templates.length === 0 ? (
-          <EmptyState title="Şablon yok" description="Aşağıdaki 'Şablon Yönetimi' bölümünden yeni bir şablon oluşturun." />
-        ) : (
-          <DocumentCreateForm
-            templates={templates.map((t) => ({ id: t.id, name: t.name, kind: t.kind }))}
-            students={students}
-            teachers={teachers}
-            defaultStudentId={studentId}
-            defaultTeacherId={teacherId}
-          />
-        )}
-      </Card>
+      {SHOW_TEMPLATE_SECTIONS ? (
+        <>
+          <Card className="mb-6">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">
+              Yeni Evrak Oluştur (şablondan)
+            </p>
+            {templates.length === 0 ? (
+              <EmptyState title="Şablon yok" description="Aşağıdaki 'Şablon Yönetimi' bölümünden yeni bir şablon oluşturun." />
+            ) : (
+              <DocumentCreateForm
+                templates={templates.map((t) => ({ id: t.id, name: t.name, kind: t.kind }))}
+                students={students}
+                teachers={teachers}
+                defaultStudentId={studentId}
+                defaultTeacherId={teacherId}
+              />
+            )}
+          </Card>
 
-      <Card className="mb-6">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">Şablon Yönetimi</p>
-        <DocumentTemplateManager
-          templates={allTemplates.map((t) => ({
-            id: t.id,
-            name: t.name,
-            kind: t.kind,
-            active: t.active,
-            version: t.version,
-            updatedAt: t.updatedAt,
-          }))}
-        />
-      </Card>
+          <Card className="mb-6">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">Şablon Yönetimi</p>
+            <DocumentTemplateManager
+              templates={allTemplates.map((t) => ({
+                id: t.id,
+                name: t.name,
+                kind: t.kind,
+                active: t.active,
+                version: t.version,
+                updatedAt: t.updatedAt,
+              }))}
+            />
+          </Card>
+        </>
+      ) : null}
 
       {documents.length === 0 ? (
         <EmptyState
           title="Henüz evrak yok"
-          description="Yukarıdaki 'Yeni Evrak Oluştur' bölümünden ilk belgenizi oluşturun — referans, tarih ve kişi/kurum alanları otomatik doldurulur."
+          description="Yukarıdaki 'Dosya Yükle' bölümünden ilk belgenizi ekleyin."
         />
       ) : (
         <DocumentsTable rows={rows} />

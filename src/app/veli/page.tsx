@@ -63,8 +63,11 @@ export default async function VeliPortalPage() {
     .filter((l) => l.studentId === student.id)
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 
+  const fiveDaysAhead = new Date();
+  fiveDaysAhead.setDate(fiveDaysAhead.getDate() + 5);
+  fiveDaysAhead.setHours(23, 59, 59, 999);
   const upcoming = lessons.filter(
-    (l) => l.status === "scheduled" && new Date(l.startAt) >= new Date()
+    (l) => l.status === "scheduled" && new Date(l.startAt) >= new Date() && new Date(l.startAt) <= fiveDaysAhead
   );
   const past = lessons.filter((l) => new Date(l.startAt) < new Date()).slice(-5).reverse();
 
@@ -265,11 +268,11 @@ export default async function VeliPortalPage() {
         <section>
           <div className="mb-2 flex items-center gap-2 px-1">
             <CalendarDays className="h-4 w-4 text-amber-600" />
-            <h2 className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yaklaşan dersler</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)] dark:text-slate-200">Yaklaşan dersler (5 gün içinde)</h2>
           </div>
           {upcoming.length === 0 ? (
             <Card>
-              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Yaklaşan ders yok.</p>
+              <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Önümüzdeki 5 gün içinde planlı ders yok.</p>
             </Card>
           ) : (
             <div className="space-y-2">

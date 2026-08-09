@@ -29,6 +29,8 @@ import {
   createLessonTool,
   createRoomTool,
   archiveTeacherTool,
+  createTaskTool,
+  changeTaskStatusTool,
 } from "../src/lib/services/tools";
 import type { ServiceContext } from "../src/lib/services/context";
 import { isDbMode } from "../src/lib/config";
@@ -533,22 +535,36 @@ async function main() {
     // aktif öğrencileri kapsayan) listesinden DEĞİL, aksi halde her
     // çalıştırmada farklı bir öğrenci seçilip idempotentlik bozulur (yeni
     // login satırları birikir).
-    const fixedDemoLoginStudents = (await readData()).students.filter((s) =>
-      ["ada.yilmaz.demo@email.com", "kerem.sahin.demo@email.com"].includes(s.email?.toLowerCase() ?? "")
-    );
-    if (isDbMode && teachers.length >= 3 && fixedDemoLoginStudents.length >= 2) {
-      // İlk 3 CSV öğretmeni için giriş kullanıcısı — görev: "Turgay Hoşbaş →
-      // 1@mail.com, Olcay Özdemir → 2@mail.com, Ebru Şirince → 3@mail.com".
-      // E-postaya göre eşleşir (öğretmen sıralaması store'un iç sırasına
-      // göre değişebildiği için index yerine sabit e-posta kullanılır).
-      const teacherLoginEmails = ["1@mail.com", "2@mail.com", "3@mail.com"];
+    const fixedDemoLoginEmails = [
+      "ada.yilmaz.demo@email.com",
+      "kerem.sahin.demo@email.com",
+      "nehir.kaya.demo@email.com",
+      "toprak.demir.demo@email.com",
+      "elif.aksoy.demo@email.com",
+    ];
+    const allStudentsForLogins = (await readData()).students;
+    const fixedDemoLoginStudents = fixedDemoLoginEmails
+      .map((email) => allStudentsForLogins.find((s) => s.email?.toLowerCase() === email))
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
+    if (isDbMode && teachers.length >= 1 && fixedDemoLoginStudents.length >= 1) {
+      // Görev: "birden fazla öğretmen ve öğrenciyle giriş yapabileyim" — TÜM
+      // aktif CSV öğretmenleri (7) + birden fazla demo öğrenci (5) için giriş
+      // kullanıcısı oluşturulur. E-postaya göre eşleşir (öğretmen sıralaması
+      // store'un iç sırasına göre değişebildiği için index yerine sabit
+      // e-posta kullanılır).
       const demoLogins = [
-        ...teacherLoginEmails.map((email, i) => {
-          const t = byEmail(email)!;
-          return { email: t.email, role: "TEACHER" as const, teacherId: t.id, password: `demo-teacher-csv-${i + 1}` };
-        }),
-        { email: fixedDemoLoginStudents[0]!.email!, role: "STUDENT" as const, studentId: fixedDemoLoginStudents[0]!.id, password: "demo-student-csv-1" },
-        { email: fixedDemoLoginStudents[1]!.email!, role: "STUDENT" as const, studentId: fixedDemoLoginStudents[1]!.id, password: "demo-student-csv-2" },
+        ...teachers.map((t, i) => ({
+          email: t.email,
+          role: "TEACHER" as const,
+          teacherId: t.id,
+          password: `demo-teacher-csv-${i + 1}`,
+        })),
+        ...fixedDemoLoginStudents.map((s, i) => ({
+          email: s.email!,
+          role: "STUDENT" as const,
+          studentId: s.id,
+          password: `demo-student-csv-${i + 1}`,
+        })),
       ];
       for (const login of demoLogins) {
         const existing = await prisma.user.findFirst({ where: { tenantId: DEFAULT_TENANT_ID, email: login.email } });
@@ -584,6 +600,64 @@ async function main() {
         if (!u.teacherId || !legacyTeacherIdSet.has(u.teacherId)) continue;
         await prisma.user.update({ where: { id: u.id }, data: { active: false } });
         console.log(`Eski demo öğretmen giriş kullanıcısı pasifleştirildi: ${u.email}`);
+      }
+    }
+
+    // İş Takip — örnek görevler (Kanban demosu için). Başlığa göre idempotent
+    // (varsa atlanır). Admin kullanıcıya atanır, farklı kategori/öncelik ve
+    // (oluşturulduktan sonra changeTaskStatusTool ile) farklı statülerle —
+    // Kanban panosunda gerçekçi bir dağılım görünsün diye.
+    if (isDbMode) {
+      const adminUser = await prisma.user.findFirst({
+        where: { tenantId: DEFAULT_TENANT_ID, role: "SCHOOL_ADMIN", active: true },
+      });
+      if (adminUser) {
+        const taskCtx: ServiceContext = { role: "SCHOOL_ADMIN", tenantId: DEFAULT_TENANT_ID, userId: adminUser.id };
+        const sampleTasks: {
+          title: string;
+          category: "Kayıt" | "Eğitim" | "Tahsilat" | "Veli İletişimi" | "Öğretmen" | "Program" | "Evrak" | "Teknik";
+          priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+          targetStatus?: "IN_PROGRESS" | "COMPLETED" | "BLOCKED";
+          dueInDays?: number;
+        }[] = [
+          { title: "Yeni kayıt evraklarını tamamla — Ada Yılmaz", category: "Kayıt", priority: "MEDIUM", dueInDays: 3 },
+          { title: "Piyano grubu için ek oda talebi", category: "Program", priority: "LOW", dueInDays: 7 },
+          { title: "Gecikmiş ödeme hatırlatması — Temmuz taksiti", category: "Tahsilat", priority: "HIGH", targetStatus: "IN_PROGRESS", dueInDays: 1 },
+          { title: "Veli toplantısı daveti gönder", category: "Veli İletişimi", priority: "MEDIUM", targetStatus: "IN_PROGRESS", dueInDays: 5 },
+          { title: "Öğretmen müsaitlik formunu güncelle — Ebru Şirince", category: "Öğretmen", priority: "LOW" },
+          { title: "Kayıt sözleşmesi şablonunu revize et", category: "Evrak", priority: "MEDIUM", targetStatus: "BLOCKED", dueInDays: 10 },
+          { title: "Yaz dönemi ders programını onayla", category: "Program", priority: "URGENT", dueInDays: 2 },
+          { title: "Sistem yedekleme kontrolü", category: "Teknik", priority: "LOW", targetStatus: "COMPLETED" },
+        ];
+        for (const t of sampleTasks) {
+          const existing = await prisma.task.findFirst({ where: { tenantId: DEFAULT_TENANT_ID, title: t.title } });
+          if (existing) {
+            console.log(`Görev zaten var: ${t.title}`);
+            continue;
+          }
+          const dueDate = t.dueInDays
+            ? new Date(Date.now() + t.dueInDays * 86_400_000).toISOString()
+            : undefined;
+          const res = await createTaskTool(taskCtx, {
+            title: t.title,
+            category: t.category,
+            priority: t.priority,
+            assigneeId: adminUser.id,
+            dueDate,
+          });
+          if (!res.ok) {
+            console.error(`HATA — görev "${t.title}": ${res.error.message}`);
+            continue;
+          }
+          if (t.targetStatus) {
+            await changeTaskStatusTool(taskCtx, {
+              taskId: res.data.taskId,
+              action: "set_status",
+              status: t.targetStatus,
+            });
+          }
+          console.log(`Görev oluşturuldu: ${t.title}${t.targetStatus ? ` (${t.targetStatus})` : ""}`);
+        }
       }
     }
   });

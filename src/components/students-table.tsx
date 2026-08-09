@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { PaginationControls, usePagination } from "@/components/pagination-controls";
 import { StudentArchiveAction } from "@/components/student-archive-action";
 import {
   DEFAULT_STUDENT_COLUMNS,
@@ -236,6 +237,7 @@ export function StudentsTable({
   });
 
   const anyFilterActive = Boolean(search) || activeGroupCount > 0;
+  const { pageItems, page, setPage, pageSize, setPageSize, totalPages, totalCount } = usePagination(filtered, 10);
 
   // Aktif filtreler için kaldırılabilir chip listesi.
   type Chip = { key: string; value: string; label: string; onRemove: () => void };
@@ -528,14 +530,14 @@ export function StudentsTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {pageItems.length === 0 ? (
               <tr>
                 <td colSpan={1 + columns.length + (canManage ? 1 : 0)} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
                   Bu filtreye uyan öğrenci bulunamadı.
                 </td>
               </tr>
             ) : (
-              filtered.map((s) => (
+              pageItems.map((s) => (
                 <tr key={s.id} className="border-b border-[var(--color-border)] align-top last:border-0">
                   <td className="p-0">
                     <Link
@@ -582,6 +584,14 @@ export function StudentsTable({
             )}
           </tbody>
         </table>
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
     </>
   );

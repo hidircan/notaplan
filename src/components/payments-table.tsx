@@ -6,6 +6,7 @@ import { Receipt } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { PaymentMarkPaidModal } from "@/components/payment-mark-paid-modal";
+import { PaginationControls, usePagination } from "@/components/pagination-controls";
 import type { PaymentStatus } from "@/lib/types";
 
 export type PaymentRow = {
@@ -51,6 +52,8 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
       return true;
     });
   }, [rows, search, statusFilter, actionOnly]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, totalPages, totalCount } = usePagination(filtered, 10);
 
   return (
     <>
@@ -119,14 +122,14 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {pageItems.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                   Bu filtreye uyan ödeme bulunamadı.
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => (
+              pageItems.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
                   <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">
                     <Link
@@ -210,6 +213,14 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
             )}
           </tbody>
         </table>
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
 
       {modalPayment ? (
