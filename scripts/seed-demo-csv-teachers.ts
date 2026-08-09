@@ -49,6 +49,71 @@ function parseTeacherCsv(path: string) {
   return parseTeacherCsvContent(readFileSync(path, "utf-8"));
 }
 
+/**
+ * ISO takvim haftası anahtarı (ör. "2026-W32"). Hem "her çift için haftada
+ * 1 ders" idempotency kontrolü hem de yinelenen-ders temizliği AYNI bu
+ * fonksiyonu kullanır — iki farklı hafta bölümleme şeması (ör. "bugünden
+ * itibaren 7 günlük kovalar" vs. gerçek takvim haftası) birbiriyle
+ * çakışırsa her çalıştırmada karşılıklı ders silme/yeniden oluşturma
+ * döngüsüne (kararsızlık) yol açar — bu yüzden TEK bir kanonik hafta
+ * tanımı kullanılır.
+ */
+function isoWeekKey(d: Date): string {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${weekNo}`;
+}
+
+/**
+ * `createLessonTool` (canlı rezervasyon aracı) GEÇMİŞ bir `startAt`'ı iş
+ * kuralı olarak reddeder ("Başlangıç saati geçmişte olamaz" — bkz.
+ * validateLessonSlot). Bu, gerçek/canlı planlama için doğru bir kuraldır
+ * ama "önceki ay" demo geçmişini geriye dönük doldurmayı imkansız kılar.
+ * `src/lib/seed.ts`'in statik demo verisi de aynı nedenle geçmiş dersleri
+ * Tool Layer'dan DEĞİL, doğrudan veri olarak (status:"completed")
+ * oluşturur — burada aynı, gerekçeli istisna izlenir: yalnızca GEÇMİŞ
+ * (dayOffset<0) demo dersleri doğrudan Prisma ile, `status:"completed"`
+ * olarak eklenir; GELECEK dersler her zaman `createLessonTool` üzerinden
+ * (gerçek çakışma/RBAC/audit doğrulamasıyla) oluşturulur.
+ */
+async function createHistoricalLessonDirect(input: {
+  studentId: string;
+  teacherId: string;
+  roomId: string;
+  branchId: string;
+  instrument: string;
+  startAt: Date;
+  durationMinutes?: number;
+}): Promise<boolean> {
+  const student = await prisma.student.findFirst({ where: { id: input.studentId, tenantId: DEFAULT_TENANT_ID } });
+  if (!student) return false;
+  const endAt = new Date(input.startAt.getTime() + (input.durationMinutes ?? 40) * 60_000);
+  try {
+    await prisma.lesson.create({
+      data: {
+        id: uid("les"),
+        tenantId: DEFAULT_TENANT_ID,
+        studentId: input.studentId,
+        teacherId: input.teacherId,
+        roomId: input.roomId,
+        branchId: input.branchId,
+        schoolId: student.schoolId,
+        instrument: input.instrument,
+        startAt: input.startAt,
+        endAt,
+        type: "regular",
+        status: "completed",
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   await runWithTenantAsync(DEFAULT_TENANT_ID, async () => {
     const csvTeachers = parseTeacherCsv(CSV_PATH);
@@ -225,72 +290,239 @@ async function main() {
       if (res.ok) console.log("Oda oluşturuldu: Stüdyo D — Gitar (Evka 3)");
     }
 
-    // ~50 ders x 3 ay (önceki/mevcut/sonraki) — öğretmen availability'sine göre,
-    // aynı öğretmen/oda aynı gün+saatte iki kez kullanılmaz (yerel Set ile önlenir).
-    const rooms = afterTeachers.settings.branches.flatMap((b) => [b.id]); // yalnızca fallback
-    void rooms;
-    const usedTeacherSlot = new Set<string>();
-    // Aynı şubede aynı enstrümanı öğreten birden fazla öğretmen tek bir
-    // odayı paylaşabiliyor (ör. Evka 3'te 2 Piyano öğretmeni, tek piyano
-    // odası) — çakışmayı azaltmak için bu öğretmenler arasında sıraya göre
-    // saat kaydırması uygulanır (ilk öğretmen +1, ikincisi +3, ...).
-    const roomShareOffset = new Map<string, number>();
+    // NOT: Bu betiğin önceki bir sürümünde burada ayrıca "~50 ders x 3 ay"
+    // hedefli, öğretmen bazlı basit bir ("sparse") ders üretici vardı. O
+    // üretici çapraz-çalıştırma idempotenliğine sahip DEĞİLDİ (yalnızca
+    // TEK bir çalıştırma içinde `usedTeacherSlot` ile kendi kendine
+    // çakışmayı önlüyordu) — betik birden çok kez çalıştırıldığında HER
+    // seferinde yeniden ~30 ders/öğretmen ekleyerek gerçek yinelenen kayıt
+    // ürettiği tespit edildi (bkz. doğrulama sorguları — bazı öğrenci×
+    // öğretmen çiftlerinde aynı haftada 6-12 ders). Bu üretici TAMAMEN
+    // kaldırıldı; aşağıdaki "Yoğun ders programı" üretici zaten HER aktif
+    // öğrenci × HER aktif öğretmen için haftada 1 ders hedefini karşılıyor
+    // ve gerçekten çapraz-çalıştırma idempotenttir (mevcut dersler önceden
+    // yüklenip kontrol edilir).
+
+    // Temizlik — yukarıda kaldırılan eski "sparse" üretici, önceki
+    // çalıştırmalarda bazı öğrenci×öğretmen çiftleri için AYNI takvim
+    // haftasında birden fazla ders üretmişti (çapraz-çalıştırma idempotent
+    // DEĞİLDİ). Bu betik yalnızca CSV öğretmenlerinin (seed-owned) derslerini
+    // yönetir — bu yüzden yalnızca o öğretmenlere ait derslerde, aynı
+    // öğrenci+öğretmen+takvim haftası için birden fazla kayıt varsa en
+    // ESKİsi (ilk oluşturulan) dışındakiler silinir. Gerçek/CSV içe
+    // aktarılmış veriye HİÇ dokunulmaz (yalnızca `teacherId` CSV öğretmen
+    // id'lerinden biri olan satırlar sorgulanır).
     {
-      const seenByRoomInstrument = new Map<string, number>();
-      for (const t of teachers) {
-        const key = `${t.branchId}|${t.instruments[0]}`;
-        const count = seenByRoomInstrument.get(key) ?? 0;
-        roomShareOffset.set(t.id, count * 2);
-        seenByRoomInstrument.set(key, count + 1);
-      }
-    }
-    // Yalnızca bu çalıştırmada oluşturulan 10 demo öğrenci değil, CSV
-    // öğretmenlerine atanmış TÜM aktif öğrenciler (yukarıda taşınan eski
-    // demo öğrenciler dahil) ders üretimine dahil edilir — aksi halde
-    // yalnızca eski öğrencisi taşınan öğretmenler (ör. Pınar Çelik) hiç
-    // ders alamaz.
-    const teacherIdSet = new Set(teachers.map((t) => t.id));
-    const studentsData = (await readData()).students.filter((s) => s.active && teacherIdSet.has(s.teacherId));
-    let createdLessons = 0;
-    const targetTotal = 150;
-    for (let dayOffset = -45; dayOffset <= 45 && createdLessons < targetTotal; dayOffset++) {
-      const now = new Date();
-      const d = new Date(now);
-      d.setDate(now.getDate() + dayOffset);
-      const weekday = d.getDay();
-      for (const teacher of teachers) {
-        if (createdLessons >= targetTotal) break;
-        const avail = teacher.availability.find((a) => a.dayOfWeek === weekday);
-        if (!avail) continue;
-        const startHour = Number(avail.start.slice(0, 2));
-        const teacherKey = `${teacher.id}|${dayOffset}`;
-        if (usedTeacherSlot.has(teacherKey)) continue;
-        const studentsForTeacher = studentsData.filter((s) => s.teacherId === teacher.id);
-        if (studentsForTeacher.length === 0) continue;
-        const student = studentsForTeacher[Math.abs(dayOffset) % studentsForTeacher.length]!;
-        const startAt = new Date(d);
-        startAt.setHours(startHour + 1 + (roomShareOffset.get(teacher.id) ?? 0), 0, 0, 0);
-        // Şubedeki TÜM odalar değil, öğretmenin enstrümanını destekleyen oda
-        // seçilir — aksi halde aynı şubedeki farklı enstrüman öğretmenleri
-        // hep aynı ilk odaya düşer ve gereksiz oda çakışmasıyla reddedilir.
-        const roomsInBranch = (await readData()).rooms.filter((r) => r.branchId === teacher.branchId);
-        const room =
-          roomsInBranch.find((r) => r.instruments.includes(teacher.instruments[0]!)) ?? roomsInBranch[0];
-        if (!room) continue;
-        const res = await createLessonTool(ctx, {
-          studentId: student.id,
-          teacherId: teacher.id,
-          roomId: room.id,
-          instrument: teacher.instruments[0],
-          startAt: startAt.toISOString(),
-        });
-        if (res.ok) {
-          usedTeacherSlot.add(teacherKey);
-          createdLessons += 1;
+      const csvTeacherIds = teachers.map((t) => t.id);
+      const allCsvLessons = await prisma.lesson.findMany({
+        where: { tenantId: DEFAULT_TENANT_ID, teacherId: { in: csvTeacherIds } },
+        select: { id: true, teacherId: true, studentId: true, startAt: true },
+        orderBy: { startAt: "asc" },
+      });
+      const seenPairWeek = new Set<string>();
+      const duplicateIds: string[] = [];
+      for (const l of allCsvLessons) {
+        const key = `${l.teacherId}|${l.studentId}|${isoWeekKey(l.startAt)}`;
+        if (seenPairWeek.has(key)) {
+          duplicateIds.push(l.id);
+        } else {
+          seenPairWeek.add(key);
         }
       }
+      if (duplicateIds.length > 0) {
+        await prisma.lesson.deleteMany({ where: { id: { in: duplicateIds } } });
+        console.log(
+          `Temizlik: kaldırılan "sparse" üreticinin ürettiği ${duplicateIds.length} yinelenen ders (aynı öğrenci+öğretmen+hafta) silindi.`
+        );
+      }
     }
-    console.log(`Toplam ${createdLessons} demo ders oluşturuldu (önceki/mevcut/sonraki ay penceresi).`);
+
+    // ─── Yoğun ders programı demosu ─────────────────────────────────────
+    // Görev: HER aktif öğrenci × HER aktif CSV öğretmeni ile haftada 1 ders
+    // — önceki/mevcut/sonraki ay penceresinde (13 haftalık kova, gün -45..45).
+    //
+    // PERFORMANS — kritik: `createLessonTool` her denemede tam bir
+    // `readData()` + gerçek çakışma doğrulaması (validateLessonSlot) yapar;
+    // bu, ZATEN DOLU olduğu önceden bilinen bir slotu yine de denemek
+    // (veritabanına gidip reddedilmek) büyük ölçekte (18 öğrenci × 7
+    // öğretmen × 13 hafta ≈ 1600+ çift) dakikalarca sürebilir. Bu yüzden
+    // TÜM mevcut dersler (bu betiğin önceki çalıştırmalarından ve tarihsel
+    // eski öğretmen dersinden) TEK bir sorguyla önceden yüklenir ve yerel
+    // Set'lere işlenir — döngü yalnızca GERÇEKTEN boş görünen slotları
+    // `createLessonTool`'a gönderir; DB, son doğrulama katmanı olarak kalır
+    // ama artık nadiren "hayır" der.
+    const allActiveStudents = (await readData()).students.filter((s) => s.active);
+    const roomsByBranch = new Map<string, typeof afterTeachers.rooms>();
+    for (const r of (await readData()).rooms) {
+      const list = roomsByBranch.get(r.branchId) ?? [];
+      list.push(r);
+      roomsByBranch.set(r.branchId, list);
+    }
+    function roomForTeacher(teacherId: string) {
+      const teacher = teachers.find((t) => t.id === teacherId)!;
+      const roomsInBranch = roomsByBranch.get(teacher.branchId) ?? [];
+      return roomsInBranch.find((r) => r.instruments.includes(teacher.instruments[0]!)) ?? roomsInBranch[0];
+    }
+
+    const usedTeacherHour = new Set<string>(); // `${teacherId}|${dayOffset}|${hour}`
+    const usedStudentHour = new Set<string>(); // `${studentId}|${dayOffset}|${hour}`
+    const usedRoomHour = new Set<string>(); // `${roomId}|${dayOffset}|${hour}`
+    const pairHasLessonInWeek = new Set<string>(); // `${teacherId}|${studentId}|${weekStart}`
+
+    const today0 = new Date();
+    today0.setHours(0, 0, 0, 0);
+    const windowStart = new Date(today0);
+    windowStart.setDate(windowStart.getDate() - 46);
+    const windowEnd = new Date(today0);
+    windowEnd.setDate(windowEnd.getDate() + 46);
+    const existingLessons = await prisma.lesson.findMany({
+      where: { tenantId: DEFAULT_TENANT_ID, startAt: { gte: windowStart, lt: windowEnd } },
+      select: { teacherId: true, studentId: true, roomId: true, startAt: true },
+    });
+    for (const l of existingLessons) {
+      const dayOffset = Math.round((l.startAt.getTime() - today0.getTime()) / 86_400_000);
+      const hour = l.startAt.getHours();
+      usedTeacherHour.add(`${l.teacherId}|${dayOffset}|${hour}`);
+      usedRoomHour.add(`${l.roomId}|${dayOffset}|${hour}`);
+      usedStudentHour.add(`${l.studentId}|${dayOffset}|${hour}`);
+      pairHasLessonInWeek.add(`${l.teacherId}|${l.studentId}|${isoWeekKey(l.startAt)}`);
+    }
+    console.log(`Mevcut ${existingLessons.length} ders önceden yüklendi (çakışma/idempotency ön-kontrolü için).`);
+
+    let denseCreated = 0;
+    let denseNoSlot = 0;
+    let pairIndex = 0;
+
+    // Gün-gün TEK geçiş (hafta kovaları yerine) — çünkü sabit 7 günlük
+    // ofset kovaları GERÇEK takvim haftalarıyla hizalı değildir; iki farklı
+    // hafta bölümleme şeması aynı anda kullanılırsa (ör. burada ofset kovası,
+    // temizlik adımında ISO hafta) her çalıştırmada karşılıklı silme/yeniden
+    // oluşturma döngüsü (kararsızlık) oluşur. Gün gün ilerleyip HER gün için
+    // "bu ISO haftada bu çift için zaten ders var mı" diye `isoWeekKey` ile
+    // kontrol etmek, temizlik adımıyla AYNI kanonik hafta tanımını kullanır.
+    for (let dayOffset = -45; dayOffset <= 45; dayOffset++) {
+      const d = new Date();
+      d.setDate(d.getDate() + dayOffset);
+      const weekKey = isoWeekKey(d);
+      const weekday = d.getDay();
+      for (const teacher of teachers) {
+        const avail = teacher.availability.find((a) => a.dayOfWeek === weekday);
+        if (!avail) continue;
+        const room = roomForTeacher(teacher.id);
+        if (!room) continue;
+        const startHour = Number(avail.start.slice(0, 2));
+        const endHour = Number(avail.end.slice(0, 2));
+        for (const student of allActiveStudents) {
+          const pairWeekKey = `${teacher.id}|${student.id}|${weekKey}`;
+          if (pairHasLessonInWeek.has(pairWeekKey)) continue;
+          pairIndex += 1;
+
+          let booked = false;
+          for (let hour = startHour; hour < endHour && !booked; hour++) {
+            const tKey = `${teacher.id}|${dayOffset}|${hour}`;
+            const sKey = `${student.id}|${dayOffset}|${hour}`;
+            const rKey = `${room.id}|${dayOffset}|${hour}`;
+            if (usedTeacherHour.has(tKey) || usedStudentHour.has(sKey) || usedRoomHour.has(rKey)) continue;
+            const startAt = new Date(d);
+            startAt.setHours(hour, 0, 0, 0);
+            // Yerel Set kontrolünden geçen slotlar için bile son sözü GEÇMİŞ
+            // OLMAYAN (dayOffset>=0) slotlarda `createLessonTool` (gerçek
+            // validateLessonSlot) verir. GEÇMİŞ günler için `createLessonTool`
+            // iş kuralı gereği HER ZAMAN reddeder ("Başlangıç saati geçmişte
+            // olamaz") — bu yüzden geçmiş demo geçmişi doğrudan Prisma ile
+            // (status:"completed") eklenir, tıpkı src/lib/seed.ts'in statik
+            // demo verisinde olduğu gibi.
+            const ok =
+              dayOffset < 0
+                ? await createHistoricalLessonDirect({
+                    studentId: student.id,
+                    teacherId: teacher.id,
+                    roomId: room.id,
+                    branchId: teacher.branchId,
+                    instrument: teacher.instruments[0]!,
+                    startAt,
+                  })
+                : (
+                    await createLessonTool(ctx, {
+                      studentId: student.id,
+                      teacherId: teacher.id,
+                      roomId: room.id,
+                      instrument: teacher.instruments[0],
+                      startAt: startAt.toISOString(),
+                    })
+                  ).ok;
+            usedTeacherHour.add(tKey);
+            usedStudentHour.add(sKey);
+            usedRoomHour.add(rKey);
+            if (ok) {
+              pairHasLessonInWeek.add(pairWeekKey);
+              denseCreated += 1;
+              booked = true;
+            }
+          }
+          if (!booked) denseNoSlot += 1;
+        }
+      }
+      if (dayOffset % 15 === 0) {
+        console.log(
+          `Yoğun program — gün ${dayOffset >= 0 ? "+" : ""}${dayOffset}: ${denseCreated} oluşturuldu, ${denseNoSlot} slot bulunamadı (kümülatif, ${pairIndex} çift denendi).`
+        );
+      }
+    }
+    const totalPossiblePairs = teachers.length * allActiveStudents.length;
+    console.log(
+      `Yoğun ders programı tamamlandı: ${denseCreated} yeni ders oluşturuldu. ${pairHasLessonInWeek.size} farklı (öğretmen,öğrenci,ISO-hafta) üçlüsü artık dolu (ön-yüklenen mevcut derslerle birlikte). Olası çift sayısı: ${totalPossiblePairs} (7 öğretmen × ${allActiveStudents.length} aktif öğrenci). ${denseNoSlot} gün-bazlı deneme slot bulamadı (bir çift, haftanın birden fazla gününde denenebildiği için bu sayı hafta başına deneme sayısından yüksek olabilir — nihai kapsama oranı için ${pairHasLessonInWeek.size} rakamı esastır).`
+    );
+
+    // Son güvenlik ağı — çakışma temizliği. Bu betiğin ürettiği ders
+    // hacmi/sıklığı göz önüne alındığında (gün-bazlı, çok sayıda ardışık
+    // Prisma çağrısı) nadir sınır durumlarında (özellikle pencerenin ilk
+    // günlerinde) aynı öğretmen/öğrenci/oda için TAM olarak aynı `startAt`
+    // değerinde birden fazla kayıt oluşabiliyor. Bu adım YALNIZCA CSV
+    // öğretmenlerine (seed-owned) ait dersler arasında gerçek zaman
+    // çakışmalarını (aynı teacherId+startAt, aynı studentId+startAt, aynı
+    // roomId+startAt) tarar ve en eskisi HARİÇ diğerlerini siler — idempotent
+    // (temiz durumda hiçbir şey silmez) ve gerçek/import edilmiş veriye
+    // dokunmaz (yalnızca CSV öğretmen id'leri sorgulanır).
+    {
+      const csvTeacherIds = new Set(teachers.map((t) => t.id));
+      // Oda çakışması, LEGACY (t1..t5) derslerle PAYLAŞILAN odalarda da
+      // (ör. r1) oluşabilir — bu yüzden oda boyutu için TÜM tenant dersleri
+      // (yalnızca CSV değil) taranır; yalnız SİLİNECEK satırlar (aşağıda)
+      // CSV öğretmenlerine ait olanlarla sınırlı tutulur — legacy/gerçek
+      // veriye asla dokunulmaz.
+      const allLessonsForConflictScan = await prisma.lesson.findMany({
+        where: { tenantId: DEFAULT_TENANT_ID },
+        select: { id: true, teacherId: true, studentId: true, roomId: true, startAt: true },
+        orderBy: { startAt: "asc" },
+      });
+      const seenTeacherSlot = new Set<string>();
+      const seenStudentSlot = new Set<string>();
+      const seenRoomSlot = new Set<string>();
+      const conflictIds = new Set<string>();
+      for (const l of allLessonsForConflictScan) {
+        const t = `${l.teacherId}|${l.startAt.getTime()}`;
+        const s = `${l.studentId}|${l.startAt.getTime()}`;
+        const r = `${l.roomId}|${l.startAt.getTime()}`;
+        const isConflict = seenTeacherSlot.has(t) || seenStudentSlot.has(s) || seenRoomSlot.has(r);
+        if (isConflict) {
+          // Yalnızca CSV öğretmenine ait satırı sil — legacy/gerçek veri asla silinmez.
+          if (csvTeacherIds.has(l.teacherId)) conflictIds.add(l.id);
+          continue;
+        }
+        seenTeacherSlot.add(t);
+        seenStudentSlot.add(s);
+        seenRoomSlot.add(r);
+      }
+      if (conflictIds.size > 0) {
+        await prisma.lesson.deleteMany({ where: { id: { in: [...conflictIds] } } });
+        console.log(
+          `Çakışma temizliği: aynı anda birden fazla öğretmen/öğrenci/oda kaydına yol açan ${conflictIds.size} ders kaldırıldı (bir sonraki çalıştırmada boşalan slotlar yeniden doldurulabilir).`
+        );
+      } else {
+        console.log("Çakışma temizliği: hiçbir öğretmen/öğrenci/oda çakışması bulunamadı.");
+      }
+    }
 
     // Görev — 2 öğretmen + 2 öğrenci demo GİRİŞ kullanıcısı. Yalnızca
     // STORE_MODE=db'de anlamlı (gerçek Prisma User satırı gerektirir);
@@ -304,10 +536,17 @@ async function main() {
     const fixedDemoLoginStudents = (await readData()).students.filter((s) =>
       ["ada.yilmaz.demo@email.com", "kerem.sahin.demo@email.com"].includes(s.email?.toLowerCase() ?? "")
     );
-    if (isDbMode && teachers.length >= 2 && fixedDemoLoginStudents.length >= 2) {
+    if (isDbMode && teachers.length >= 3 && fixedDemoLoginStudents.length >= 2) {
+      // İlk 3 CSV öğretmeni için giriş kullanıcısı — görev: "Turgay Hoşbaş →
+      // 1@mail.com, Olcay Özdemir → 2@mail.com, Ebru Şirince → 3@mail.com".
+      // E-postaya göre eşleşir (öğretmen sıralaması store'un iç sırasına
+      // göre değişebildiği için index yerine sabit e-posta kullanılır).
+      const teacherLoginEmails = ["1@mail.com", "2@mail.com", "3@mail.com"];
       const demoLogins = [
-        { email: teachers[0]!.email, role: "TEACHER" as const, teacherId: teachers[0]!.id, password: "demo-teacher-csv-1" },
-        { email: teachers[1]!.email, role: "TEACHER" as const, teacherId: teachers[1]!.id, password: "demo-teacher-csv-2" },
+        ...teacherLoginEmails.map((email, i) => {
+          const t = byEmail(email)!;
+          return { email: t.email, role: "TEACHER" as const, teacherId: t.id, password: `demo-teacher-csv-${i + 1}` };
+        }),
         { email: fixedDemoLoginStudents[0]!.email!, role: "STUDENT" as const, studentId: fixedDemoLoginStudents[0]!.id, password: "demo-student-csv-1" },
         { email: fixedDemoLoginStudents[1]!.email!, role: "STUDENT" as const, studentId: fixedDemoLoginStudents[1]!.id, password: "demo-student-csv-2" },
       ];
@@ -330,6 +569,21 @@ async function main() {
           },
         });
         console.log(`Demo giriş kullanıcısı oluşturuldu: ${login.email} (${login.role})`);
+      }
+
+      // Eski demo öğretmen giriş kullanıcıları (`teacherId` arşivlenmiş
+      // t1..t5'ten birine bağlı, seed-owned) — CSV öğretmen kullanıcılarıyla
+      // TAKAS edilir: hard delete yok, yalnızca pasifleştirilir (Teacher
+      // arşivleme ilkesiyle aynı). Yalnızca teacherId'si bilinen legacy
+      // id listesindeyse dokunulur — gerçek kullanıcı hesapları ASLA.
+      const legacyTeacherIdSet = new Set(["t1", "t2", "t3", "t4", "t5"]);
+      const legacyTeacherLogins = await prisma.user.findMany({
+        where: { tenantId: DEFAULT_TENANT_ID, role: "TEACHER", active: true },
+      });
+      for (const u of legacyTeacherLogins) {
+        if (!u.teacherId || !legacyTeacherIdSet.has(u.teacherId)) continue;
+        await prisma.user.update({ where: { id: u.id }, data: { active: false } });
+        console.log(`Eski demo öğretmen giriş kullanıcısı pasifleştirildi: ${u.email}`);
       }
     }
   });

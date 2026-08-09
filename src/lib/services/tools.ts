@@ -4928,6 +4928,10 @@ export async function setMonthlyPlanAmountTool(
       studentId: z.string().min(1),
       month: z.string().regex(/^\d{4}-\d{2}$/),
       amount: z.number().min(0),
+      /** Yoklama takvimi ay kutusu — ödeme tarihi (yyyy-MM-dd), opsiyonel. Verilmezse ayın 1'i (mevcut davranış). */
+      dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      /** Yoklama takvimi ay kutusu — ödeme şekli, opsiyonel. */
+      method: z.enum(["cash", "transfer", "credit_card"]).optional(),
     }),
     input
   );
@@ -4942,11 +4946,15 @@ export async function setMonthlyPlanAmountTool(
       studentId: v.data.studentId,
       month: v.data.month,
       amount: v.data.amount,
+      dueDate: v.data.dueDate,
+      method: v.data.method,
     });
     audit(ctx, "attendance_calendar.monthly_plan.set", "Payment", paymentId, {
       studentId: v.data.studentId,
       month: v.data.month,
       amount: v.data.amount,
+      dueDate: v.data.dueDate,
+      method: v.data.method,
     });
     return ok({ paymentId, studentId: v.data.studentId, month: v.data.month, amount: v.data.amount });
   } catch (e) {

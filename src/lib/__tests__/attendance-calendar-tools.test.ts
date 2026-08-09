@@ -159,6 +159,48 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
     });
     expect(res.ok).toBe(false);
   });
+
+  it("ödeme tarihi ve ödeme şekli verilirse kaydedilir (Yoklama takvimi ay kutusu)", async () => {
+    const res = await setMonthlyPlanAmountTool(ctx(), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 3000,
+      dueDate: "2026-09-15",
+      method: "transfer",
+    });
+    expect(res.ok).toBe(true);
+    const data = await readData();
+    const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
+    expect(row?.dueDate.slice(0, 10)).toBe("2026-09-15");
+    expect(row?.method).toBe("transfer");
+  });
+
+  it("ödeme tarihi/şekli verilmeden ikinci kez set edilirse önceki değerler korunur", async () => {
+    await setMonthlyPlanAmountTool(ctx(), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 3000,
+      dueDate: "2026-09-15",
+      method: "cash",
+    });
+    const res2 = await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3200 });
+    expect(res2.ok).toBe(true);
+    const data = await readData();
+    const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
+    expect(row?.amount).toBe(3200);
+    expect(row?.dueDate.slice(0, 10)).toBe("2026-09-15");
+    expect(row?.method).toBe("cash");
+  });
+
+  it("geçersiz ödeme şekli reddedilir", async () => {
+    const res = await setMonthlyPlanAmountTool(ctx(), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 3000,
+      method: "bitcoin",
+    });
+    expect(res.ok).toBe(false);
+  });
 });
 
 describe("ÖNCELİK 4 — takvim görünürlüğü (RBAC)", () => {

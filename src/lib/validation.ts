@@ -663,7 +663,14 @@ export const createTrialLessonSchema = z.object({
   branchId: z.string().min(1),
   teacherId: z.string().min(1),
   startAt: z.string().min(1),
-  durationMinutes: z.union([z.literal(30), z.literal(40), z.literal(50)]),
+  /**
+   * Deneme dersi normal ders serisi/paket planlamasından AYRI bir akıştır —
+   * bu yüzden normal derslerin sabit 30/40/50 dk kısıtına (bkz.
+   * `src/lib/lesson-duration.ts` LESSON_DURATION_OPTIONS) tabi DEĞİLDİR.
+   * Yalnızca makul bir aralıkla (1 dk – 4 saat) sınırlanır; kayıt öncesi
+   * tanıtım dersi olduğu için süresi okulun kendi takdirine bırakılmıştır.
+   */
+  durationMinutes: z.coerce.number().int().min(1).max(240),
   notes: z.string().max(2000).optional(),
 });
 

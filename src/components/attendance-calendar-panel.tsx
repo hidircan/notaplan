@@ -235,6 +235,10 @@ export function AttendanceCalendarPanel({
   const [byMonth, setByMonth] = useState<Record<string, MonthResponse>>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  /** Ay kutusu — ödeme tarihi (yyyy-MM-dd). Tutar alanıyla AYNI ilkeyle: yalnızca yerel giriş arabelleği, sunucudan önceden doldurulmaz (mevcut Tutar davranışıyla tutarlı). */
+  const [dueDates, setDueDates] = useState<Record<string, string>>({});
+  /** Ay kutusu — ödeme şekli (nakit/kredi kartı/havale). */
+  const [methods, setMethods] = useState<Record<string, string>>({});
   const [savingMonth, setSavingMonth] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -375,10 +379,18 @@ export function AttendanceCalendarPanel({
     try {
       const [year, month] = key.split("-").map(Number);
       const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+      const dueDate = dueDates[key];
+      const method = methods[key];
       const res = await fetch("/api/v1/attendance-calendar/monthly-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, month: monthStr, amount }),
+        body: JSON.stringify({
+          studentId,
+          month: monthStr,
+          amount,
+          ...(dueDate ? { dueDate } : {}),
+          ...(method ? { method } : {}),
+        }),
       });
       const json = (await res.json()) as { ok: boolean; error?: { message: string } };
       if (!json.ok) setError(json.error?.message ?? "Tutar kaydedilemedi.");
@@ -512,16 +524,34 @@ export function AttendanceCalendarPanel({
                   ) : null}
                 </div>
                 {canEdit && !readOnly ? (
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <input
                       type="number"
                       min={0}
                       placeholder="Tutar"
                       value={amounts[key] ?? ""}
                       onChange={(e) => setAmounts((prev) => ({ ...prev, [key]: e.target.value }))}
-                      className="w-24 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs"
+                      className="w-20 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs"
                       aria-label={`${MONTH_LABELS[m.month - 1]} tutarı`}
                     />
+                    <input
+                      type="date"
+                      value={dueDates[key] ?? ""}
+                      onChange={(e) => setDueDates((prev) => ({ ...prev, [key]: e.target.value }))}
+                      className="w-[8.5rem] rounded-md border border-[var(--color-border)] px-2 py-1 text-xs"
+                      aria-label={`${MONTH_LABELS[m.month - 1]} ödeme tarihi`}
+                    />
+                    <select
+                      value={methods[key] ?? ""}
+                      onChange={(e) => setMethods((prev) => ({ ...prev, [key]: e.target.value }))}
+                      className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-1 text-xs"
+                      aria-label={`${MONTH_LABELS[m.month - 1]} ödeme şekli`}
+                    >
+                      <option value="">Ödeme şekli</option>
+                      <option value="cash">Nakit</option>
+                      <option value="transfer">Havale</option>
+                      <option value="credit_card">Kredi Kartı</option>
+                    </select>
                     <button
                       type="button"
                       disabled={savingMonth === key}

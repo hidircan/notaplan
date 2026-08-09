@@ -2340,6 +2340,8 @@ export async function upsertMonthlyPlanPayment(input: {
   studentId: string;
   month: string;
   amount: number;
+  dueDate?: string;
+  method?: string;
 }): Promise<{ data: AppData; paymentId: string }> {
   logger.info("upsertMonthlyPlanPayment", input.studentId, input.month, input.amount);
   const tid = requireTenantId();
@@ -2359,12 +2361,18 @@ export async function upsertMonthlyPlanPayment(input: {
     },
   });
   const description = `Aylık plan — ${input.month} (${input.amount} TL)`;
+  const explicitDueDate = input.dueDate ? new Date(`${input.dueDate}T12:00:00.000Z`) : undefined;
   let paymentId: string;
   if (existing) {
     paymentId = existing.id;
     await prisma.payment.update({
       where: { id: existing.id },
-      data: { amount: input.amount, description },
+      data: {
+        amount: input.amount,
+        description,
+        dueDate: explicitDueDate,
+        method: input.method,
+      },
     });
   } else {
     paymentId = `pay_${Date.now().toString(36)}`;
@@ -2377,9 +2385,10 @@ export async function upsertMonthlyPlanPayment(input: {
         amount: input.amount,
         paidAmount: 0,
         status: "pending",
-        dueDate: new Date(`${input.month}-01T12:00:00.000Z`),
+        dueDate: explicitDueDate ?? new Date(`${input.month}-01T12:00:00.000Z`),
         description,
         source: "monthly_plan",
+        method: input.method,
       },
     });
   }

@@ -109,6 +109,10 @@ type StoreApi = {
     studentId: string;
     month: string; // yyyy-MM
     amount: number;
+    /** Ödeme tarihi (yyyy-MM-dd) — verilmezse ayın 1'i varsayılan kalır (mevcut davranış). */
+    dueDate?: string;
+    /** Ödeme şekli (nakit/kredi kartı/havale) — verilmezse mevcut/varsayılan değer korunur. */
+    method?: string;
   }) => Promise<{ data: AppData; paymentId: string }>;
   updateLessonSchedule: (input: {
     lessonId: string;
@@ -391,6 +395,8 @@ export async function upsertMonthlyPlanPayment(input: {
   studentId: string;
   month: string;
   amount: number;
+  dueDate?: string;
+  method?: string;
 }): Promise<{ data: AppData; paymentId: string }> {
   return withTenantScope(() => store.upsertMonthlyPlanPayment(input));
 }

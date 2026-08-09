@@ -103,12 +103,22 @@ export function TrialLessonCreateForm({
         <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required />
       </div>
       <div>
-        <Label>Süre</Label>
-        <Select value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)}>
-          <option value="30">30 dk</option>
-          <option value="40">40 dk</option>
-          <option value="50">50 dk</option>
-        </Select>
+        <Label>Süre (dk)</Label>
+        {/*
+          Deneme dersi normal derslerin sabit 30/40/50 dk seçenekleriyle
+          SINIRLI DEĞİL — okul, tanıtım dersini istediği süreyle
+          planlayabilir (bkz. createTrialLessonSchema, yalnızca 1-240 dk
+          aralığıyla sınırlı).
+        */}
+        <Input
+          type="number"
+          min={1}
+          max={240}
+          step={5}
+          value={durationMinutes}
+          onChange={(e) => setDurationMinutes(e.target.value)}
+          required
+        />
       </div>
       {error ? (
         <p className="sm:col-span-2 text-xs font-medium text-rose-600" role="alert">
