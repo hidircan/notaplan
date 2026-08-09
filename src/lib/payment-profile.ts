@@ -38,3 +38,14 @@ export function computeStudentPaymentSummary(payments: Payment[]): StudentPaymen
 export function sortPaymentsForProfile(payments: Payment[]): Payment[] {
   return [...payments].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
 }
+
+/**
+ * Öğrenci "Ödeme geçmişi" tablosu — yalnızca GERÇEKLEŞMİŞ ödeme hareketleri
+ * (ödendi/kısmi ödendi/iptal edildi). "Bekliyor" ve "Gecikmiş" henüz
+ * gerçekleşmemiş, bekleyen durumlardır ve bu geçmiş listesinde gösterilmez.
+ * Genel tahsilat/raporlama (computeStudentPaymentSummary, Ödemeler
+ * ekranındaki tam liste) bu filtreyi KULLANMAZ — yalnızca bu görünüme özgü.
+ */
+export function filterPaymentHistory(payments: Payment[]): Payment[] {
+  return payments.filter((p) => p.status !== "pending" && p.status !== "overdue");
+}

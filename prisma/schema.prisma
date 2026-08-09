@@ -46,6 +46,7 @@ model Tenant {
   tasks Task[]
   taskReminderLogs TaskReminderLog[]
   taskReminderPreferences TaskReminderPreference[]
+  studentListViews StudentListView[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1272,4 +1273,27 @@ model TaskReminderPreference {
   updatedAt        DateTime @updatedAt
 
   @@unique([tenantId, userId])
+}
+
+/// Öğrenciler ekranı — "Sütunlar / Görünüm yönetimi". Aynı tenant içindeki
+/// tüm SCHOOL_ADMIN/SUPER_ADMIN kullanıcıları isim bazlı görünüm kaydedebilir
+/// ve birbirinin kaydettiği (ortak) görünümleri seçebilir — bu yüzden
+/// paylaşım tenant düzeyinde, kullanıcı düzeyinde DEĞİL. "En son kullanılan
+/// görünüm" kişiye özeldir ve BİLİNÇLİ OLARAK burada değil, sidebar sırası/
+/// tema tercihi gibi tarayıcı localStorage'ında tutulur (bkz.
+/// src/components/student-column-view-manager.tsx) — sunucuya yazma
+/// gerektirmeyen, cihaz/oturum bazlı bir tercih.
+model StudentListView {
+  id              String   @id
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  /// Görünür kolon anahtarlarının sırayla listesi, ör. ["name","branch","teacher"].
+  columns         Json
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
-import { listAuditLogs } from "@/lib/audit/log";
-import { Card, PageHeader } from "@/components/ui";
+import { getInstitutionContext } from "@/lib/institution/context";
+import { listAuditLogs, type AuditOutcome } from "@/lib/audit/log";
+import { KurumScopeNote } from "@/components/kurum-scope-note";
+import { Card, Input, Label, PageHeader, Select } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -12,19 +14,34 @@ const OUTCOME_LABEL: Record<string, string> = {
   error: "Hata",
 };
 
+const ROLE_OPTIONS = ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT", "STUDENT", "AI_AGENT"];
+
 /**
  * Denetim Kaydı — kim, ne zaman, hangi ekranda/varlıkta hangi kritik
- * işlemi yaptı (audit trail). Veri kaynağı zaten mevcuttu
- * (src/lib/audit/log.ts `recordAuditLog`/`listAuditLogs`, tüm kritik
- * yazma işlemlerinde — ödeme, telafi, öğretmen ücreti, öğrenci verisi vb.
- * — zaten çağrılıyordu); yalnızca bu ekran eksikti. Yalnızca
- * STORE_MODE=db'de kalıcı olur (bkz. listAuditLogs dosya başı notu) —
- * json/memory modda boş liste döner, hata fırlatmaz.
+ * işlemi yaptı (audit trail). Veri kaynağı `src/lib/audit/log.ts`
+ * (recordAuditLog/listAuditLogs) — tüm kritik yazma işlemlerinde zaten
+ * çağrılıyordu. Yalnızca STORE_MODE=db'de kalıcı olur; json/memory modda
+ * boş liste döner, hata fırlatmaz.
+ *
+ * Filtreler URL query param'larında tutulur (?from=&to=&actorUserId=&
+ * actorRole=&action=&entityType=&outcome=&q=) — kalıcı, paylaşılabilir ve
+ * geri/ileri tuşlarıyla uyumlu (theme/sidebar tercihi gibi localStorage
+ * değil, bilinçli olarak URL — bir denetim sorgusu link olarak
+ * paylaşılabilmeli).
  */
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ action?: string; entityType?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    actorUserId?: string;
+    actorRole?: string;
+    action?: string;
+    entityType?: string;
+    outcome?: string;
+    q?: string;
+  }>;
 }) {
   let session;
   try {
@@ -36,16 +53,105 @@ export default async function AuditLogPage({
     redirect("/panel");
   }
 
+  const kurum = await getInstitutionContext(session);
   const sp = await searchParams;
-  const logs = await listAuditLogs(session.tenantId, {
-    limit: 200,
+  const tenantIds = kurum.scope.mode === "all" ? kurum.scope.tenantIds : [kurum.scope.tenantId];
+
+  const filters = {
+    from: sp.from || undefined,
+    to: sp.to || undefined,
+    actorUserId: sp.actorUserId || undefined,
+    actorRole: sp.actorRole || undefined,
     action: sp.action || undefined,
     entityType: sp.entityType || undefined,
-  });
+    outcome: (sp.outcome as AuditOutcome) || undefined,
+    search: sp.q || undefined,
+    limit: 200,
+  };
+
+  const perTenantLogs = await Promise.all(tenantIds.map((tid) => listAuditLogs(tid, filters)));
+  const logs = perTenantLogs.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 200);
+
+  const actionOptions = Array.from(new Set(logs.map((l) => l.action))).sort();
+  const entityTypeOptions = Array.from(new Set(logs.map((l) => l.entityType))).sort();
 
   return (
     <div>
+      <KurumScopeNote scope={kurum.scope} />
       <PageHeader title="Denetim Kaydı" />
+
+      <Card className="mb-6">
+        <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <Label>Başlangıç tarihi</Label>
+            <Input type="date" name="from" defaultValue={sp.from ?? ""} />
+          </div>
+          <div>
+            <Label>Bitiş tarihi</Label>
+            <Input type="date" name="to" defaultValue={sp.to ?? ""} />
+          </div>
+          <div>
+            <Label>Kullanıcı (ID)</Label>
+            <Input name="actorUserId" defaultValue={sp.actorUserId ?? ""} placeholder="Kullanıcı ID" />
+          </div>
+          <div>
+            <Label>Rol</Label>
+            <Select name="actorRole" defaultValue={sp.actorRole ?? ""}>
+              <option value="">Tümü</option>
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>İşlem türü</Label>
+            <Input name="action" list="action-options" defaultValue={sp.action ?? ""} placeholder="ör. payment.mark_paid" />
+            <datalist id="action-options">
+              {actionOptions.map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <Label>Varlık türü / kaynak</Label>
+            <Input name="entityType" list="entity-type-options" defaultValue={sp.entityType ?? ""} placeholder="ör. Payment" />
+            <datalist id="entity-type-options">
+              {entityTypeOptions.map((e) => (
+                <option key={e} value={e} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <Label>Durum</Label>
+            <Select name="outcome" defaultValue={sp.outcome ?? ""}>
+              <option value="">Tümü</option>
+              <option value="success">Başarılı</option>
+              <option value="denied">Reddedildi</option>
+              <option value="error">Hata</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Ara</Label>
+            <Input name="q" defaultValue={sp.q ?? ""} placeholder="İşlem, varlık, kullanıcı ID..." />
+          </div>
+          <div className="col-span-full flex items-center gap-2">
+            <button
+              type="submit"
+              className="rounded-xl bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)]"
+            >
+              Filtrele
+            </button>
+            <a
+              href="/panel/denetim-kaydi"
+              className="rounded-xl border border-[var(--color-border)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
+            >
+              Temizle
+            </a>
+          </div>
+        </form>
+      </Card>
 
       <Card className="overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
@@ -63,7 +169,7 @@ export default async function AuditLogPage({
             {logs.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
-                  Henüz denetim kaydı yok (yalnızca üretim veritabanı modunda tutulur).
+                  Bu filtrelerle eşleşen denetim kaydı yok (yalnızca üretim veritabanı modunda tutulur).
                 </td>
               </tr>
             ) : (

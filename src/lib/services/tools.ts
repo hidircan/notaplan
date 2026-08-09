@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { differenceInCalendarDays, parseISO } from "date-fns";
+import { prisma } from "../db";
 import {
   addBranch,
   addLesson,
@@ -150,7 +151,7 @@ import {
   setTeacherFeedbackShared,
   computeTeacherFeedbackSummary,
 } from "../teacher-feedback";
-import { formatMoney } from "../utils";
+import { formatMoney, uid } from "../utils";
 import { parseCsv, rowsToRecords } from "../import/csv";
 import { validateBranchRows, type BranchImportRow } from "../import/branches";
 import { validateTeacherRows, type TeacherImportRow } from "../import/teachers";
@@ -3846,6 +3847,91 @@ export async function archiveStudentTool(
     return ok({ studentId: v.data.studentId, archived: v.data.archived });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "archiveStudent failed");
+  }
+}
+
+const saveStudentListViewSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  columns: z.array(z.string()).min(1),
+});
+
+/**
+ * Öğrenciler ekranı "Sütunlar / Görünüm yönetimi" — tenant içindeki tüm
+ * SCHOOL_ADMIN/SUPER_ADMIN'lerin paylaştığı, isim bazlı kaydedilmiş kolon
+ * düzeni. `AuditLog`/`AiAuditLog` ile aynı kabul edilen sınır: yalnızca
+ * `STORE_MODE=db`'de kalıcıdır (Prisma tablosu); json/memory modda bu
+ * araçlar sessizce boş/no-op döner — öğrenci listesi kendisi (readData)
+ * ETKİLENMEZ, bu yalnızca bir görüntüleme tercihidir.
+ */
+export async function listStudentListViewsTool(
+  ctx: ServiceContext
+): Promise<ServiceResult<{ id: string; name: string; columns: string[]; createdByUserId: string }[]>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  try {
+    const rows = await prisma.studentListView.findMany({
+      where: { tenantId: ctx.tenantId },
+      orderBy: { name: "asc" },
+    });
+    return ok(
+      rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        columns: Array.isArray(r.columns) ? (r.columns as string[]) : [],
+        createdByUserId: r.createdByUserId,
+      }))
+    );
+  } catch {
+    return ok([]);
+  }
+}
+
+export async function saveStudentListViewTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ id: string; name: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(saveStudentListViewSchema, input);
+  if (!v.ok) return v;
+  try {
+    const existing = await prisma.studentListView.findUnique({
+      where: { tenantId_name: { tenantId: ctx.tenantId, name: v.data.name } },
+    });
+    const row = await prisma.studentListView.upsert({
+      where: { tenantId_name: { tenantId: ctx.tenantId, name: v.data.name } },
+      create: {
+        id: uid("view"),
+        tenantId: ctx.tenantId,
+        name: v.data.name,
+        columns: v.data.columns,
+        createdByUserId: ctx.userId,
+      },
+      update: { columns: v.data.columns },
+    });
+    audit(ctx, existing ? "student_list_view.update" : "student_list_view.create", "StudentListView", row.id, {});
+    return ok({ id: row.id, name: row.name });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "saveStudentListView failed");
+  }
+}
+
+export async function deleteStudentListViewTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+  const v = parseOrFail(z.object({ id: z.string().min(1) }), input);
+  if (!v.ok) return v;
+  try {
+    const row = await prisma.studentListView.findFirst({ where: { id: v.data.id, tenantId: ctx.tenantId } });
+    if (!row) return fail("NOT_FOUND", "Görünüm bulunamadı");
+    await prisma.studentListView.delete({ where: { id: row.id } });
+    audit(ctx, "student_list_view.delete", "StudentListView", row.id, {});
+    return ok({ id: row.id });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "deleteStudentListView failed");
   }
 }
 

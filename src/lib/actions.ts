@@ -23,6 +23,9 @@ import {
   updateStudentProfileTool,
   updateStudentPaymentProfileTool,
   archiveStudentTool,
+  listStudentListViewsTool,
+  saveStudentListViewTool,
+  deleteStudentListViewTool,
   createTeacherTool,
   createBranchTool,
   updateBranchTool,
@@ -598,6 +601,55 @@ export async function actionArchiveStudent(input: {
     logger.error("actionArchiveStudent failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Öğrenci durumu güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type StudentListViewActionResult =
+  | { ok: true; views: { id: string; name: string; columns: string[]; createdByUserId: string }[] }
+  | { ok: false; message: string };
+
+/** Öğrenciler ekranı "Sütunlar / Görünüm yönetimi" — tenant içindeki paylaşılan görünümleri listeler. */
+export async function actionListStudentListViews(): Promise<StudentListViewActionResult> {
+  try {
+    const result = await withAuthContext("actionListStudentListViews", (ctx) => listStudentListViewsTool(ctx));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    return { ok: true, views: result.data };
+  } catch (error) {
+    logger.error("actionListStudentListViews failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görünümler yüklenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type SaveStudentListViewActionResult = { ok: true } | { ok: false; message: string };
+
+/** İsimle kaydet — aynı isimde varsa günceller (upsert), tenant içindeki tüm yöneticiler görebilir. */
+export async function actionSaveStudentListView(input: {
+  name: string;
+  columns: string[];
+}): Promise<SaveStudentListViewActionResult> {
+  try {
+    const result = await withAuthContext("actionSaveStudentListView", (ctx) => saveStudentListViewTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionSaveStudentListView failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görünüm kaydedilirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export async function actionDeleteStudentListView(input: { id: string }): Promise<SaveStudentListViewActionResult> {
+  try {
+    const result = await withAuthContext("actionDeleteStudentListView", (ctx) => deleteStudentListViewTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionDeleteStudentListView failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Görünüm silinirken beklenmeyen bir hata oluştu." };
   }
 }
 

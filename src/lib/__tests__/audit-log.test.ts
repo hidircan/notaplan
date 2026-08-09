@@ -104,6 +104,53 @@ describe("listAuditLogs — tenant-scoped okuma, asla fırlatmaz", () => {
     const rows = await listAuditLogs("tenant_a");
     expect(rows).toEqual([]);
   });
+
+  it("Denetim Kaydı ekranı filtreleri (from/to/actorRole/action/entityType/outcome/search) findMany where'e doğru şekilde geçirilir", async () => {
+    const findManyMock = vi.fn().mockResolvedValue([]);
+    vi.resetModules();
+    vi.doMock("../db", () => ({
+      prisma: { auditLog: { create: vi.fn(), findMany: findManyMock } },
+    }));
+    const { listAuditLogs } = await import("../audit/log");
+    await listAuditLogs("tenant_a", {
+      from: "2026-08-01",
+      to: "2026-08-09",
+      actorRole: "SCHOOL_ADMIN",
+      action: "payment.mark_paid",
+      entityType: "Payment",
+      outcome: "success",
+      search: "p1",
+      limit: 50,
+    });
+    const call = findManyMock.mock.calls[0][0];
+    expect(call.where).toMatchObject({
+      tenantId: "tenant_a",
+      actorRole: "SCHOOL_ADMIN",
+      action: "payment.mark_paid",
+      entityType: "Payment",
+      outcome: "success",
+    });
+    expect(call.where.createdAt.gte).toEqual(new Date("2026-08-01"));
+    expect(call.where.createdAt.lte).toEqual(new Date("2026-08-09T23:59:59.999"));
+    expect(call.where.OR).toEqual(
+      expect.arrayContaining([{ action: { contains: "p1" } }, { entityId: { contains: "p1" } }])
+    );
+    expect(call.take).toBe(50);
+  });
+
+  it("filtre verilmezse where yalnızca tenantId içerir (tüm alanlar undefined)", async () => {
+    const findManyMock = vi.fn().mockResolvedValue([]);
+    vi.resetModules();
+    vi.doMock("../db", () => ({
+      prisma: { auditLog: { create: vi.fn(), findMany: findManyMock } },
+    }));
+    const { listAuditLogs } = await import("../audit/log");
+    await listAuditLogs("tenant_c");
+    const call = findManyMock.mock.calls[0][0];
+    expect(call.where.action).toBeUndefined();
+    expect(call.where.outcome).toBeUndefined();
+    expect(call.where.OR).toBeUndefined();
+  });
 });
 
 describe("auth/audit.ts auditLog() — artık gerçekten yazar (imza korunuyor)", () => {

@@ -22,6 +22,7 @@ export default async function OgrencilerPage() {
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
   const students = [...data.students].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  const canManage = (session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN") && kurum.scope.mode === "single";
 
   const risks = computeAllStudentAttendanceRisks(data);
   const atRisk = risks
@@ -116,7 +117,12 @@ export default async function OgrencilerPage() {
         </Card>
       ) : null}
 
-      <StudentsTable rows={rows} />
+      <StudentsTable
+        rows={rows}
+        canManage={canManage}
+        tenantId={kurum.scope.mode === "single" ? kurum.scope.tenantId : undefined}
+        userId={session.userId}
+      />
     </div>
   );
 }

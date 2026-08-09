@@ -90,17 +90,49 @@ export type AuditLogEntry = {
  * returns `[]` on any DB error (e.g. STORE_MODE=json/memory, where AuditLog
  * was never written to).
  */
-export async function listAuditLogs(
-  tenantId: string,
-  opts?: { limit?: number; action?: string; entityType?: string; entityId?: string }
-): Promise<AuditLogEntry[]> {
+export type AuditLogFilters = {
+  limit?: number;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  actorUserId?: string;
+  actorRole?: string;
+  outcome?: AuditOutcome;
+  /** ISO tarih (dahil) — bu andan itibaren. */
+  from?: string;
+  /** ISO tarih (dahil) — bu ana kadar. */
+  to?: string;
+  /** action/entityType/entityId/actorUserId üzerinde serbest metin arama (case-insensitive, "contains"). */
+  search?: string;
+};
+
+export async function listAuditLogs(tenantId: string, opts?: AuditLogFilters): Promise<AuditLogEntry[]> {
   try {
+    const search = opts?.search?.trim();
     const rows = await prisma.auditLog.findMany({
       where: {
         tenantId,
-        action: opts?.action,
-        entityType: opts?.entityType,
-        entityId: opts?.entityId,
+        action: opts?.action || undefined,
+        entityType: opts?.entityType || undefined,
+        entityId: opts?.entityId || undefined,
+        actorUserId: opts?.actorUserId || undefined,
+        actorRole: opts?.actorRole || undefined,
+        outcome: opts?.outcome || undefined,
+        createdAt: {
+          gte: opts?.from ? new Date(opts.from) : undefined,
+          // "to" gün sonuna kadar dahil olsun diye gün sonuna genişletilir (yalnızca tarih girildiyse).
+          lte: opts?.to ? new Date(`${opts.to}T23:59:59.999`) : undefined,
+        },
+        ...(search
+          ? {
+              OR: [
+                { action: { contains: search } },
+                { entityType: { contains: search } },
+                { entityId: { contains: search } },
+                { actorUserId: { contains: search } },
+              ],
+            }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take: opts?.limit ?? 100,

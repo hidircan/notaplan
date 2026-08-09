@@ -172,6 +172,7 @@ export function AttendanceCalendarPanel({
   canEdit,
   readOnly = false,
   studentActive = true,
+  defaultMonthlyFee,
 }: {
   studentId: string;
   /** Öğrencinin kayıtlı dönemi — ilk açılışta seçili dönem olarak kullanılır, kullanıcı değiştirebilir. */
@@ -182,6 +183,8 @@ export function AttendanceCalendarPanel({
   readOnly?: boolean;
   /** Pasif/arşiv öğrenci için takvimden tahsilat aksiyonu render edilmez (yeni ders/tahsilat akışıyla tutarlı). */
   studentActive?: boolean;
+  /** Öğrencinin güncel varsayılan aylık ücreti (Student.monthlyFee) — yalnızca bilgi amaçlı gösterilir, ay kutusundaki Tutar alanının değerini belirlemez/değiştirmez. */
+  defaultMonthlyFee?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -498,9 +501,16 @@ export function AttendanceCalendarPanel({
           return (
             <div key={key} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-[var(--color-text)]">
-                  {MONTH_LABELS[m.month - 1]} {m.year}
-                </h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--color-text)]">
+                    {MONTH_LABELS[m.month - 1]} {m.year}
+                  </h3>
+                  {canEdit && !readOnly && typeof defaultMonthlyFee === "number" ? (
+                    <p className="text-[10px] text-[var(--color-text-muted)]">
+                      Varsayılan aylık ücret: {formatMoneyTL(defaultMonthlyFee)}
+                    </p>
+                  ) : null}
+                </div>
                 {canEdit && !readOnly ? (
                   <div className="flex items-center gap-1">
                     <input

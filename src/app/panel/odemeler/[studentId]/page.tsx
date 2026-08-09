@@ -4,7 +4,7 @@ import { readData } from "@/lib/store";
 import { actionAddPayment } from "@/lib/actions";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, StatCard } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
-import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
+import { computeStudentPaymentSummary, filterPaymentHistory, sortPaymentsForProfile } from "@/lib/payment-profile";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 
 export const dynamic = "force-dynamic";
@@ -120,12 +120,25 @@ export default async function StudentPaymentProfilePage({
       </details>
 
       <h2 className="mb-3 text-lg font-semibold text-[var(--color-text)] dark:text-slate-50">Ödeme geçmişi</h2>
-      {payments.length === 0 ? (
-        <EmptyState
-          title="Ödeme kaydı yok"
-          description="Bu öğrenci için henüz bir ödeme kaydı oluşturulmadı."
-        />
-      ) : (
+      {/*
+        Yalnızca GERÇEKLEŞMİŞ ödeme hareketleri (ödendi/kısmi ödendi/iptal
+        edildi) — "Bekliyor" ve "Gecikmiş" henüz gerçekleşmemiş, bekleyen
+        durumlardır ve bu geçmiş listesinde gösterilmez. Genel tahsilat/
+        raporlama (computeStudentPaymentSummary, üstteki özet kartlar,
+        Ödemeler ekranındaki tam liste) bu filtreden ETKİLENMEZ — `payments`
+        değişkeni burada değiştirilmiyor, yalnız görüntülenen alt küme.
+      */}
+      {(() => {
+        const historyPayments = filterPaymentHistory(payments);
+        if (historyPayments.length === 0) {
+          return (
+            <EmptyState
+              title="Ödeme kaydı yok"
+              description="Bu öğrenci için henüz gerçekleşmiş bir ödeme kaydı yok."
+            />
+          );
+        }
+        return (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)] dark:border-slate-800 dark:bg-slate-900/60 dark:text-[var(--color-text-muted)]">
@@ -141,7 +154,7 @@ export default async function StudentPaymentProfilePage({
               </tr>
             </thead>
             <tbody>
-              {payments.map((p) => (
+              {historyPayments.map((p) => (
                 <tr key={p.id} className="border-b border-slate-50 dark:border-slate-800">
                   <td className="px-4 py-3 font-medium text-[var(--color-text)] dark:text-slate-50">
                     {p.description}
@@ -181,7 +194,8 @@ export default async function StudentPaymentProfilePage({
             </tbody>
           </table>
         </Card>
-      )}
+        );
+      })()}
     </div>
   );
 }

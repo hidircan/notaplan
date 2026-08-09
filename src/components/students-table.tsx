@@ -5,6 +5,14 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { StudentArchiveAction } from "@/components/student-archive-action";
+import {
+  DEFAULT_STUDENT_COLUMNS,
+  STUDENT_COLUMN_LABELS,
+  StudentColumnViewManager,
+  loadLastUsedStudentColumns,
+  type StudentColumnKey,
+} from "@/components/student-column-view-manager";
 
 export type StudentRow = {
   id: string;
@@ -52,7 +60,20 @@ function uniqueSorted(values: (string | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b, "tr"));
 }
 
-export function StudentsTable({ rows }: { rows: StudentRow[] }) {
+export function StudentsTable({
+  rows,
+  tenantId,
+  userId,
+  canManage = false,
+}: {
+  rows: StudentRow[];
+  /** Kolon görünüm tercihinin (localStorage) anahtarını oluşturmak için — kurum/tenant scope'undan bağımsız, yalnızca localStorage key izolasyonu içindir. */
+  tenantId?: string;
+  /** "Son kullanılan görünüm" kişiye özeldir — bu, hangi tarayıcı anahtarının kullanılacağını belirler. */
+  userId?: string;
+  /** Arşivle/Yeniden aktifleştir aksiyonu ve "Sütunlar / Görünüm yönetimi" yalnızca yönetici görür (mevcut yetki modeliyle aynı: SCHOOL_ADMIN/SUPER_ADMIN). */
+  canManage?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -60,6 +81,14 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [optionSearch, setOptionSearch] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState<StudentColumnKey[]>(DEFAULT_STUDENT_COLUMNS);
+
+  useEffect(() => {
+    if (!tenantId || !userId) return;
+    const lastUsed = loadLastUsedStudentColumns(tenantId, userId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage senkron, yalnız mount'ta bir kez
+    if (lastUsed) setColumns(lastUsed);
+  }, [tenantId, userId]);
 
   const search = searchParams.get("q") ?? "";
   // Pasif öğrenciler varsayılan gizli — yalnız durum filtresiyle görünür.
@@ -433,6 +462,26 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
             ) : null}
           </div>
 
+          {canManage ? (
+            <StudentColumnViewManager
+              tenantId={tenantId ?? "default"}
+              userId={userId ?? "unknown"}
+              columns={columns}
+              onChange={setColumns}
+            />
+          ) : null}
+
+          <Link
+            href={`${pathname}?${(() => {
+              const p = new URLSearchParams(searchParams.toString());
+              p.set("status", "inactive");
+              return p.toString();
+            })()}`}
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
+          >
+            Arşiv
+          </Link>
+
           {chips.length > 0 ? (
             <div className="flex flex-wrap items-center gap-1.5">
               {chips.map((chip) => (
@@ -470,17 +519,18 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
           <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
             <tr>
               <th className="px-4 py-3">Öğrenci</th>
-              <th className="px-4 py-3">Şube</th>
-              <th className="px-4 py-3">Tür / Seviye</th>
-              <th className="px-4 py-3">Enstrüman</th>
-              <th className="px-4 py-3">Öğretmen</th>
-              <th className="px-4 py-3">Paket</th>
+              {columns.map((key) => (
+                <th key={key} className="px-4 py-3">
+                  {STUDENT_COLUMN_LABELS[key]}
+                </th>
+              ))}
+              {canManage ? <th className="px-4 py-3">İşlem</th> : null}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
+                <td colSpan={1 + columns.length + (canManage ? 1 : 0)} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
                   Bu filtreye uyan öğrenci bulunamadı.
                 </td>
               </tr>
@@ -496,18 +546,37 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
                       {!s.active ? <span className="text-xs font-medium text-[var(--color-danger)]">Pasif</span> : null}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-[var(--color-text-muted)]">{s.branchName ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    {s.studentType ? <Badge>{s.studentType}</Badge> : <span className="text-xs text-[var(--color-text-muted)]">Belirtilmemiş</span>}
-                    {s.level ? <p className="mt-1 text-xs text-[var(--color-text-muted)]">Seviye: {s.level}</p> : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    {s.instruments.map((i) => (
-                      <Badge key={i}>{i}</Badge>
-                    ))}
-                  </td>
-                  <td className="px-4 py-3 text-[var(--color-text)]">{s.teacherName}</td>
-                  <td className="px-4 py-3 text-[var(--color-text-muted)]">{s.packageName.split("—")[0]?.trim() ?? s.packageName}</td>
+                  {columns.map((key) => (
+                    <td key={key} className="px-4 py-3">
+                      {key === "branch" ? (
+                        <span className="text-[var(--color-text-muted)]">{s.branchName ?? "—"}</span>
+                      ) : key === "type" ? (
+                        <>
+                          {s.studentType ? <Badge>{s.studentType}</Badge> : <span className="text-xs text-[var(--color-text-muted)]">Belirtilmemiş</span>}
+                          {s.level ? <p className="mt-1 text-xs text-[var(--color-text-muted)]">Seviye: {s.level}</p> : null}
+                        </>
+                      ) : key === "instruments" ? (
+                        s.instruments.map((i) => <Badge key={i}>{i}</Badge>)
+                      ) : key === "teacher" ? (
+                        <span className="text-[var(--color-text)]">{s.teacherName}</span>
+                      ) : key === "package" ? (
+                        <span className="text-[var(--color-text-muted)]">{s.packageName.split("—")[0]?.trim() ?? s.packageName}</span>
+                      ) : key === "level" ? (
+                        <span className="text-[var(--color-text-muted)]">{s.level ?? "—"}</span>
+                      ) : key === "method" ? (
+                        <span className="text-[var(--color-text-muted)]">{s.educationMethod ?? "—"}</span>
+                      ) : key === "payment" ? (
+                        <span className="text-[var(--color-text-muted)]">{PAYMENT_LABELS[s.paymentStatus]}</span>
+                      ) : key === "monthlyFee" ? (
+                        <span className="text-[var(--color-text-muted)]">{s.monthlyFee.toLocaleString("tr-TR")} ₺</span>
+                      ) : null}
+                    </td>
+                  ))}
+                  {canManage ? (
+                    <td className="px-4 py-3">
+                      <StudentArchiveAction studentId={s.id} studentName={s.name} archived={!s.active} />
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}
