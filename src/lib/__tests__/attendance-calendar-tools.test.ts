@@ -36,6 +36,15 @@ beforeEach(async () => {
 
 async function findOpenSlot(): Promise<string> {
   const data = await readData();
+  // Seed'in statik demo verisinde (src/lib/seed.ts) s1/t1 için o günde ZATEN
+  // planlı bir ders olabilir (ör. l12, day:1) — saat bazında çakışmasa bile
+  // aynı takvim gününde ikinci bir ders, `getAttendanceCalendarMonthTool`'un
+  // gün bazlı gruplamasında `day.lessons`'a birlikte düşer ve bu dosyadaki
+  // "tek ders" varsayan testleri (ör. toHaveLength(1)) kırar. Bu yüzden
+  // yalnızca SAAT çakışması değil, s1/t1 için o gün HİÇ ders olmaması aranır.
+  const busyDates = new Set(
+    data.lessons.filter((l) => l.studentId === "s1" || l.teacherId === "t1").map((l) => l.startAt.slice(0, 10))
+  );
   for (let offset = 1; offset <= 14; offset++) {
     for (let hour = 9; hour <= 16; hour++) {
       const d = new Date();
@@ -43,6 +52,7 @@ async function findOpenSlot(): Promise<string> {
       d.setHours(hour, 0, 0, 0);
       if (d.getDay() === 1) continue; // Pazartesi zaten yasak
       const candidate = d.toISOString();
+      if (busyDates.has(candidate.slice(0, 10))) continue;
       const check = validateLessonSlot(
         data,
         { instrument: "Piyano", studentId: "s1" },
