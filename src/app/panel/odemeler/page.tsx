@@ -40,6 +40,7 @@ export default async function OdemelerPage() {
     status: p.status,
     lessonId: p.lessonId,
     lessonDate: p.lessonId ? data.lessons.find((l) => l.id === p.lessonId)?.startAt : undefined,
+    paymentNote: p.paymentNote,
   }));
 
   return (

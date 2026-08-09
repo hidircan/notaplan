@@ -372,6 +372,11 @@ export const updateFeeRoundingModeSchema = z.object({
   feeRoundingMode: z.enum(["exact_minutes", "round_30", "fixed_package"]),
 });
 
+/** Telafi Merkezi politika penceresi — 1-365 gün arası, yalnız ileri yönlü etkilidir. */
+export const updateMakeupWindowDaysSchema = z.object({
+  makeupWindowDays: z.number().int().min(1).max(365),
+});
+
 /** EPIC 1 — veli kendi çocuğu için, admin herkes için değiştirebilir (bkz. updateCommunicationPreferenceTool). */
 export const updateCommunicationPreferenceSchema = z.object({
   studentId: z.string().min(1),
@@ -751,6 +756,25 @@ export const updatePackageSchema = z.object({
   price50Min: z.coerce.number().int().min(0).optional(),
   termLabel: z.enum(["guz", "yaz"]).optional(),
   status: z.enum(["active", "archived"]).optional(),
+});
+
+/** Paket 5 — yüzde tabanlı kampanya/indirim (ör. "Kardeş Kampanyası"). */
+export const createDiscountCampaignSchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(["sibling"]),
+  discountPercent: z.coerce.number().int().min(1).max(100),
+  validFrom: z.string().optional(),
+  validTo: z.string().optional(),
+  branchId: z.string().optional(),
+});
+
+export const updateDiscountCampaignSchema = z.object({
+  campaignId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  discountPercent: z.coerce.number().int().min(1).max(100).optional(),
+  active: z.boolean().optional(),
+  validFrom: z.string().optional(),
+  validTo: z.string().optional(),
 });
 
 /** ÖNCELİK 4 (devam) — öğretmen çoklu enstrüman+seviye düzenleme (öğretmen detayı). */

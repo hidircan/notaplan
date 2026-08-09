@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
 import { listDocumentTemplatesTool, listAllDocumentTemplatesTool, listDocumentInstancesTool } from "@/lib/services";
 import { documentKindLabel } from "@/lib/documents";
-import { Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { DocumentsTable, type DocumentRow } from "@/components/documents-table";
 import { DocumentTemplateManager } from "@/components/document-template-manager";
@@ -39,11 +39,6 @@ export default async function DocumentsCenterPage({
   const students = data.students.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const teachers = data.teachers.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name }));
 
-  const draftCount = documents.filter((d) => d.status === "draft").length;
-  const sentForSignatureCount = documents.filter((d) => d.status === "sent_for_signature").length;
-  const signedOrUploadedCount = documents.filter((d) => d.status === "signed" || d.status === "uploaded").length;
-  const expiredCount = documents.filter((d) => d.status === "expired").length;
-
   const rows: DocumentRow[] = documents.map((d) => {
     const relatedStudent = d.studentId ? data.students.find((s) => s.id === d.studentId) : undefined;
     const person = relatedStudent?.name || (d.teacherId && data.teachers.find((t) => t.id === d.teacherId)?.name) || "—";
@@ -64,13 +59,6 @@ export default async function DocumentsCenterPage({
   return (
     <div>
       <PageHeader title="Evraklar Merkezi" />
-
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Taslak" value={draftCount} accent="warning" />
-        <StatCard label="İmzaya Verildi" value={sentForSignatureCount} accent="info" />
-        <StatCard label="İmzalandı / Yüklendi" value={signedOrUploadedCount} accent="success" />
-        <StatCard label="Süresi Dolan" value={expiredCount} accent="danger" />
-      </div>
 
       <Card className="mb-6">
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">

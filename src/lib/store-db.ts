@@ -60,6 +60,13 @@ import {
   type PackagePatch,
   type PackageMutationResult,
 } from "./packages";
+import {
+  createDiscountCampaignData,
+  updateDiscountCampaignData,
+  type DiscountCampaignInput,
+  type DiscountCampaignPatch,
+  type DiscountCampaignMutationResult,
+} from "./discount-campaigns";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -348,6 +355,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       lessonId: payment.lessonId ?? undefined,
       source: (payment.source as import("./types").PaymentSource | undefined) ?? "manual",
       createdAt: (payment as { createdAt?: Date }).createdAt?.toISOString() ?? undefined,
+      paymentNote: payment.paymentNote ?? undefined,
     })),
     teacherFeeRules: school.teacherFeeRules.map((rule) => ({
       id: rule.id,
@@ -737,6 +745,24 @@ async function readPackages(tid: string): Promise<AppData["packages"]> {
   }));
 }
 
+/** Paket 5 — DiscountCampaign de Package ile aynı tenant-çapında desen. */
+async function readDiscountCampaigns(tid: string): Promise<AppData["discountCampaigns"]> {
+  const rows = await prisma.discountCampaign.findMany({ where: { tenantId: tid }, orderBy: { createdAt: "asc" } });
+  return rows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    kind: c.kind as import("./types").DiscountCampaignKind,
+    discountPercent: c.discountPercent,
+    active: c.active,
+    validFrom: c.validFrom?.toISOString() ?? undefined,
+    validTo: c.validTo?.toISOString() ?? undefined,
+    branchId: (c.branchId as import("./types").BranchId | null) ?? undefined,
+    createdBy: c.createdBy,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
+  }));
+}
+
 export async function readData(): Promise<AppData> {
   const tid = tenantId();
   const school = await prisma.school.findFirst({
@@ -754,10 +780,18 @@ export async function readData(): Promise<AppData> {
       include: schoolInclude,
     });
     if (!seededSchool) throw new Error("Okul verisi bulunamadı");
-    return { ...mapSchoolToAppData(seededSchool), packages: await readPackages(tid) };
+    return {
+      ...mapSchoolToAppData(seededSchool),
+      packages: await readPackages(tid),
+      discountCampaigns: await readDiscountCampaigns(tid),
+    };
   }
 
-  return { ...mapSchoolToAppData(school), packages: await readPackages(tid) };
+  return {
+    ...mapSchoolToAppData(school),
+    packages: await readPackages(tid),
+    discountCampaigns: await readDiscountCampaigns(tid),
+  };
 }
 
 export async function resetData(): Promise<AppData> {
@@ -1168,8 +1202,18 @@ export async function updateTeacherProfile(
   return data.teachers.find((t) => t.id === teacherId) ?? null;
 }
 
-export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
+export type MarkPaymentPaidOptions = {
+  method?: string;
+  /** Yönetici tarafından elle girilen tahsil edilen tutar — verilmezse ödemenin tam tutarı kullanılır. */
+  amount?: number;
+  /** ISO tarih — verilmezse şimdi. */
+  paidAt?: string;
+  paymentNote?: string;
+};
+
+export async function markPaymentPaid(paymentId: string, opts?: string | MarkPaymentPaidOptions): Promise<AppData> {
   logger.info("markPaymentPaid", paymentId);
+  const normalized: MarkPaymentPaidOptions = typeof opts === "string" ? { method: opts } : opts ?? {};
   const tid = requireTenantId();
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, tenantId: tid },
@@ -1179,15 +1223,40 @@ export async function markPaymentPaid(paymentId: string, method?: string): Promi
   const student = payment.studentId
     ? await prisma.student.findFirst({ where: { id: payment.studentId, tenantId: tid } })
     : null;
-  const resolvedMethod = method || payment.method || student?.paymentMethod || undefined;
+  const resolvedMethod = normalized.method || payment.method || student?.paymentMethod || undefined;
 
   await prisma.payment.updateMany({
     where: { id: paymentId, tenantId: tid },
     data: {
       status: "paid",
-      paidAmount: payment.amount,
-      paidAt: new Date(),
+      paidAmount: normalized.amount ?? payment.amount,
+      paidAt: normalized.paidAt ? new Date(normalized.paidAt) : new Date(),
       ...(resolvedMethod ? { method: resolvedMethod } : {}),
+      ...(normalized.paymentNote !== undefined ? { paymentNote: normalized.paymentNote } : {}),
+    },
+  });
+
+  return readData();
+}
+
+export type UpdatePaymentPatch = {
+  method?: string;
+  paidAmount?: number;
+  paymentNote?: string;
+};
+
+/** Zaten "paid" bir ödemenin yöntem/tutar/not alanlarını düzenler — Paket 5 "Düzenle" akışı. */
+export async function updatePayment(paymentId: string, patch: UpdatePaymentPatch): Promise<AppData> {
+  const tid = requireTenantId();
+  const payment = await prisma.payment.findFirst({ where: { id: paymentId, tenantId: tid } });
+  if (!payment) throw new Error("Ödeme bulunamadı");
+
+  await prisma.payment.updateMany({
+    where: { id: paymentId, tenantId: tid },
+    data: {
+      ...(patch.method !== undefined ? { method: patch.method } : {}),
+      ...(patch.paidAmount !== undefined ? { paidAmount: patch.paidAmount } : {}),
+      ...(patch.paymentNote !== undefined ? { paymentNote: patch.paymentNote } : {}),
     },
   });
 
@@ -2041,6 +2110,56 @@ export async function updatePackage(packageId: string, patch: PackagePatch): Pro
   return { ok: true, data: await readData(), pkg: result.pkg };
 }
 
+export async function addDiscountCampaign(input: DiscountCampaignInput): Promise<DiscountCampaignMutationResult> {
+  logger.info("addDiscountCampaign", input.name);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = createDiscountCampaignData(data, input);
+  if (!result.ok) return result;
+
+  await prisma.discountCampaign.create({
+    data: {
+      id: result.campaign.id,
+      tenantId: tid,
+      name: result.campaign.name,
+      kind: result.campaign.kind,
+      discountPercent: result.campaign.discountPercent,
+      active: result.campaign.active,
+      validFrom: result.campaign.validFrom ? new Date(result.campaign.validFrom) : null,
+      validTo: result.campaign.validTo ? new Date(result.campaign.validTo) : null,
+      branchId: result.campaign.branchId ?? null,
+      createdBy: result.campaign.createdBy,
+      createdAt: new Date(result.campaign.createdAt),
+      updatedAt: new Date(result.campaign.updatedAt),
+    },
+  });
+  return { ok: true, data: await readData(), campaign: result.campaign };
+}
+
+export async function updateDiscountCampaign(
+  campaignId: string,
+  patch: DiscountCampaignPatch
+): Promise<DiscountCampaignMutationResult> {
+  logger.info("updateDiscountCampaign", campaignId);
+  const tid = requireTenantId();
+  const data = await readData();
+  const result = updateDiscountCampaignData(data, campaignId, patch);
+  if (!result.ok) return result;
+
+  const updateResult = await prisma.discountCampaign.updateMany({
+    where: { id: campaignId, tenantId: tid },
+    data: {
+      name: patch.name,
+      discountPercent: patch.discountPercent,
+      active: patch.active,
+      validFrom: patch.validFrom !== undefined ? (patch.validFrom ? new Date(patch.validFrom) : null) : undefined,
+      validTo: patch.validTo !== undefined ? (patch.validTo ? new Date(patch.validTo) : null) : undefined,
+    },
+  });
+  if (updateResult.count === 0) return { ok: false, message: "Kampanya bulunamadı." };
+  return { ok: true, data: await readData(), campaign: result.campaign };
+}
+
 export async function addTeacherFeeRule(input: FeeRuleInput): Promise<FeeRuleMutationResult> {
   logger.info("addTeacherFeeRule", input.teacherId);
   const tid = requireTenantId();
@@ -2143,6 +2262,12 @@ export async function markTeacherPayoutPaid(
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   const tid = requireTenantId();
   await prisma.school.update({ where: { tenantId: tid }, data: { feeRoundingMode } });
+  return readData();
+}
+
+export async function updateMakeupWindowDays(makeupWindowDays: number): Promise<AppData> {
+  const tid = requireTenantId();
+  await prisma.school.update({ where: { tenantId: tid }, data: { makeupWindowDays } });
   return readData();
 }
 

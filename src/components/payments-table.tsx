@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Receipt } from "lucide-react";
-import { actionMarkPaymentPaid } from "@/lib/actions";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { PaymentMarkPaidModal } from "@/components/payment-mark-paid-modal";
 import type { PaymentStatus } from "@/lib/types";
 
 export type PaymentRow = {
@@ -21,6 +21,7 @@ export type PaymentRow = {
   /** ÖNCELİK 3 — otomatik ders bazlı tahsilatın kaynak dersi; manuel/paket ödemelerde yok. */
   lessonId?: string;
   lessonDate?: string;
+  paymentNote?: string;
 };
 
 type StatusFilter = "all" | PaymentStatus;
@@ -38,6 +39,8 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [actionOnly, setActionOnly] = useState(false);
+  const [modalPayment, setModalPayment] = useState<PaymentRow | null>(null);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -167,25 +170,39 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
                         Ders iptal edildiği için tahsilat iptal edildi.
                       </span>
                     ) : p.status !== "paid" ? (
-                      canWrite ? (
-                        <form action={actionMarkPaymentPaid}>
-                          <input type="hidden" name="paymentId" value={p.id} />
-                          <Button type="submit" variant="secondary" className="!py-1.5 text-xs">
-                            Ödendi işaretle
-                          </Button>
-                        </form>
-                      ) : (
-                        <Button type="button" variant="secondary" className="!py-1.5 text-xs" disabled>
-                          Ödendi işaretle
-                        </Button>
-                      )
-                    ) : (
-                      <Link
-                        href={`/makbuz/${p.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!py-1.5 text-xs"
+                        disabled={!canWrite}
+                        onClick={() => {
+                          setModalMode("create");
+                          setModalPayment(p);
+                        }}
                       >
-                        <Receipt className="h-3.5 w-3.5" /> Makbuzu görüntüle
-                      </Link>
+                        Ödendi işaretle
+                      </Button>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/makbuz/${p.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <Receipt className="h-3.5 w-3.5" /> Makbuzu görüntüle
+                        </Link>
+                        {canWrite ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalMode("edit");
+                              setModalPayment(p);
+                            }}
+                            className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
+                          >
+                            Düzenle
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -194,6 +211,28 @@ export function PaymentsTable({ rows, canWrite }: { rows: PaymentRow[]; canWrite
           </tbody>
         </table>
       </Card>
+
+      {modalPayment ? (
+        <PaymentMarkPaidModal
+          paymentId={modalPayment.id}
+          studentName={modalPayment.studentName}
+          defaultAmount={
+            modalMode === "edit"
+              ? modalPayment.paidAmount || modalPayment.amount
+              : modalPayment.amount - modalPayment.paidAmount
+          }
+          mode={modalMode}
+          initialMethod={
+            modalMode === "edit" && isPaymentMethod(modalPayment.method) ? modalPayment.method : undefined
+          }
+          initialNote={modalMode === "edit" ? modalPayment.paymentNote : undefined}
+          onClose={() => setModalPayment(null)}
+        />
+      ) : null}
     </>
   );
+}
+
+function isPaymentMethod(value: string | undefined): value is "credit_card" | "cash" | "transfer" {
+  return value === "credit_card" || value === "cash" || value === "transfer";
 }

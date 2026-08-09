@@ -37,6 +37,7 @@ model Tenant {
   studentCurriculumTopics StudentCurriculumTopic[]
   socialMediaConsents SocialMediaConsent[]
   packages   Package[]
+  discountCampaigns DiscountCampaign[]
   instrumentCatalogEntries InstrumentCatalogEntry[]
   closedDays ClosedDay[]
   trialLessons TrialLesson[]
@@ -550,6 +551,8 @@ model Payment {
   paidAt      DateTime?
   description String
   method      String?
+  /// Paket 5 — "Ödendi işaretle" modalında girilen isteğe bağlı referans/açıklama notu.
+  paymentNote String?
   /// Otomatik ders bazlı tahsilatın kaynak dersi — manuel/paket ödemelerde NULL.
   lessonId    String?
   /// "manual" (varsayılan, mevcut tüm kayıtlar) | "lesson_ops" (Geldi/İşlendi otomatik oluşturdu)
@@ -999,6 +1002,29 @@ model Package {
 
   @@index([tenantId])
   @@index([tenantId, status])
+}
+
+/// Paket 5 — yüzde tabanlı kampanya/indirim kural motoru (ör. "Kardeş Kampanyası").
+/// Package ile aynı desen: Tenant çapında, School'a bağlı değil.
+model DiscountCampaign {
+  id              String    @id
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  /// "sibling" — ilk ve tek tanımlı tür; ileride yeni türlere genişleyebilir.
+  kind            String
+  discountPercent Int
+  active          Boolean   @default(true)
+  validFrom       DateTime?
+  validTo         DateTime?
+  /// Verilmezse tüm şubelerde geçerli.
+  branchId        String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, active])
 }
 
 /// PRODUCT_BACKLOG §5

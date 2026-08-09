@@ -64,7 +64,18 @@ type StoreApi = {
     packageId: string,
     patch: import("./packages").PackagePatch
   ) => Promise<import("./packages").PackageMutationResult>;
-  markPaymentPaid: (paymentId: string, method?: string) => Promise<AppData>;
+  addDiscountCampaign: (
+    input: import("./discount-campaigns").DiscountCampaignInput
+  ) => Promise<import("./discount-campaigns").DiscountCampaignMutationResult>;
+  updateDiscountCampaign: (
+    campaignId: string,
+    patch: import("./discount-campaigns").DiscountCampaignPatch
+  ) => Promise<import("./discount-campaigns").DiscountCampaignMutationResult>;
+  markPaymentPaid: (
+    paymentId: string,
+    opts?: string | import("./store-json").MarkPaymentPaidOptions
+  ) => Promise<AppData>;
+  updatePayment: (paymentId: string, patch: import("./store-json").UpdatePaymentPatch) => Promise<AppData>;
   addRoom: (room: Omit<Room, "id">) => Promise<AppData>;
   /** ÖNCELİK 4 (devam) — oda düzenleme. */
   updateRoom: (
@@ -146,6 +157,7 @@ type StoreApi = {
   ) => Promise<CreateTeacherPayoutResult>;
   markTeacherPayoutPaid: (payoutId: string, method?: string) => Promise<MarkPayoutPaidResult>;
   updateFeeRoundingMode: (feeRoundingMode: FeeRoundingMode) => Promise<AppData>;
+  updateMakeupWindowDays: (makeupWindowDays: number) => Promise<AppData>;
   updateCollectionsSettings: (collectionsSettings: CollectionsSettings) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
   listTenants: () => Promise<{ tenantId: string; name: string }[]>;
@@ -310,8 +322,31 @@ export async function updatePackage(
   return withTenantScope(() => store.updatePackage(packageId, patch));
 }
 
-export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
-  return withTenantScope(() => store.markPaymentPaid(paymentId, method));
+export async function addDiscountCampaign(
+  input: import("./discount-campaigns").DiscountCampaignInput
+): Promise<import("./discount-campaigns").DiscountCampaignMutationResult> {
+  return withTenantScope(() => store.addDiscountCampaign(input));
+}
+
+export async function updateDiscountCampaign(
+  campaignId: string,
+  patch: import("./discount-campaigns").DiscountCampaignPatch
+): Promise<import("./discount-campaigns").DiscountCampaignMutationResult> {
+  return withTenantScope(() => store.updateDiscountCampaign(campaignId, patch));
+}
+
+export async function markPaymentPaid(
+  paymentId: string,
+  opts?: string | import("./store-json").MarkPaymentPaidOptions
+): Promise<AppData> {
+  return withTenantScope(() => store.markPaymentPaid(paymentId, opts));
+}
+
+export async function updatePayment(
+  paymentId: string,
+  patch: import("./store-json").UpdatePaymentPatch
+): Promise<AppData> {
+  return withTenantScope(() => store.updatePayment(paymentId, patch));
 }
 
 export async function addRoom(room: Omit<Room, "id">): Promise<AppData> {
@@ -472,6 +507,10 @@ export async function markTeacherPayoutPaid(
 
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   return withTenantScope(() => store.updateFeeRoundingMode(feeRoundingMode));
+}
+
+export async function updateMakeupWindowDays(makeupWindowDays: number): Promise<AppData> {
+  return withTenantScope(() => store.updateMakeupWindowDays(makeupWindowDays));
 }
 
 export async function updateCollectionsSettings(

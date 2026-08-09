@@ -32,6 +32,7 @@ import {
   importTeachers,
   markAttendance,
   markPaymentPaid,
+  updatePayment,
   markTeacherPayoutPaid,
   readData,
   resetData,
@@ -40,6 +41,7 @@ import {
   updateBranch,
   updateCollectionsSettings,
   updateFeeRoundingMode,
+  updateMakeupWindowDays,
   updateLessonSchedule,
   updateMakeupSlaEscalation,
   updateStudentProfile,
@@ -51,6 +53,8 @@ import {
   upsertMonthlyPlanPayment,
   addPackage,
   updatePackage,
+  addDiscountCampaign,
+  updateDiscountCampaign,
 } from "../store";
 import { setClosedDay, listClosedDays } from "../closed-day-overrides";
 import { resolveDayStatus, isWeeklyClosedDayForTerm } from "../attendance-calendar";
@@ -211,6 +215,7 @@ import {
   updateCollectionsSettingsSchema,
   updateCommunicationPreferenceSchema,
   updateFeeRoundingModeSchema,
+  updateMakeupWindowDaysSchema,
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
   updateStudentProfileSchema,
@@ -219,6 +224,8 @@ import {
   updateTeacherProfileSchema,
   createPackageSchema,
   updatePackageSchema,
+  createDiscountCampaignSchema,
+  updateDiscountCampaignSchema,
   socialMediaConsentSchema,
   createInstrumentCatalogSchema,
   updateInstrumentCatalogSchema,
@@ -783,17 +790,79 @@ export async function createPaymentTool(
     z.object({
       paymentId: z.string().min(1),
       method: z.enum(["credit_card", "cash", "transfer"]).optional(),
+      /** Paket 5 — modal üzerinden elle girilen tahsil edilen tutar. Verilmezse ödemenin tam tutarı kullanılır. */
+      amount: z.number().positive().optional(),
+      /** ISO tarih (yyyy-MM-dd) — verilmezse şimdi. */
+      paidAt: z.string().optional(),
+      paymentNote: z.string().max(500).optional(),
     }),
     input
   );
   if (!v.ok) return v;
 
   try {
-    await markPaymentPaid(v.data.paymentId, v.data.method);
-    audit(ctx, "payment.mark_paid", "Payment", v.data.paymentId);
+    const data = await readData();
+    const existing = data.payments.find((p) => p.id === v.data.paymentId);
+    if (!existing) return fail("NOT_FOUND", "Ödeme bulunamadı");
+    // İdempotency: zaten "paid" ise sessizce mevcut durumu döner — çift tık/tekrar istek yeni bir yan etki yaratmaz.
+    if (existing.status === "paid") {
+      return ok({ paymentId: v.data.paymentId, status: "paid" });
+    }
+    await markPaymentPaid(v.data.paymentId, {
+      method: v.data.method,
+      amount: v.data.amount,
+      paidAt: v.data.paidAt,
+      paymentNote: v.data.paymentNote,
+    });
+    audit(ctx, "payment.mark_paid", "Payment", v.data.paymentId, {
+      method: v.data.method,
+      amount: v.data.amount,
+    });
     return ok({ paymentId: v.data.paymentId, status: "paid" });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createPayment failed");
+  }
+}
+
+export async function updatePaymentTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ paymentId: string }>> {
+  /** Zaten "paid" bir ödemenin yöntem/tutar/not alanlarını düzenler — Paket 5 "Düzenle" akışı. */
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(
+    z.object({
+      paymentId: z.string().min(1),
+      method: z.enum(["credit_card", "cash", "transfer"]).optional(),
+      amount: z.number().positive().optional(),
+      paymentNote: z.string().max(500).optional(),
+    }),
+    input
+  );
+  if (!v.ok) return v;
+
+  try {
+    const data = await readData();
+    const existing = data.payments.find((p) => p.id === v.data.paymentId);
+    if (!existing) return fail("NOT_FOUND", "Ödeme bulunamadı");
+    if (existing.status !== "paid") {
+      return fail("VALIDATION_ERROR", "Yalnızca tamamlanmış ödemeler düzenlenebilir.");
+    }
+
+    await updatePayment(v.data.paymentId, {
+      method: v.data.method,
+      paidAmount: v.data.amount,
+      paymentNote: v.data.paymentNote,
+    });
+    audit(ctx, "payment.update", "Payment", v.data.paymentId, {
+      method: v.data.method,
+      amount: v.data.amount,
+    });
+    return ok({ paymentId: v.data.paymentId });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updatePayment failed");
   }
 }
 
@@ -1332,6 +1401,47 @@ export async function updatePackageTool(
   if (!result.ok) return fail("VALIDATION_ERROR", result.message);
   audit(ctx, "package.update", "Package", packageId, patch);
   return ok({ packageId });
+}
+
+/**
+ * Paket 5 — yüzde tabanlı kampanya/indirim kuralı oluşturur (ör. "Kardeş
+ * Kampanyası"). Bu kural şu an OTOMATİK olarak monthlyFee/Payment hesaplama
+ * hattına bağlanmaz — bkz. src/lib/discount-campaigns.ts dosya başı notu.
+ */
+export async function createDiscountCampaignTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ campaignId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(createDiscountCampaignSchema, input);
+  if (!v.ok) return v;
+
+  const result = await addDiscountCampaign({ ...v.data, createdBy: ctx.userId });
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "discount_campaign.create", "DiscountCampaign", result.campaign.id, {
+    name: result.campaign.name,
+    discountPercent: result.campaign.discountPercent,
+  });
+  return ok({ campaignId: result.campaign.id });
+}
+
+export async function updateDiscountCampaignTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ campaignId: string }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateDiscountCampaignSchema, input);
+  if (!v.ok) return v;
+
+  const { campaignId, ...patch } = v.data;
+  const result = await updateDiscountCampaign(campaignId, patch);
+  if (!result.ok) return fail("VALIDATION_ERROR", result.message);
+  audit(ctx, "discount_campaign.update", "DiscountCampaign", campaignId, patch);
+  return ok({ campaignId });
 }
 
 /**
@@ -2116,6 +2226,32 @@ export async function updateFeeRoundingModeTool(
     return ok({ feeRoundingMode: data.settings.feeRoundingMode });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateFeeRoundingMode failed");
+  }
+}
+
+/**
+ * Telafi Merkezi politika penceresi (kaç gün içinde telafi hakkı kullanılmalı).
+ * Yalnızca ileri yönlü etkilidir — zaten oluşturulmuş `MakeupRequest.expiresAt`
+ * değerlerini yeniden hesaplamaz (bkz. buildMakeupRequest, store-json.ts).
+ */
+export async function updateMakeupWindowDaysTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ makeupWindowDays: number }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateMakeupWindowDaysSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const data = await updateMakeupWindowDays(v.data.makeupWindowDays);
+    audit(ctx, "school.makeup_window_days.update", "School", ctx.tenantId, {
+      makeupWindowDays: v.data.makeupWindowDays,
+    });
+    return ok({ makeupWindowDays: data.settings.makeupWindowDays });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateMakeupWindowDays failed");
   }
 }
 

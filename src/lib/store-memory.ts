@@ -65,6 +65,13 @@ import {
   type PackagePatch,
   type PackageMutationResult,
 } from "./packages";
+import {
+  createDiscountCampaignData,
+  updateDiscountCampaignData,
+  type DiscountCampaignInput,
+  type DiscountCampaignPatch,
+  type DiscountCampaignMutationResult,
+} from "./discount-campaigns";
 import type { BranchImportRow } from "./import/branches";
 import type { TeacherImportRow } from "./import/teachers";
 import type { RoomImportRow } from "./import/rooms";
@@ -350,7 +357,15 @@ export async function updateTeacherProfile(
   return updated;
 }
 
-export async function markPaymentPaid(paymentId: string, method?: string): Promise<AppData> {
+export type MarkPaymentPaidOptions = {
+  method?: string;
+  amount?: number;
+  paidAt?: string;
+  paymentNote?: string;
+};
+
+export async function markPaymentPaid(paymentId: string, opts?: string | MarkPaymentPaidOptions): Promise<AppData> {
+  const normalized: MarkPaymentPaidOptions = typeof opts === "string" ? { method: opts } : opts ?? {};
   const data = load();
   const payments: Payment[] = data.payments.map((p) => {
     if (p.id !== paymentId) return p;
@@ -358,9 +373,30 @@ export async function markPaymentPaid(paymentId: string, method?: string): Promi
     return {
       ...p,
       status: "paid",
-      paidAmount: p.amount,
-      paidAt: new Date().toISOString(),
-      method: method || p.method || student?.paymentMethod || "Havale",
+      paidAmount: normalized.amount ?? p.amount,
+      paidAt: normalized.paidAt ?? new Date().toISOString(),
+      method: normalized.method || p.method || student?.paymentMethod || "Havale",
+      ...(normalized.paymentNote !== undefined ? { paymentNote: normalized.paymentNote } : {}),
+    };
+  });
+  return save({ ...data, payments });
+}
+
+export type UpdatePaymentPatch = {
+  method?: string;
+  paidAmount?: number;
+  paymentNote?: string;
+};
+
+export async function updatePayment(paymentId: string, patch: UpdatePaymentPatch): Promise<AppData> {
+  const data = load();
+  const payments: Payment[] = data.payments.map((p) => {
+    if (p.id !== paymentId) return p;
+    return {
+      ...p,
+      ...(patch.method !== undefined ? { method: patch.method } : {}),
+      ...(patch.paidAmount !== undefined ? { paidAmount: patch.paidAmount } : {}),
+      ...(patch.paymentNote !== undefined ? { paymentNote: patch.paymentNote } : {}),
     };
   });
   return save({ ...data, payments });
@@ -538,6 +574,23 @@ export async function updatePackage(packageId: string, patch: PackagePatch): Pro
   return result;
 }
 
+export async function addDiscountCampaign(input: DiscountCampaignInput): Promise<DiscountCampaignMutationResult> {
+  const data = load();
+  const result = createDiscountCampaignData(data, input);
+  if (result.ok) save(result.data);
+  return result;
+}
+
+export async function updateDiscountCampaign(
+  campaignId: string,
+  patch: DiscountCampaignPatch
+): Promise<DiscountCampaignMutationResult> {
+  const data = load();
+  const result = updateDiscountCampaignData(data, campaignId, patch);
+  if (result.ok) save(result.data);
+  return result;
+}
+
 export async function updateTeacherFeeRule(
   ruleId: string,
   patch: Partial<Omit<TeacherFeeRule, "id" | "createdAt">>
@@ -573,6 +626,11 @@ export async function markTeacherPayoutPaid(
 export async function updateFeeRoundingMode(feeRoundingMode: FeeRoundingMode): Promise<AppData> {
   const data = load();
   return save({ ...data, settings: { ...data.settings, feeRoundingMode } });
+}
+
+export async function updateMakeupWindowDays(makeupWindowDays: number): Promise<AppData> {
+  const data = load();
+  return save({ ...data, settings: { ...data.settings, makeupWindowDays } });
 }
 
 export async function updateCollectionsSettings(

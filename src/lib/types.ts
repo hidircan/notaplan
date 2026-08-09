@@ -595,6 +595,13 @@ export interface Payment {
    * yok — UI bu durumda dueDate'e düşer (bkz. attendance-calendar-panel.tsx).
    */
   createdAt?: string;
+  /**
+   * Paket 5 — "Ödendi işaretle" modalında yönetici tarafından girilen
+   * isteğe bağlı açıklama/referans notu (dekont no, kim aldı vb.).
+   * `description`'dan AYRI — description ödemenin AMACINI (ör. "Ekim
+   * taksiti"), bu alan ise tahsilat ANINA dair serbest metni taşır.
+   */
+  paymentNote?: string;
 }
 
 /**
@@ -690,6 +697,45 @@ export interface AppData {
    * her zaman `data.packages ?? []` ile güvenli varsayılan uygular.
    */
   packages?: Package[];
+  /**
+   * Paket 5 — yüzde tabanlı kampanya/indirim kuralları (ör. "Kardeş
+   * Kampanyası"). Opsiyonel — bkz. `packages?` üstteki not, aynı gerekçe.
+   */
+  discountCampaigns?: DiscountCampaign[];
+}
+
+export type DiscountCampaignKind = "sibling";
+
+/**
+ * Paket 5 — Paketler ekranındaki yüzde tabanlı kampanya/indirim kural
+ * motoru. İlk tür: "sibling" (aynı veli telefonuna kayıtlı ikinci ve
+ * sonraki öğrenciler). Aile/kardeş ilişkisi veri modelinde AYRI bir alan
+ * olarak tutulmuyor — `Student.parentPhone` eşleşmesi pratik vekil (proxy)
+ * olarak kullanılır (bkz. src/lib/discount-campaigns.ts).
+ *
+ * Kampanya şu an İÇİN otomatik olarak `monthlyFee`/Payment hesaplama
+ * hattına bağlanmaz — mevcut per-student `discountType`/`discountValue`
+ * (manuel, admin onaylı) mekanizmasının ÜZERİNE, adlandırılmış/denetlenebilir
+ * bir referans kural ve önizleme sağlar. Otomatik uygulama, tüm ücret
+ * motorunu (computeMonthlyFee, ödeme oluşturma) etkileyecek daha büyük ve
+ * ayrı bir karar/iş kalemidir.
+ */
+export interface DiscountCampaign {
+  id: string;
+  name: string;
+  kind: DiscountCampaignKind;
+  /** 0-100 arası yüzde. */
+  discountPercent: number;
+  active: boolean;
+  /** ISO tarih — verilmezse hemen başlar. */
+  validFrom?: string;
+  /** ISO tarih — verilmezse süresiz. */
+  validTo?: string;
+  /** Kurum/şube kapsamı — verilmezse tüm şubelerde geçerli. */
+  branchId?: BranchId;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**

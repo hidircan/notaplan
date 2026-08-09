@@ -4,6 +4,7 @@ import { getInstitutionContext, readScopedData } from "@/lib/institution/context
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { PageHeader } from "@/components/ui";
 import { PackageManager } from "@/components/package-manager";
+import { DiscountCampaignManager } from "@/components/discount-campaign-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,21 @@ export default async function PackagesPage() {
 
   const kurum = await getInstitutionContext(session);
   const data = await readScopedData(kurum.scope);
+  const activePackages = (data.packages ?? []).filter((p) => p.status === "active");
+  const samplePrice = activePackages[0]?.price30Min;
 
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader title="Paketler" />
       <PackageManager packages={data.packages ?? []} canWrite={kurum.scope.mode === "single"} />
+      <div className="mt-6">
+        <DiscountCampaignManager
+          campaigns={data.discountCampaigns ?? []}
+          canWrite={kurum.scope.mode === "single"}
+          samplePrice={samplePrice}
+        />
+      </div>
     </div>
   );
 }

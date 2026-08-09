@@ -16,6 +16,7 @@ import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 import { QuickTaskLink } from "@/components/quick-task-link";
+import { MakeupWindowDaysEditor } from "@/components/makeup-window-days-editor";
 
 const MORE_SUGGESTIONS_COUNT = 18;
 
@@ -58,10 +59,7 @@ export default async function TelafiPage() {
           </p>
         </Card>
         <Card className="bg-amber-50 border-amber-100">
-          <p className="text-sm text-amber-800">Politika penceresi</p>
-          <p className="mt-1 text-3xl font-semibold text-amber-950">
-            {data.settings.makeupWindowDays} gün
-          </p>
+          <MakeupWindowDaysEditor currentDays={data.settings.makeupWindowDays} canWrite={canWrite} />
         </Card>
       </div>
 

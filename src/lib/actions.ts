@@ -18,6 +18,7 @@ import {
   cancelMakeupLessonTool,
   confirmMakeupLessonTool,
   createPaymentTool,
+  updatePaymentTool,
   createStudentTool,
   updateStudentProfileTool,
   updateStudentPaymentProfileTool,
@@ -51,6 +52,7 @@ import {
   createTeacherPayoutTool,
   markTeacherPayoutPaidTool,
   updateFeeRoundingModeTool,
+  updateMakeupWindowDaysTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   updateCommunicationPreferenceTool,
@@ -64,6 +66,8 @@ import {
   updateTeacherProfileTool,
   createPackageTool,
   updatePackageTool,
+  createDiscountCampaignTool,
+  updateDiscountCampaignTool,
   archiveTeacherTool,
   updateRoomTool,
   createInstrumentCatalogTool,
@@ -331,6 +335,59 @@ export async function actionMarkPaymentPaid(formData: FormData) {
     logger.error("actionMarkPaymentPaid failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     throw error;
+  }
+}
+
+export type MarkPaymentPaidDetailedInput = {
+  paymentId: string;
+  method: "credit_card" | "cash" | "transfer";
+  amount: number;
+  paidAt: string;
+  paymentNote?: string;
+};
+
+export type MarkPaymentPaidDetailedResult = { ok: true } | { ok: false; message: string };
+
+/** Paket 5 — "Ödendi işaretle" modalı: yöntem + elle girilen tutar + tarih + not. */
+export async function actionMarkPaymentPaidDetailed(
+  input: MarkPaymentPaidDetailedInput
+): Promise<MarkPaymentPaidDetailedResult> {
+  try {
+    const result = await withAuthContext("actionMarkPaymentPaidDetailed", (ctx) =>
+      createPaymentTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionMarkPaymentPaidDetailed failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "Ödeme kaydedilirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdatePaymentInput = {
+  paymentId: string;
+  method: "credit_card" | "cash" | "transfer";
+  amount: number;
+  paymentNote?: string;
+};
+
+export type UpdatePaymentResult = { ok: true } | { ok: false; message: string };
+
+/** Paket 5 — tamamlanmış bir ödeme için "Düzenle" akışı. */
+export async function actionUpdatePayment(input: UpdatePaymentInput): Promise<UpdatePaymentResult> {
+  try {
+    const result = await withAuthContext("actionUpdatePayment", (ctx) => updatePaymentTool(ctx, input));
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdatePayment failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "Ödeme güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 
@@ -865,6 +922,62 @@ export async function actionUpdatePackage(input: {
     logger.error("actionUpdatePackage failed", error);
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     return { ok: false, message: "Paket güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type CreateDiscountCampaignInput = {
+  name: string;
+  kind: "sibling";
+  discountPercent: number;
+  validFrom?: string;
+  validTo?: string;
+  branchId?: string;
+};
+
+export type CreateDiscountCampaignActionResult = { ok: true; campaignId: string } | { ok: false; message: string };
+
+export async function actionCreateDiscountCampaign(
+  input: CreateDiscountCampaignInput
+): Promise<CreateDiscountCampaignActionResult> {
+  try {
+    const result = await withAuthContext("actionCreateDiscountCampaign", (ctx) =>
+      createDiscountCampaignTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, campaignId: result.data.campaignId };
+  } catch (error) {
+    logger.error("actionCreateDiscountCampaign failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Kampanya oluşturulurken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateDiscountCampaignInput = {
+  campaignId: string;
+  name?: string;
+  discountPercent?: number;
+  active?: boolean;
+  validFrom?: string;
+  validTo?: string;
+};
+
+export type UpdateDiscountCampaignActionResult = { ok: true } | { ok: false; message: string };
+
+export async function actionUpdateDiscountCampaign(
+  input: UpdateDiscountCampaignInput
+): Promise<UpdateDiscountCampaignActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateDiscountCampaign", (ctx) =>
+      updateDiscountCampaignTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true };
+  } catch (error) {
+    logger.error("actionUpdateDiscountCampaign failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    return { ok: false, message: "Kampanya güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 
@@ -1447,6 +1560,28 @@ export async function actionUpdateFeeRoundingMode(
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Ücret yuvarlama politikası güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateMakeupWindowDaysActionResult =
+  | { ok: true; makeupWindowDays: number }
+  | { ok: false; message: string };
+
+export async function actionUpdateMakeupWindowDays(
+  makeupWindowDays: number
+): Promise<UpdateMakeupWindowDaysActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateMakeupWindowDays", (ctx) =>
+      updateMakeupWindowDaysTool(ctx, { makeupWindowDays })
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, makeupWindowDays: result.data.makeupWindowDays };
+  } catch (error) {
+    logger.error("actionUpdateMakeupWindowDays failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "Telafi politika penceresi güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 
