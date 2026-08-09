@@ -1082,6 +1082,13 @@ export async function updateStudentProfileTool(
   const v = parseOrFail(updateStudentProfileSchema, input);
   if (!v.ok) return v;
 
+  if (v.data.branchId) {
+    const data = await readData();
+    if (!data.settings.branches.some((b) => b.id === v.data.branchId)) {
+      return fail("VALIDATION_ERROR", `Geçersiz şube: "${v.data.branchId}".`);
+    }
+  }
+
   try {
     const { studentId, ...patch } = v.data;
     await updateStudentProfile(studentId, patch);

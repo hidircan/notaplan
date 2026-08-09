@@ -98,9 +98,10 @@ export const updateStudentProfileSchema = z.object({
   /**
    * Bu sprint — temel iletişim/kişisel alanlar (T.C. kimlik hariç; o ayrı
    * `setNationalIdSchema`/`setNationalIdTool`'dan, mevcut şifreleme/audit
-   * yoluyla değişir). `name`/`email`/`teacherId`/`branchId` bilinçli olarak
-   * BU şemaya dahil edilmedi — kayıt kimliğini/atamayı değiştirmek daha
-   * geniş kapsamlı bir karardır (ders/hakediş etkisi), bu turun kapsamı dışı.
+   * yoluyla değişir). `teacherId`/`instruments` bilinçli olarak BU şemaya
+   * dahil edilmedi — MT-003 ürün kararı: bu ekranda öğretmen/enstrüman
+   * DEĞİŞTİRİLEMEZ (kayıt oluşturmada seçilir, sonradan değişimin ders/
+   * hakediş etkisi ayrı bir akış gerektirir).
    */
   phone: optionalTrimmed,
   parentName: optionalTrimmed,
@@ -112,6 +113,12 @@ export const updateStudentProfileSchema = z.object({
   birthPlace: optionalTrimmed,
   schoolOrOccupation: optionalTrimmed,
   communicationOptOut: z.boolean().optional(),
+  /** Bu sprint — kayıt kimliği/eğitim profili düzenlemesi eklendi. */
+  name: z.string().min(1).optional(),
+  email: optionalEmail,
+  /** Tenant-scoped: tools.ts içinde `data.settings.branches`'ta var mı diye doğrulanır. */
+  branchId: optionalTrimmed,
+  educationMethod: z.enum(["Suzuki", "Klasik", "LCM", "MEB", "Kurum İçi", "Diğer"]).optional(),
 });
 
 /**
@@ -223,6 +230,15 @@ const TEACHER_EMPLOYMENT_TYPE_ENUM = ["tam_zamanli", "yari_zamanli", "serbest"] 
 export const updateTeacherProfileSchema = z
   .object({
     teacherId: z.string().min(1),
+    /**
+     * Bu sprint — kayıt kimliği alanları eklendi. Enstrüman/müsaitlik/ders
+     * ücreti bilinçli olarak burada YOK — kendi özel akışları var
+     * (updateTeacherInstrumentsTool, proposeTeacherAvailabilityTool,
+     * createFeeRuleTool/updateFeeRuleTool) — tekrarlanmaz.
+     */
+    name: z.string().min(1).optional(),
+    email: optionalEmail,
+    phone: optionalTrimmed,
     branchIds: z.array(z.string().min(1)).optional(),
     employmentType: z.enum(TEACHER_EMPLOYMENT_TYPE_ENUM).optional(),
     hireDate: optionalTrimmed,

@@ -14,29 +14,51 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 export const PAGE_SIZE_OPTIONS = [10, 30, 50] as const;
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
-export function usePagination<T>(items: T[], defaultPageSize: PageSize = 10) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(defaultPageSize);
-
+/**
+ * Saf sayfalama matematiği — `usePagination`'dan çıkarıldı ki React
+ * render/hook ortamı olmadan (bu repoda component render testi altyapısı
+ * yok — jsdom/@testing-library kurulu değil, vitest `environment: "node"`)
+ * `src/lib/__tests__` içinde saf bir `.ts` testiyle doğrulanabilsin.
+ */
+export function computePagination<T>(items: T[], page: number, pageSize: number) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const clampedPage = Math.min(Math.max(1, page), totalPages);
+  const start = (clampedPage - 1) * pageSize;
+  return {
+    pageItems: items.slice(start, start + pageSize),
+    page: clampedPage,
+    totalPages,
+    totalCount: items.length,
+  };
+}
+
+/**
+ * `defaultPageSize`/`pageSize` kasıtlı olarak `number` (yalnız `PageSize`
+ * değil) — bu, sabit sayfa boyutlu (ör. öğrenci detayında 3'lük, seçici
+ * OLMADAN) kullanım alanlarının da aynı sayfalama matematiğini
+ * paylaşabilmesi için; `PaginationControls`'un 10/30/50 seçicisi ayrı bir
+ * UI parçası, `usePagination`'ın kabul ettiği değerleri kısıtlamaz.
+ */
+export function usePagination<T>(items: T[], defaultPageSize: number = 10) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(defaultPageSize);
+
   // Filtre/arama değişip liste küçüldüğünde, artık var olmayan bir sayfada
   // görüntü kalmasın diye render sırasında kırpılır (bkz. `page` state'i
   // kendisi hiç değiştirilmez — bir sonraki manuel sayfa değişiminde veya
   // listenin tekrar büyümesiyle doğal olarak düzelir; ekstra bir efekt/
   // setState döngüsü gerekmez).
-  const clampedPage = Math.min(page, totalPages);
+  const { pageItems, page: clampedPage, totalPages, totalCount } = useMemo(
+    () => computePagination(items, page, pageSize),
+    [items, page, pageSize]
+  );
 
-  const pageItems = useMemo(() => {
-    const start = (clampedPage - 1) * pageSize;
-    return items.slice(start, start + pageSize);
-  }, [items, clampedPage, pageSize]);
-
-  function changePageSize(size: PageSize) {
+  function changePageSize(size: number) {
     setPageSize(size);
     setPage(1);
   }
 
-  return { pageItems, page: clampedPage, setPage, pageSize, setPageSize: changePageSize, totalPages, totalCount: items.length };
+  return { pageItems, page: clampedPage, setPage, pageSize, setPageSize: changePageSize, totalPages, totalCount };
 }
 
 export function PaginationControls({
@@ -50,9 +72,9 @@ export function PaginationControls({
   page: number;
   totalPages: number;
   totalCount: number;
-  pageSize: PageSize;
+  pageSize: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: PageSize) => void;
+  onPageSizeChange: (size: number) => void;
 }) {
   if (totalCount === 0) return null;
   return (

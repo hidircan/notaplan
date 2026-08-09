@@ -252,6 +252,9 @@ export default async function TeacherDetailPage({
               branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
               hasNationalId={!!teacher.nationalIdCipher}
               initial={{
+                name: teacher.name,
+                email: teacher.email,
+                phone: teacher.phone,
                 branchIds: teacher.branchIds,
                 employmentType: teacher.employmentType,
                 hireDate: teacher.hireDate?.slice(0, 10),

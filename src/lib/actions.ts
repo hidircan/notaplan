@@ -534,6 +534,10 @@ export async function actionUpdateStudentProfile(input: {
   birthPlace?: string;
   schoolOrOccupation?: string;
   communicationOptOut?: boolean;
+  name?: string;
+  email?: string;
+  branchId?: string;
+  educationMethod?: string;
 }): Promise<UpdateStudentProfileActionResult> {
   try {
     const result = await withAuthContext("actionUpdateStudentProfile", (ctx) =>
@@ -907,6 +911,9 @@ export type UpdateTeacherProfileActionResult = { ok: true } | { ok: false; messa
  */
 export async function actionUpdateTeacherProfile(input: {
   teacherId: string;
+  name?: string;
+  email?: string;
+  phone?: string;
   branchIds?: string[];
   employmentType?: "tam_zamanli" | "yari_zamanli" | "serbest";
   hireDate?: string;

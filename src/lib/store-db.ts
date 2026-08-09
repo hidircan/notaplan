@@ -1069,6 +1069,12 @@ export async function updateStudentProfile(
   const result = await prisma.student.updateMany({
     where: { id: studentId, tenantId: tid },
     data: {
+      // Bu turda eklendi — kayıt kimliği/eğitim profili alanları (öğretmen/
+      // enstrüman MT-003 kararı gereği bilinçli olarak burada YOK).
+      name: patch.name,
+      email: patch.email,
+      branchId: patch.branchId,
+      educationMethod: patch.educationMethod,
       studentType: patch.studentType,
       enrollmentStartDate: patch.enrollmentStartDate ? new Date(patch.enrollmentStartDate) : undefined,
       enrollmentEndDate: patch.enrollmentEndDate ? new Date(patch.enrollmentEndDate) : undefined,
@@ -1196,6 +1202,11 @@ export async function updateTeacherProfile(
   const result = await prisma.teacher.updateMany({
     where: { id: teacherId, tenantId: tid },
     data: {
+      // Bu turda eklendi — kayıt kimliği alanları (enstrüman/müsaitlik/ders
+      // ücreti kasıtlı olarak burada YOK, kendi özel araçları var).
+      name: patch.name,
+      email: patch.email,
+      phone: patch.phone,
       nationalIdCipher: patch.nationalIdCipher,
       nationalIdLast2: patch.nationalIdLast2,
       birthDate: patch.birthDate ? new Date(patch.birthDate) : undefined,

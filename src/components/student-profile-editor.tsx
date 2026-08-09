@@ -13,15 +13,24 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Label } from "@/components/ui";
+import { Button, Input, Label, Select } from "@/components/ui";
 import { actionUpdateStudentProfile } from "@/lib/actions";
+import { EDUCATION_METHODS } from "@/lib/types";
+
+export type StudentProfileEditorBranch = { id: string; name: string };
 
 export function StudentProfileEditor({
   studentId,
+  branches,
   initial,
 }: {
   studentId: string;
+  branches: StudentProfileEditorBranch[];
   initial: {
+    name: string;
+    email?: string;
+    branchId?: string;
+    educationMethod?: string;
     phone: string;
     parentName: string;
     parentPhone: string;
@@ -35,6 +44,10 @@ export function StudentProfileEditor({
   };
 }) {
   const router = useRouter();
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email ?? "");
+  const [branchId, setBranchId] = useState(initial.branchId ?? "");
+  const [educationMethod, setEducationMethod] = useState(initial.educationMethod ?? "");
   const [phone, setPhone] = useState(initial.phone);
   const [parentName, setParentName] = useState(initial.parentName);
   const [parentPhone, setParentPhone] = useState(initial.parentPhone);
@@ -55,6 +68,10 @@ export function StudentProfileEditor({
     startTransition(async () => {
       const result = await actionUpdateStudentProfile({
         studentId,
+        name,
+        email: email || undefined,
+        branchId: branchId || undefined,
+        educationMethod: educationMethod || undefined,
         phone,
         parentName,
         parentPhone,
@@ -77,6 +94,39 @@ export function StudentProfileEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Ad soyad</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <Label>E-posta</Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Şube</Label>
+          <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Eğitim metodu</Label>
+          <Select value={educationMethod} onChange={(e) => setEducationMethod(e.target.value)}>
+            <option value="">Belirtilmemiş</option>
+            {EDUCATION_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label>Öğrenci telefonu</Label>

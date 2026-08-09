@@ -112,6 +112,9 @@ export interface Teacher {
 export type TeacherProfilePatch = Partial<
   Pick<
     Teacher,
+    | "name"
+    | "email"
+    | "phone"
     | "branchIds"
     | "birthDate"
     | "nationalIdCipher"
@@ -269,6 +272,9 @@ export interface Package {
 export type StudentProfilePatch = Partial<
   Pick<
     Student,
+    | "name"
+    | "email"
+    | "branchId"
     | "studentType"
     | "enrollmentStartDate"
     | "enrollmentEndDate"

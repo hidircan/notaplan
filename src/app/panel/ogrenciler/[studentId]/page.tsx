@@ -25,7 +25,7 @@ import {
 import { computeOverallScore } from "@/lib/assessment/score";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
-import { LessonOpsBadges } from "@/components/lesson-ops-actions";
+import { StudentUpcomingLessons, StudentPastLessons, StudentAttendanceList } from "@/components/student-lesson-lists";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentTermTypeEditor } from "@/components/student-term-type-editor";
 import { StudentProfileEditor } from "@/components/student-profile-editor";
@@ -35,7 +35,7 @@ import { BackButton } from "@/components/back-button";
 import { NationalIdReveal } from "@/components/national-id-reveal";
 import { maskNationalId } from "@/lib/pii/tc-identity";
 import { canViewFullNationalId } from "@/lib/pii";
-import { formatDate, formatDateTime, formatMoney, formatTime } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
 import { documentKindLabel } from "@/lib/documents";
 
@@ -94,8 +94,9 @@ export default async function StudentDetailPage({
     .filter((l) => l.studentId === student.id)
     .sort((a, b) => b.startAt.localeCompare(a.startAt));
   const now = new Date();
-  const upcoming = lessons.filter((l) => new Date(l.startAt) >= now).slice(0, 8).reverse();
-  const past = lessons.filter((l) => new Date(l.startAt) < now).slice(0, 10);
+  const upcoming = lessons.filter((l) => new Date(l.startAt) >= now).reverse();
+  const past = lessons.filter((l) => new Date(l.startAt) < now);
+  const attendanceLessons = lessons.filter((l) => l.studentAttended || l.lessonProcessed || l.opsMakeupFlag);
 
   const makeupRequests = data.makeupRequests
     .filter((m) => m.studentId === student.id)
@@ -273,7 +274,12 @@ export default async function StudentDetailPage({
             <h3 className="mb-2 text-xs font-semibold text-[var(--color-text-muted)]">İletişim/Kişisel Bilgileri Düzenle</h3>
             <StudentProfileEditor
               studentId={student.id}
+              branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
               initial={{
+                name: student.name,
+                email: student.email,
+                branchId: student.branchId,
+                educationMethod: student.educationMethod,
                 phone: student.phone,
                 parentName: student.parentName,
                 parentPhone: student.parentPhone,
@@ -298,73 +304,14 @@ export default async function StudentDetailPage({
           </Link>
         </h2>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Yaklaşan</p>
-        {upcoming.length === 0 ? (
-          <EmptyState title="Yaklaşan ders yok" />
-        ) : (
-          <div className="mb-4 space-y-2">
-            {upcoming.map((l) => {
-              const t = data.teachers.find((tt) => tt.id === l.teacherId);
-              return (
-                <Card key={l.id} className="!p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-[var(--color-text)]">{formatDateTime(l.startAt)}</p>
-                      <p className="text-xs text-[var(--color-text-muted)]">{l.instrument} · {t?.name ?? "—"}</p>
-                    </div>
-                    <Badge status={l.type === "makeup" ? "makeup" : l.status} />
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <StudentUpcomingLessons lessons={upcoming} teachers={data.teachers} />
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Geçmiş</p>
-        {past.length === 0 ? (
-          <EmptyState title="Geçmiş ders yok" />
-        ) : (
-          <div className="space-y-2">
-            {past.map((l) => (
-              <Card key={l.id} className="!p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium text-[var(--color-text)]">
-                      {formatDate(l.startAt)} · {formatTime(l.startAt)}
-                    </p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{l.instrument}</p>
-                  </div>
-                  <Badge status={l.type === "makeup" ? "makeup" : l.status} />
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+        <StudentPastLessons lessons={past} />
       </section>
 
       <section id="yoklama" className="mb-8 scroll-mt-4">
         <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Yoklama — Geldi / İşlendi / Telafi</h2>
-        {lessons.filter((l) => l.studentAttended || l.lessonProcessed || l.opsMakeupFlag).length === 0 ? (
-          <EmptyState title="Henüz yoklama kaydı yok" />
-        ) : (
-          <div className="space-y-2">
-            {lessons
-              .filter((l) => l.studentAttended || l.lessonProcessed || l.opsMakeupFlag)
-              .slice(0, 15)
-              .map((l) => (
-                <Card key={l.id} className="!p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm text-[var(--color-text)]">{formatDate(l.startAt)} · {formatTime(l.startAt)}</p>
-                    <LessonOpsBadges
-                      studentAttended={l.studentAttended}
-                      lessonProcessed={l.lessonProcessed}
-                      opsMakeupFlag={l.opsMakeupFlag}
-                      studentAbsent={l.studentAbsent}
-                      studentExcused={l.studentExcused}
-                    />
-                  </div>
-                </Card>
-              ))}
-          </div>
-        )}
+        <StudentAttendanceList lessons={attendanceLessons} />
       </section>
 
       <section id="yoklama-takvimi" className="mb-8 scroll-mt-4">

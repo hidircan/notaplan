@@ -25,6 +25,9 @@ export function TeacherProfileEditor({
   primaryBranchId: string;
   branches: TeacherProfileEditorBranch[];
   initial: {
+    name: string;
+    email?: string;
+    phone?: string;
     branchIds?: string[];
     employmentType?: "tam_zamanli" | "yari_zamanli" | "serbest";
     hireDate?: string;
@@ -39,6 +42,9 @@ export function TeacherProfileEditor({
   hasNationalId: boolean;
 }) {
   const router = useRouter();
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email ?? "");
+  const [phone, setPhone] = useState(initial.phone ?? "");
   const [branchIds, setBranchIds] = useState<string[]>(initial.branchIds ?? []);
   const [employmentType, setEmploymentType] = useState(initial.employmentType ?? "");
   const [hireDate, setHireDate] = useState(initial.hireDate ?? "");
@@ -64,6 +70,9 @@ export function TeacherProfileEditor({
     startTransition(async () => {
       const result = await actionUpdateTeacherProfile({
         teacherId,
+        name,
+        email: email || undefined,
+        phone: phone || undefined,
         branchIds,
         employmentType: (employmentType || undefined) as
           | "tam_zamanli"
@@ -100,6 +109,20 @@ export function TeacherProfileEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Ad soyad</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <Label>E-posta</Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <Label>Telefon</Label>
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xxxx" />
+      </div>
       {!hasNationalId ? (
         <div>
           <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
