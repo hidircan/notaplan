@@ -198,12 +198,7 @@ export default async function TahsilatAgentPage({
 
       <Card className="mt-6">
         <div className="mb-5 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bugünün takip kuyruğu</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Gecikmesi ve tutarı en yüksek kayıtlar önce gelir. Her kayıt için sonraki adım açıkça belirtilir.
-            </p>
-          </div>
+          <h2 className="font-semibold text-slate-900 dark:text-slate-50">Bugünün takip kuyruğu</h2>
         </div>
         <TahsilatQueue
           rows={rows}
