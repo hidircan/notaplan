@@ -153,18 +153,6 @@ export default async function OgrenciPortalPage({
           </p>
         </Card>
 
-        {student.studentType || student.level || student.targetExam || student.educationMethod ? (
-          <Card className="!p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Program bilgim</p>
-            <div className="mt-1 space-y-0.5 text-sm text-[var(--color-text-muted)]">
-              {student.studentType ? <p>Tür: {student.studentType}</p> : null}
-              {student.level ? <p>Seviye: {student.level}</p> : null}
-              {student.educationMethod ? <p>Eğitim metodu: {student.educationMethod}</p> : null}
-              {student.targetExam ? <p>Hedef sınav: {student.targetExam}</p> : null}
-            </div>
-          </Card>
-        ) : null}
-
         {overallPercent !== null ? (
           <Link href="/ogrenci/mufredat">
             <Card className="!p-4 hover:border-emerald-200">

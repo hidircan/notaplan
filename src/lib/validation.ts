@@ -540,13 +540,15 @@ const fileUploadSchema = z.object({
   fileData: z.string().max(2_800_000).optional(),
 });
 
-/** EPIC 6B — TEACHER kendi öğrencisi için ödev oluşturur. */
-export const createHomeworkSchema = z.object({
-  studentId: z.string().min(1),
-  title: z.string().min(1),
-  description: z.string().min(1),
-  dueDate: z.string().min(1),
-});
+/** EPIC 6B — TEACHER kendi öğrencisi için ödev oluşturur. Paket 7 — isteğe bağlı dosya/foto/video eki. */
+export const createHomeworkSchema = z
+  .object({
+    studentId: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    dueDate: z.string().min(1),
+  })
+  .extend(fileUploadSchema.shape);
 
 /** EPIC 6B — STUDENT kendi ödevine teslim yükler. */
 export const submitHomeworkSchema = z

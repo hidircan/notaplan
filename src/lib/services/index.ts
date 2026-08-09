@@ -72,6 +72,7 @@ export {
   listHomeworkSubmissionsTool,
   reviewHomeworkSubmissionTool,
   getHomeworkSubmissionFileTool,
+  getHomeworkFileTool,
   createTeachingMaterialTool,
   listTeachingMaterialsForStudentTool,
   listTeachingMaterialsForTeacherTool,

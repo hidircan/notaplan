@@ -734,6 +734,10 @@ model Homework {
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   submissions HomeworkSubmission[]
+  /// Paket 7 — öğretmenin ödevi verirken eklediği isteğe bağlı dosya/foto/video (base64).
+  fileName     String?
+  fileMimeType String?
+  fileData     String?  @db.LongText
 
   @@index([tenantId, studentId])
   @@index([tenantId, teacherId])

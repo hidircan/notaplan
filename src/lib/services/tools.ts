@@ -342,6 +342,7 @@ import {
   type DocumentInstanceFilters,
 } from "../documents";
 import { encryptNationalId, maskNationalId, canViewFullNationalId } from "../pii";
+import { validateUploadedFile } from "../file-upload-validation";
 import { assertSchedulableDate } from "../lesson-scheduling";
 import { resolveCollectionsIban } from "../collections-due";
 
@@ -2947,6 +2948,9 @@ export async function createHomeworkTool(
   const v = parseOrFail(createHomeworkSchema, input);
   if (!v.ok) return v;
 
+  const fileCheck = validateUploadedFile(v.data);
+  if (!fileCheck.ok) return fail("VALIDATION_ERROR", fileCheck.message);
+
   const data = await readData();
   const student = data.students.find((s) => s.id === v.data.studentId);
   if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
@@ -2962,8 +2966,14 @@ export async function createHomeworkTool(
       title: v.data.title,
       description: v.data.description,
       dueDate: v.data.dueDate,
+      fileName: v.data.fileName,
+      fileMimeType: v.data.fileMimeType,
+      fileData: v.data.fileData,
     });
-    audit(ctx, "homework.create", "Homework", homework.id, { studentId: v.data.studentId });
+    audit(ctx, "homework.create", "Homework", homework.id, {
+      studentId: v.data.studentId,
+      hasFile: Boolean(v.data.fileData),
+    });
     return ok({ homeworkId: homework.id });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "createHomework failed");
@@ -3021,6 +3031,9 @@ export async function submitHomeworkTool(
 
   const v = parseOrFail(submitHomeworkSchema, input);
   if (!v.ok) return v;
+
+  const fileCheck = validateUploadedFile(v.data);
+  if (!fileCheck.ok) return fail("VALIDATION_ERROR", fileCheck.message);
 
   const homework = await getHomework(ctx.tenantId, v.data.homeworkId);
   if (!homework) return fail("NOT_FOUND", "Ödev bulunamadı");
@@ -3130,6 +3143,37 @@ export async function getHomeworkSubmissionFileTool(
   }
 }
 
+/**
+ * Paket 7 — ödevin KENDİSİNE (öğretmenin verirken eklediği) ekli dosyayı
+ * indirme rotası için. Aynı sahiplik deseni: getHomeworkSubmissionFileTool.
+ */
+export async function getHomeworkFileTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ fileName?: string; fileMimeType?: string; fileData?: string }>> {
+  const v = parseOrFail(z.object({ homeworkId: z.string().min(1) }), input);
+  if (!v.ok) return v;
+
+  const homework = await getHomework(ctx.tenantId, v.data.homeworkId);
+  if (!homework) return fail("NOT_FOUND", "Ödev bulunamadı");
+
+  try {
+    const data = await readData();
+    const student = data.students.find((s) => s.id === homework.studentId);
+    const access = assertStudentAccess(ctx, student, homework.studentId);
+    if (!access.ok) return fail(access.code, access.message);
+    if (!homework.fileData) return fail("NOT_FOUND", "Bu ödevde dosya yok");
+
+    return ok({
+      fileName: homework.fileName,
+      fileMimeType: homework.fileMimeType,
+      fileData: homework.fileData,
+    });
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "getHomeworkFile failed");
+  }
+}
+
 /** EPIC 6B — TEACHER kendi öğrencilerine materyal/pratik videosu paylaşır. */
 export async function createTeachingMaterialTool(
   ctx: ServiceContext,
@@ -3141,6 +3185,9 @@ export async function createTeachingMaterialTool(
 
   const v = parseOrFail(createTeachingMaterialSchema, input);
   if (!v.ok) return v;
+
+  const materialFileCheck = validateUploadedFile(v.data);
+  if (!materialFileCheck.ok) return fail("VALIDATION_ERROR", materialFileCheck.message);
 
   try {
     const material = await createTeachingMaterial({

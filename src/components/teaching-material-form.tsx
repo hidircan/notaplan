@@ -135,7 +135,7 @@ export function TeachingMaterialForm() {
       </div>
       <input
         type="file"
-        accept="image/*,video/*,application/pdf"
+        accept="image/*,video/*,audio/*,application/pdf"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         className="block w-full text-xs text-[var(--color-text-muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
       />

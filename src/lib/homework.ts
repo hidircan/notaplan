@@ -73,9 +73,30 @@ function mapDbHomework(h: DbHomework): StoredHomework {
     dueDate: h.dueDate.toISOString(),
     createdAt: h.createdAt.toISOString(),
     updatedAt: h.updatedAt.toISOString(),
+    fileName: h.fileName ?? undefined,
+    fileMimeType: h.fileMimeType ?? undefined,
+    fileData: h.fileData ?? undefined,
   };
 }
 
+/** `fileData` HARİÇ (yalnızca "dosya var mı" göstergesi "1") — liste görünümleri için. */
+function toPublicHomeworkSummary(h: StoredHomework): Homework {
+  return {
+    id: h.id,
+    teacherId: h.teacherId,
+    studentId: h.studentId,
+    title: h.title,
+    description: h.description,
+    dueDate: h.dueDate,
+    createdAt: h.createdAt,
+    updatedAt: h.updatedAt,
+    fileName: h.fileName,
+    fileMimeType: h.fileMimeType,
+    fileData: h.fileData ? "1" : undefined,
+  };
+}
+
+/** Tam sürüm (fileData dahil) — yalnız `getHomework` (tek kayıt) ve dosya indirme yolunda kullanılır. */
 function toPublicHomework(h: StoredHomework): Homework {
   return {
     id: h.id,
@@ -86,6 +107,9 @@ function toPublicHomework(h: StoredHomework): Homework {
     dueDate: h.dueDate,
     createdAt: h.createdAt,
     updatedAt: h.updatedAt,
+    fileName: h.fileName,
+    fileMimeType: h.fileMimeType,
+    fileData: h.fileData,
   };
 }
 
@@ -143,6 +167,9 @@ export type CreateHomeworkInput = {
   title: string;
   description: string;
   dueDate: string;
+  fileName?: string;
+  fileMimeType?: string;
+  fileData?: string;
 };
 
 async function createHomeworkDb(input: CreateHomeworkInput): Promise<Homework> {
@@ -156,6 +183,9 @@ async function createHomeworkDb(input: CreateHomeworkInput): Promise<Homework> {
       title: input.title,
       description: input.description,
       dueDate: new Date(input.dueDate),
+      fileName: input.fileName ?? null,
+      fileMimeType: input.fileMimeType ?? null,
+      fileData: input.fileData ?? null,
     },
   });
   return toPublicHomework(mapDbHomework(row));
@@ -175,6 +205,9 @@ export async function createHomework(input: CreateHomeworkInput): Promise<Homewo
     dueDate: input.dueDate,
     createdAt: now,
     updatedAt: now,
+    fileName: input.fileName,
+    fileMimeType: input.fileMimeType,
+    fileData: input.fileData,
   };
   await saveHomework([...all, record]);
   return toPublicHomework(record);
@@ -186,7 +219,7 @@ async function listForStudentDb(tenantId: string, studentId: string): Promise<Ho
     where: { tenantId, studentId },
     orderBy: { dueDate: "asc" },
   });
-  return rows.map((r) => toPublicHomework(mapDbHomework(r)));
+  return rows.map((r) => toPublicHomeworkSummary(mapDbHomework(r)));
 }
 
 export async function listHomeworkForStudent(tenantId: string, studentId: string): Promise<Homework[]> {
@@ -195,7 +228,7 @@ export async function listHomeworkForStudent(tenantId: string, studentId: string
   return all
     .filter((h) => h.tenantId === tenantId && h.studentId === studentId)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .map(toPublicHomework);
+    .map(toPublicHomeworkSummary);
 }
 
 async function listForTeacherDb(tenantId: string, teacherId: string): Promise<Homework[]> {
@@ -204,7 +237,7 @@ async function listForTeacherDb(tenantId: string, teacherId: string): Promise<Ho
     where: { tenantId, teacherId },
     orderBy: { dueDate: "desc" },
   });
-  return rows.map((r) => toPublicHomework(mapDbHomework(r)));
+  return rows.map((r) => toPublicHomeworkSummary(mapDbHomework(r)));
 }
 
 export async function listHomeworkForTeacher(tenantId: string, teacherId: string): Promise<Homework[]> {
@@ -213,7 +246,7 @@ export async function listHomeworkForTeacher(tenantId: string, teacherId: string
   return all
     .filter((h) => h.tenantId === tenantId && h.teacherId === teacherId)
     .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
-    .map(toPublicHomework);
+    .map(toPublicHomeworkSummary);
 }
 
 async function getHomeworkDb(tenantId: string, id: string): Promise<Homework | null> {
@@ -355,7 +388,7 @@ async function listAllHomeworkDb(tenantId: string): Promise<Homework[]> {
     where: { tenantId },
     orderBy: { createdAt: "desc" },
   });
-  return rows.map((r) => toPublicHomework(mapDbHomework(r)));
+  return rows.map((r) => toPublicHomeworkSummary(mapDbHomework(r)));
 }
 
 /** EPIC 0/12 (IMPLEMENTATION_PLAN.md son adım) — kurum dışa aktarımı içindir. */
@@ -365,7 +398,7 @@ export async function listAllHomework(tenantId: string): Promise<Homework[]> {
   return all
     .filter((h) => h.tenantId === tenantId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map(toPublicHomework);
+    .map(toPublicHomeworkSummary);
 }
 
 async function listAllSubmissionsDb(tenantId: string): Promise<HomeworkSubmission[]> {

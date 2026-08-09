@@ -67,6 +67,16 @@ export default async function StudentHomeworkPage() {
                     <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{hw.title}</p>
                     <p className="mt-1 text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{hw.description}</p>
                     <p className="mt-1 text-xs text-[var(--color-text-muted)]">Son teslim: {formatDate(hw.dueDate)}</p>
+                    {hw.fileData ? (
+                      <a
+                        href={`/api/v1/homework/${hw.id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-xs font-medium text-cyan-700 hover:underline"
+                      >
+                        Öğretmenin dosyasını görüntüle
+                      </a>
+                    ) : null}
                   </div>
                   <Badge status={submissions.length > 0 ? "completed" : overdue ? "overdue" : "pending"}>
                     {submissions.length > 0 ? "Teslim edildi" : overdue ? "Süresi geçti" : "Bekliyor"}

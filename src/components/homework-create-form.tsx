@@ -4,6 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label, Select } from "@/components/ui";
 
+/** ~2MB ham dosya sınırı — createHomeworkSchema (validation.ts) ile tutarlı. */
+const MAX_FILE_BYTES = 2_000_000;
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1] ?? "";
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Dosya okunamadı"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function HomeworkCreateForm({
   students,
   defaultStudentId,
@@ -20,6 +36,7 @@ export function HomeworkCreateForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -30,10 +47,15 @@ export function HomeworkCreateForm({
       setError("Tüm alanlar zorunlu.");
       return;
     }
+    if (file && file.size > MAX_FILE_BYTES) {
+      setError("Dosya çok büyük (en fazla ~2MB).");
+      return;
+    }
     setBusy(true);
     setError(null);
     setSuccess(false);
     try {
+      const fileData = file ? await readFileAsBase64(file) : undefined;
       const res = await fetch("/api/v1/homework", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,6 +64,9 @@ export function HomeworkCreateForm({
           title: title.trim(),
           description: description.trim(),
           dueDate: new Date(dueDate).toISOString(),
+          fileName: file?.name,
+          fileMimeType: file?.type,
+          fileData,
         }),
       });
       const json = (await res.json()) as { ok: boolean; error?: { message: string } };
@@ -54,6 +79,7 @@ export function HomeworkCreateForm({
       setTitle("");
       setDescription("");
       setDueDate("");
+      setFile(null);
       router.refresh();
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
@@ -94,6 +120,15 @@ export function HomeworkCreateForm({
       <div>
         <Label>Son teslim tarihi</Label>
         <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+      </div>
+      <div>
+        <Label>Dosya / fotoğraf / video (opsiyonel)</Label>
+        <input
+          type="file"
+          accept="image/*,video/*,audio/*,application/pdf"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-xs text-[var(--color-text-muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+        />
       </div>
       {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
       {success ? <p className="text-xs font-medium text-emerald-600">Ödev oluşturuldu.</p> : null}

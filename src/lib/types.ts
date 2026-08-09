@@ -764,6 +764,16 @@ export interface Homework {
   dueDate: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Paket 7 — öğretmenin ödevi verirken eklediği isteğe bağlı dosya/foto/
+   * video (base64, `HomeworkSubmission` ile aynı desen). Liste/özet
+   * fonksiyonları `fileData`'yı "1" ile değiştirip yalnızca "dosya var mı"
+   * bilgisini taşır — indirme için ayrı, yetki kontrollü bir uç nokta
+   * (getHomeworkFileTool) kullanılır.
+   */
+  fileName?: string;
+  fileMimeType?: string;
+  fileData?: string;
 }
 
 /**
