@@ -42,6 +42,7 @@ import {
   updateCollectionsSettings,
   updateFeeRoundingMode,
   updateMakeupWindowDays,
+  updateTermWeeklyClosedDays,
   updateLessonSchedule,
   updateMakeupSlaEscalation,
   updateStudentProfile,
@@ -216,6 +217,7 @@ import {
   updateCommunicationPreferenceSchema,
   updateFeeRoundingModeSchema,
   updateMakeupWindowDaysSchema,
+  updateTermWeeklyClosedDaysSchema,
   updateFeeRuleSchema,
   updateLessonScheduleSchema,
   updateStudentProfileSchema,
@@ -1834,9 +1836,11 @@ export async function createLessonTool(
   const v = parseOrFail(lessonSchema, input);
   if (!v.ok) return v;
   // ÖNCELİK 4 (devam) — dönem seçiliyse (Program ekranından geliyorsa) o
-  // dönemin haftalık kapalı gün kuralı uygulanır (Güz: Pazartesi, Yaz:
-  // Cts/Paz); term verilmemişse LEGACY davranış (yalnızca Pazartesi) korunur.
-  if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), v.data.term)) {
+  // dönemin haftalık kapalı gün kuralı uygulanır (varsayılan Güz: Pazartesi,
+  // Yaz: Cts/Paz — okul `termWeeklyClosedDays` ile özelleştirmişse o esas
+  // alınır); term verilmemişse LEGACY davranış (yalnızca Pazartesi) korunur.
+  const settingsForClosedDays = await readData();
+  if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), v.data.term, settingsForClosedDays.settings.termWeeklyClosedDays)) {
     return fail(
       "VALIDATION_ERROR",
       v.data.term
@@ -1846,7 +1850,7 @@ export async function createLessonTool(
   }
 
   try {
-    const before = await readData();
+    const before = settingsForClosedDays;
     const ids = new Set(before.lessons.map((l) => l.id));
     await addLesson({
       studentId: v.data.studentId,
@@ -1878,8 +1882,9 @@ export async function updateLessonScheduleTool(
   if (v.data.startAt) {
     // ÖNCELİK 4 (devam) — taşınan dersin KENDİ dönem etiketi esas alınır
     // (varsa); yoksa legacy (yalnızca Pazartesi) davranış korunur.
-    const existing = (await readData()).lessons.find((l) => l.id === v.data.lessonId);
-    if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), existing?.term)) {
+    const rescheduleData = await readData();
+    const existing = rescheduleData.lessons.find((l) => l.id === v.data.lessonId);
+    if (isWeeklyClosedDayForTerm(new Date(v.data.startAt), existing?.term, rescheduleData.settings.termWeeklyClosedDays)) {
       return fail(
         "VALIDATION_ERROR",
         existing?.term
@@ -2252,6 +2257,33 @@ export async function updateMakeupWindowDaysTool(
     return ok({ makeupWindowDays: data.settings.makeupWindowDays });
   } catch (e) {
     return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateMakeupWindowDays failed");
+  }
+}
+
+/**
+ * Paket 6 — Çalışma Takvimi: dönem bazlı haftalık kapalı gün kuralı
+ * (ör. Yaz'da Pazartesi açık/hafta sonu kapalı, Güz'de tersi). Yalnızca
+ * BUNDAN SONRAKİ planlama/yoklama kontrollerini etkiler — geçmiş dersler
+ * (zaten oluşturulmuş) geriye dönük bozulmaz; `resolveDayStatus` her
+ * çağrıldığında güncel ayarı okur, hiçbir Lesson satırı bu değişiklikle
+ * yeniden yazılmaz.
+ */
+export async function updateTermWeeklyClosedDaysTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ guz: number[]; yaz: number[] }>> {
+  const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(updateTermWeeklyClosedDaysSchema, input);
+  if (!v.ok) return v;
+
+  try {
+    const data = await updateTermWeeklyClosedDays(v.data);
+    audit(ctx, "school.term_weekly_closed_days.update", "School", ctx.tenantId, v.data);
+    return ok(data.settings.termWeeklyClosedDays ?? v.data);
+  } catch (e) {
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "updateTermWeeklyClosedDays failed");
   }
 }
 
@@ -4457,7 +4489,7 @@ export async function setLessonOpsFlagTool(
   const student = data.students.find((s) => s.id === lesson.studentId);
   const term = student?.termType ?? "guz";
   const overrides = await listClosedDays(ctx.tenantId);
-  const dayStatus = resolveDayStatus(new Date(lesson.startAt), term, overrides);
+  const dayStatus = resolveDayStatus(new Date(lesson.startAt), term, overrides, data.settings.termWeeklyClosedDays);
   if (dayStatus.status === "closed") {
     return fail(
       "VALIDATION_ERROR",
@@ -4578,7 +4610,7 @@ export async function getAttendanceCalendarMonthTool(
   const term = student.termType ?? "guz";
   const overrides = await listClosedDays(ctx.tenantId);
   const { resolveMonthStatuses } = await import("../attendance-calendar");
-  const statuses = resolveMonthStatuses(v.data.year, v.data.month, term, overrides);
+  const statuses = resolveMonthStatuses(v.data.year, v.data.month, term, overrides, data.settings.termWeeklyClosedDays);
 
   const days = statuses.map((s) => {
     const dayLessons = data.lessons.filter((l) => l.studentId === student.id && l.startAt.slice(0, 10) === s.date);

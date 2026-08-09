@@ -96,6 +96,10 @@ model School {
   /// { frequencyLimitDays: number; autoSendEnabled: boolean }. null ise
   /// uygulama katmanı varsayılanları (3 gün, autoSendEnabled: false) uygular.
   collectionsSettings   Json?
+  /// Paket 6 — dönem bazlı haftalık kapalı gün özelleştirmesi:
+  /// { guz: number[]; yaz: number[] } (0=Pazar..6=Cumartesi). null ise
+  /// src/lib/attendance-calendar.ts'teki sabit varsayılanlar kullanılır.
+  termWeeklyClosedDays  Json?
   branches              Branch[]
   teachers              Teacher[]
   students              Student[]

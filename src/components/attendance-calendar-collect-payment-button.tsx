@@ -17,6 +17,10 @@
  * iken render edilir (çağıran taraf), başarılı istekten sonra ay verisi
  * tazelenip status "paid" olur — buton bir daha render edilmez (idempotent
  * UI); art arda tıklamaya karşı `pending` durumunda buton disabled'dır.
+ *
+ * Paket 6 — kayıt sırasında belirlenen o aya ait tutar (`registeredAmount`)
+ * bilgi amaçlı gösterilir; yönetici teyit için tahsil edilen tutarı elle
+ * girer (varsayılan olarak kayıtlı tutarla doldurulur, değiştirilebilir).
  */
 
 import { useId, useState, useTransition } from "react";
@@ -32,6 +36,7 @@ export function AttendanceCalendarCollectPaymentButton({
   paymentId,
   lessonId,
   defaultMethod,
+  registeredAmount,
   onSettled,
 }: {
   paymentId: string;
@@ -46,24 +51,33 @@ export function AttendanceCalendarCollectPaymentButton({
    * davranış korunur.
    */
   defaultMethod?: string;
+  /** O ayın kayıt sırasında belirlenen paket/tahsilat tutarı — yalnız bilgi/varsayılan. */
+  registeredAmount: number;
   onSettled: (lessonId: string) => void;
 }) {
   const selectId = useId();
+  const amountId = useId();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const initialMethod = PAYMENT_METHOD_OPTIONS.some((o) => o.value === defaultMethod)
     ? (defaultMethod as StudentPaymentMethod)
     : "";
   const [method, setMethod] = useState<StudentPaymentMethod | "">(initialMethod);
+  const [amount, setAmount] = useState(String(registeredAmount));
 
   function onCollect() {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Geçerli bir tutar girin.");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       try {
         const res = await fetch(`/api/v1/payments/${paymentId}/pay`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(method ? { method } : {}),
+          body: JSON.stringify({ ...(method ? { method } : {}), amount: parsedAmount }),
         });
         const json = (await res.json()) as { ok: boolean; error?: { message: string } };
         if (!json.ok) {
@@ -80,7 +94,23 @@ export function AttendanceCalendarCollectPaymentButton({
 
   return (
     <div className="space-y-1.5">
+      <p className="text-[11px] text-[var(--color-text-muted)]">
+        Kayıtlı tutar: <span className="font-medium text-[var(--color-text)]">{registeredAmount.toLocaleString("tr-TR")} ₺</span>
+      </p>
       <div className="flex flex-wrap items-center gap-1.5">
+        <label htmlFor={amountId} className="text-[11px] text-[var(--color-text-muted)]">
+          Tahsil edilen
+        </label>
+        <input
+          id={amountId}
+          type="number"
+          min={1}
+          step={1}
+          value={amount}
+          disabled={pending}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-20 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-1 text-[11px] text-[var(--color-text)] disabled:opacity-50"
+        />
         <label htmlFor={selectId} className="text-[11px] text-[var(--color-text-muted)]">
           Ödeme şekli
         </label>

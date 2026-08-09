@@ -53,6 +53,7 @@ import {
   markTeacherPayoutPaidTool,
   updateFeeRoundingModeTool,
   updateMakeupWindowDaysTool,
+  updateTermWeeklyClosedDaysTool,
   findAvailableSlotsTool,
   markAttendanceTool,
   updateCommunicationPreferenceTool,
@@ -1582,6 +1583,29 @@ export async function actionUpdateMakeupWindowDays(
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
     if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
     return { ok: false, message: "Telafi politika penceresi güncellenirken beklenmeyen bir hata oluştu." };
+  }
+}
+
+export type UpdateTermWeeklyClosedDaysInput = { guz: number[]; yaz: number[] };
+export type UpdateTermWeeklyClosedDaysActionResult =
+  | { ok: true; guz: number[]; yaz: number[] }
+  | { ok: false; message: string };
+
+export async function actionUpdateTermWeeklyClosedDays(
+  input: UpdateTermWeeklyClosedDaysInput
+): Promise<UpdateTermWeeklyClosedDaysActionResult> {
+  try {
+    const result = await withAuthContext("actionUpdateTermWeeklyClosedDays", (ctx) =>
+      updateTermWeeklyClosedDaysTool(ctx, input)
+    );
+    if (!result.ok) return { ok: false, message: result.error.message };
+    revalidateAll();
+    return { ok: true, guz: result.data.guz, yaz: result.data.yaz };
+  } catch (error) {
+    logger.error("actionUpdateTermWeeklyClosedDays failed", error);
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login");
+    if (error instanceof WriteScopeDeniedError) return { ok: false, message: error.message };
+    return { ok: false, message: "Çalışma takvimi güncellenirken beklenmeyen bir hata oluştu." };
   }
 }
 

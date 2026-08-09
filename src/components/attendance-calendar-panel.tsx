@@ -714,6 +714,7 @@ function DayDetail({
                         paymentId={p.paymentId}
                         lessonId={p.lessonId}
                         defaultMethod={p.method}
+                        registeredAmount={p.amount - p.paidAmount}
                         onSettled={onLessonOpsSettled}
                       />
                     ) : (

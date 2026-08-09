@@ -174,8 +174,9 @@ export function LessonOpsActions({
         {btn("attended", "Geldi", local.attended, "green")}
         {btn("processed", "İşlendi", local.processed, "red")}
         {btn("makeup", "Telafi", local.makeup, "yellow")}
-        {btn("absent", "Gelmedi", local.absent, "stone")}
-        {btn("excused", "Mazeretli", local.excused, "orange")}
+        {/* Paket 6 — "Gelmedi"/"Mazeretli" aksiyon butonları buradan kaldırıldı
+            (yalnız UI; flag/veri modeli ve geçmiş kayıtlar korunuyor — bkz.
+            LessonOpsBadges'in bu iki statüyü hâlâ salt-okunur göstermesi). */}
       </div>
       {error ? (
         <p className="mt-1 text-[11px] font-medium text-[#8b3a3a]" role="alert">

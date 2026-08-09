@@ -640,6 +640,13 @@ export async function updateCollectionsSettings(
   return save({ ...data, settings: { ...data.settings, collectionsSettings } });
 }
 
+export async function updateTermWeeklyClosedDays(
+  termWeeklyClosedDays: { guz: number[]; yaz: number[] }
+): Promise<AppData> {
+  const data = load();
+  return save({ ...data, settings: { ...data.settings, termWeeklyClosedDays } });
+}
+
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
 
 export async function importBranches(rows: BranchImportRow[]): Promise<ImportCommitResult> {

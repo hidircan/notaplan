@@ -87,7 +87,7 @@ export default async function OgrenciPortalPage({
   const weekStart = normalizeWeekStart(week, now);
   const weekEndExclusive = addDays(weekStart, 7);
   const showingCurrentWeek = isCurrentWeek(weekStart, now);
-  const closedWeekdays = weeklyClosedDaysForTerm(studentTerm);
+  const closedWeekdays = weeklyClosedDaysForTerm(studentTerm, data.settings.termWeeklyClosedDays);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(
     (d) => !closedWeekdays.includes(d.getDay())
   );
@@ -296,7 +296,7 @@ export default async function OgrenciPortalPage({
               {weekDays.map((day) => {
                 const today = showingCurrentWeek && isSameDay(day, now);
                 const dayLessons = weekLessons.filter((l) => isSameDay(parseISO(l.startAt), day));
-                const dayStatus = resolveDayStatus(day, studentTerm, closedDayOverrides);
+                const dayStatus = resolveDayStatus(day, studentTerm, closedDayOverrides, data.settings.termWeeklyClosedDays);
                 return (
                   <Card key={day.toISOString()} className={today ? "!p-4 border-emerald-200 bg-emerald-50/30" : "!p-4"}>
                     <div className="mb-2 flex items-center justify-between gap-2">

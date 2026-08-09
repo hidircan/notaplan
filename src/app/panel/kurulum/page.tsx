@@ -7,6 +7,8 @@ import { computeSetupProgress, type SetupStepId } from "@/lib/setup-progress";
 import { EXPORT_ENTITIES, type ExportEntity } from "@/lib/export/institution-export";
 import { DEFAULT_COLLECTIONS_SETTINGS } from "@/lib/types";
 import { CollectionsSettingsForm } from "@/components/collections-settings-form";
+import { TermWeeklyScheduleEditor } from "@/components/term-weekly-schedule-editor";
+import { FALL_WEEKLY_CLOSED_DAYS, SUMMER_WEEKLY_CLOSED_DAYS } from "@/lib/attendance-calendar";
 import { SetupResetAction } from "@/components/setup-reset-action";
 import { QuickTaskLink } from "@/components/quick-task-link";
 
@@ -209,6 +211,11 @@ export default async function KurulumPage() {
           </div>
         </div>
       </Card>
+
+      <TermWeeklyScheduleEditor
+        initialGuz={data.settings.termWeeklyClosedDays?.guz ?? FALL_WEEKLY_CLOSED_DAYS}
+        initialYaz={data.settings.termWeeklyClosedDays?.yaz ?? SUMMER_WEEKLY_CLOSED_DAYS}
+      />
 
       <Card className="mt-6 border-[var(--color-border)] bg-[var(--color-surface-muted)]">
         <div className="flex items-start gap-3">

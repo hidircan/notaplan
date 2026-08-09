@@ -13,10 +13,11 @@ export const dynamic = "force-dynamic";
 /** POST /api/v1/payments/:paymentId/pay — closes linked AI follow-up cases for ROI. */
 export const POST = withApiHandler(
   async ({ ctx, params, body }) => {
-    const method =
-      body && typeof body === "object" && "method" in body && typeof (body as { method?: unknown }).method === "string"
-        ? (body as { method: string }).method
-        : undefined;
+    const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    const method = typeof b.method === "string" ? b.method : undefined;
+    /** Paket 6 — Yoklama Takvimi'nden tahsilat: yönetici tutarı elle girebilir. */
+    const amount = typeof b.amount === "number" ? b.amount : undefined;
+    const paymentNote = typeof b.paymentNote === "string" ? b.paymentNote : undefined;
     const writeScope = await resolveWriteScope(ctx);
     if (writeScope.mode !== "single") {
       auditLog({
@@ -33,7 +34,12 @@ export const POST = withApiHandler(
 
     const scopedCtx = { ...ctx, tenantId: writeScope.tenantId };
     const result = await runWithTenantAsync(writeScope.tenantId, () =>
-      createPaymentTool(scopedCtx, { paymentId: params.paymentId, ...(method ? { method } : {}) })
+      createPaymentTool(scopedCtx, {
+        paymentId: params.paymentId,
+        ...(method ? { method } : {}),
+        ...(amount !== undefined ? { amount } : {}),
+        ...(paymentNote !== undefined ? { paymentNote } : {}),
+      })
     );
     if (result.ok) {
       const data = await runWithTenantAsync(writeScope.tenantId, () => readData());
@@ -42,7 +48,9 @@ export const POST = withApiHandler(
         await markPaymentCasesPaid({
           tenantId: writeScope.tenantId,
           paymentId: payment.id,
-          amount: Number(payment.amount),
+          // Gerçekte tahsil edilen (elle girilmiş olabilir) tutar — orijinal
+          // Payment.amount değil, ROI/vaka kapatma her zaman fiili tahsilatı yansıtır.
+          amount: Number(payment.paidAmount),
         });
       }
     }

@@ -634,6 +634,16 @@ export interface SchoolSettings {
   feeRoundingMode: FeeRoundingMode;
   /** EPIC 1 — boşsa DEFAULT_COLLECTIONS_SETTINGS uygulanır. */
   collectionsSettings?: CollectionsSettings;
+  /**
+   * Paket 6 — dönem bazlı haftalık kapalı gün kuralı (ör. "Yazın Pazartesi
+   * açık, hafta sonu kapalı; Güzün Pazartesi kapalı, hafta sonu açık").
+   * Boşsa `src/lib/attendance-calendar.ts`'teki sabit varsayılanlar
+   * (FALL_WEEKLY_CLOSED_DAYS/SUMMER_WEEKLY_CLOSED_DAYS — Güz: yalnız
+   * Pazartesi, Yaz: Cts/Paz) kullanılır — mevcut okulların davranışı
+   * DEĞİŞMEZ, yalnız artık yönetici tarafından özelleştirilebilir.
+   * 0=Pazar..6=Cumartesi.
+   */
+  termWeeklyClosedDays?: { guz: number[]; yaz: number[] };
 }
 
 /**

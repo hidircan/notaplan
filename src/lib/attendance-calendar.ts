@@ -35,7 +35,14 @@ export const FALL_WEEKLY_CLOSED_DAYS: number[] = [1];
 /** Yaz dönemi: Cumartesi(6) + Pazar(0) varsayılan kapalı. */
 export const SUMMER_WEEKLY_CLOSED_DAYS: number[] = [0, 6];
 
-export function weeklyClosedDaysForTerm(term: StudentTermType): number[] {
+/** Paket 6 — okulun `SchoolSettings.termWeeklyClosedDays` özelleştirmesi; verilmezse sabit varsayılanlar kullanılır. */
+export type TermWeeklyClosedDaysOverride = { guz: number[]; yaz: number[] };
+
+export function weeklyClosedDaysForTerm(
+  term: StudentTermType,
+  override?: TermWeeklyClosedDaysOverride
+): number[] {
+  if (override) return term === "yaz" ? override.yaz : override.guz;
   return term === "yaz" ? SUMMER_WEEKLY_CLOSED_DAYS : FALL_WEEKLY_CLOSED_DAYS;
 }
 
@@ -45,9 +52,13 @@ export function weeklyClosedDaysForTerm(term: StudentTermType): number[] {
  * `SCHOOL_CLOSED_WEEKDAY`/`isMonday` kuralı, dönem kavramı eklenmeden önceki
  * tüm ders oluşturma/taşıma akışlarıyla birebir aynı sonucu üretir).
  */
-export function isWeeklyClosedDayForTerm(date: Date, term?: StudentTermType): boolean {
+export function isWeeklyClosedDayForTerm(
+  date: Date,
+  term?: StudentTermType,
+  override?: TermWeeklyClosedDaysOverride
+): boolean {
   if (!term) return date.getDay() === 1; // legacy: yalnızca Pazartesi
-  return weeklyClosedDaysForTerm(term).includes(date.getDay());
+  return weeklyClosedDaysForTerm(term, override).includes(date.getDay());
 }
 
 /**
@@ -128,7 +139,8 @@ export function isDateWithinTermCalendar(
 export function resolveDayStatus(
   date: Date,
   term: StudentTermType,
-  manualOverrides: Pick<ClosedDay, "date" | "isOpen" | "name">[]
+  manualOverrides: Pick<ClosedDay, "date" | "isOpen" | "name">[],
+  weeklyClosedDaysOverride?: TermWeeklyClosedDaysOverride
 ): DayStatusResolution {
   const ymd = toYmd(date);
 
@@ -148,7 +160,7 @@ export function resolveDayStatus(
 
   // 3) Dönemin haftalık kapalı gün kuralı.
   const weekday = date.getDay(); // 0=Pazar..6=Cumartesi
-  if (weeklyClosedDaysForTerm(term).includes(weekday)) {
+  if (weeklyClosedDaysForTerm(term, weeklyClosedDaysOverride).includes(weekday)) {
     const label = term === "yaz" ? "Hafta sonu (Yaz dönemi kapalı)" : "Pazartesi (Güz dönemi kapalı)";
     return { date: ymd, status: "closed", reason: "term_weekly_closed", label };
   }
@@ -162,13 +174,14 @@ export function resolveMonthStatuses(
   year: number,
   month: number, // 1-12
   term: StudentTermType,
-  manualOverrides: Pick<ClosedDay, "date" | "isOpen" | "name">[]
+  manualOverrides: Pick<ClosedDay, "date" | "isOpen" | "name">[],
+  weeklyClosedDaysOverride?: TermWeeklyClosedDaysOverride
 ): DayStatusResolution[] {
   const daysInMonth = new Date(year, month, 0).getDate();
   const results: DayStatusResolution[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month - 1, d, 12, 0, 0);
-    results.push(resolveDayStatus(date, term, manualOverrides));
+    results.push(resolveDayStatus(date, term, manualOverrides, weeklyClosedDaysOverride));
   }
   return results;
 }

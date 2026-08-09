@@ -695,6 +695,15 @@ export async function updateCollectionsSettings(
   return next;
 }
 
+export async function updateTermWeeklyClosedDays(
+  termWeeklyClosedDays: { guz: number[]; yaz: number[] }
+): Promise<AppData> {
+  const data = await readData();
+  const next = { ...data, settings: { ...data.settings, termWeeklyClosedDays } };
+  await writeData(next);
+  return next;
+}
+
 const TEACHER_COLORS = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#059669", "#4f46e5"];
 
 /**

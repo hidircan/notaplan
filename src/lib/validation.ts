@@ -377,6 +377,14 @@ export const updateMakeupWindowDaysSchema = z.object({
   makeupWindowDays: z.number().int().min(1).max(365),
 });
 
+const weekdayArray = z.array(z.number().int().min(0).max(6)).max(7);
+
+/** Paket 6 — dönem bazlı haftalık çalışma takvimi (0=Pazar..6=Cumartesi). */
+export const updateTermWeeklyClosedDaysSchema = z.object({
+  guz: weekdayArray,
+  yaz: weekdayArray,
+});
+
 /** EPIC 1 — veli kendi çocuğu için, admin herkes için değiştirebilir (bkz. updateCommunicationPreferenceTool). */
 export const updateCommunicationPreferenceSchema = z.object({
   studentId: z.string().min(1),

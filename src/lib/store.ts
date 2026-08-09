@@ -159,6 +159,7 @@ type StoreApi = {
   updateFeeRoundingMode: (feeRoundingMode: FeeRoundingMode) => Promise<AppData>;
   updateMakeupWindowDays: (makeupWindowDays: number) => Promise<AppData>;
   updateCollectionsSettings: (collectionsSettings: CollectionsSettings) => Promise<AppData>;
+  updateTermWeeklyClosedDays: (termWeeklyClosedDays: { guz: number[]; yaz: number[] }) => Promise<AppData>;
   getDashboardStats: (data: AppData) => ReturnType<typeof jsonStore.getDashboardStats>;
   listTenants: () => Promise<{ tenantId: string; name: string }[]>;
 };
@@ -517,6 +518,12 @@ export async function updateCollectionsSettings(
   collectionsSettings: CollectionsSettings
 ): Promise<AppData> {
   return withTenantScope(() => store.updateCollectionsSettings(collectionsSettings));
+}
+
+export async function updateTermWeeklyClosedDays(
+  termWeeklyClosedDays: { guz: number[]; yaz: number[] }
+): Promise<AppData> {
+  return withTenantScope(() => store.updateTermWeeklyClosedDays(termWeeklyClosedDays));
 }
 
 export function getDashboardStats(data: AppData) {

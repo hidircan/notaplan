@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
-import { Card, PageHeader, EmptyState } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 import { StudentAttendancePicker } from "@/components/student-attendance-picker";
 import { resolveAttendanceCalendarStudentId } from "@/lib/attendance-calendar";
@@ -60,33 +60,23 @@ export default async function YoklamaPage({
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader title="Yoklama Takvimi" />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <Card>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Öğrenci</h2>
-            <StudentAttendancePicker students={studentOptions} selectedStudentId={studentId} />
-          </Card>
-        </div>
-
-        <div className="lg:col-span-2">
-          {!student ? (
-            <EmptyState
-              title="Öğrenci seçilmedi"
-              description="Takvimi görüntülemek için soldan bir öğrenci seçin."
-            />
-          ) : (
-            <>
-              <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">{student.name}</h2>
-              <AttendanceCalendarPanel
-                studentId={student.id}
-                termType={student.termType ?? "guz"}
-                canEdit={canEdit}
-                studentActive={student.active}
-              />
-            </>
-          )}
-        </div>
+      <div className="mb-4">
+        <StudentAttendancePicker students={studentOptions} selectedStudentId={studentId} />
       </div>
+
+      {!student ? (
+        <EmptyState title="Öğrenci seçilmedi" description="Takvimi görüntülemek için yukarıdan bir öğrenci seçin." />
+      ) : (
+        <>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">{student.name}</h2>
+          <AttendanceCalendarPanel
+            studentId={student.id}
+            termType={student.termType ?? "guz"}
+            canEdit={canEdit}
+            studentActive={student.active}
+          />
+        </>
+      )}
     </div>
   );
 }
