@@ -25,6 +25,8 @@ export function StudentProfileEditor({
     phone: string;
     parentName: string;
     parentPhone: string;
+    motherName?: string;
+    fatherName?: string;
     address?: string;
     birthDate?: string;
     birthPlace?: string;
@@ -36,6 +38,8 @@ export function StudentProfileEditor({
   const [phone, setPhone] = useState(initial.phone);
   const [parentName, setParentName] = useState(initial.parentName);
   const [parentPhone, setParentPhone] = useState(initial.parentPhone);
+  const [motherName, setMotherName] = useState(initial.motherName ?? "");
+  const [fatherName, setFatherName] = useState(initial.fatherName ?? "");
   const [address, setAddress] = useState(initial.address ?? "");
   const [birthDate, setBirthDate] = useState(initial.birthDate?.slice(0, 10) ?? "");
   const [birthPlace, setBirthPlace] = useState(initial.birthPlace ?? "");
@@ -54,6 +58,8 @@ export function StudentProfileEditor({
         phone,
         parentName,
         parentPhone,
+        motherName: motherName || undefined,
+        fatherName: fatherName || undefined,
         address: address || undefined,
         birthDate: birthDate || undefined,
         birthPlace: birthPlace || undefined,
@@ -89,6 +95,16 @@ export function StudentProfileEditor({
         <div>
           <Label>Veli telefonu</Label>
           <Input value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} placeholder="05xx xxx xxxx" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Anne adı</Label>
+          <Input value={motherName} onChange={(e) => setMotherName(e.target.value)} />
+        </div>
+        <div>
+          <Label>Baba adı</Label>
+          <Input value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">

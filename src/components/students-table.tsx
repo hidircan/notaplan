@@ -475,13 +475,12 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
               <th className="px-4 py-3">Enstrüman</th>
               <th className="px-4 py-3">Öğretmen</th>
               <th className="px-4 py-3">Paket</th>
-              <th className="px-4 py-3">Ödeme</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
                   Bu filtreye uyan öğrenci bulunamadı.
                 </td>
               </tr>
@@ -509,11 +508,6 @@ export function StudentsTable({ rows }: { rows: StudentRow[] }) {
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text)]">{s.teacherName}</td>
                   <td className="px-4 py-3 text-[var(--color-text-muted)]">{s.packageName.split("—")[0]?.trim() ?? s.packageName}</td>
-                  <td className="px-4 py-3">
-                    <Badge status={s.paymentStatus === "none" ? undefined : s.paymentStatus}>
-                      {PAYMENT_LABELS[s.paymentStatus]}
-                    </Badge>
-                  </td>
                 </tr>
               ))
             )}

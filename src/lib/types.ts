@@ -174,6 +174,9 @@ export interface Student {
   phone: string;
   parentName: string;
   parentPhone: string;
+  /** Paket 7 — TC kimlik alanından hemen sonra istenir; opsiyonel. */
+  motherName?: string;
+  fatherName?: string;
   branchId: BranchId;
   instruments: Instrument[];
   teacherId: string;
@@ -276,6 +279,8 @@ export type StudentProfilePatch = Partial<
     | "phone"
     | "parentName"
     | "parentPhone"
+    | "motherName"
+    | "fatherName"
     | "birthDate"
     | "address"
     | "educationMethod"

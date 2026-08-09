@@ -1,19 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CreditCard, Wallet } from "lucide-react";
-import { actionAddTeacher } from "@/lib/actions";
-import { Badge, Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
+import { CreditCard, UserPlus, Wallet } from "lucide-react";
+import { Badge, Card, PageHeader } from "@/components/ui";
 import { dayName } from "@/lib/utils";
 import { requireSessionContext } from "@/lib/auth/session";
 import { getInstitutionContext, readScopedData } from "@/lib/institution/context";
 import { KurumScopeNote } from "@/components/kurum-scope-note";
 import { computeTeacherPerformanceScore } from "@/lib/insights/teacher-performance";
-import { TeacherInstrumentsField } from "@/components/teacher-instruments-field";
-import { TeacherAvailabilityField } from "@/components/teacher-availability-field";
 import { AiInsightTrigger } from "@/components/ai/ai-insight-trigger";
 import { TeacherArchiveAction } from "@/components/teacher-archive-action";
-import { listInstrumentCatalogTool } from "@/lib/services";
-import type { Instrument } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +28,6 @@ export default async function OgretmenlerPage({
   const canSeePerformance = session.role === "SUPER_ADMIN" || session.role === "SCHOOL_ADMIN";
   const canManage = session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN";
 
-  // ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: statik küme + tenant'ın aktif ek enstrümanları.
-  const catalogResult = await listInstrumentCatalogTool(session, {});
-  const instrumentOptions = (
-    catalogResult.ok
-      ? [...catalogResult.data.staticInstruments, ...catalogResult.data.entries.filter((e) => e.status === "active").map((e) => e.name)]
-      : undefined
-  ) as Instrument[] | undefined;
-
   // ÖNCELİK 4 (devam) — varsayılan yalnız Aktif Öğretmenler; "Arşivlenmiş
   // Öğretmenler" ayrı bir sekme/filtre. Arşiv öğretmenler burada dahi (CSV
   // eşleştirme, yeni ders/öğrenci öğretmen seçicisi vb.) hiç seçilebilir
@@ -52,7 +39,17 @@ export default async function OgretmenlerPage({
   return (
     <div>
       <KurumScopeNote scope={kurum.scope} />
-      <PageHeader title="Öğretmenler" />
+      <PageHeader
+        title="Öğretmenler"
+        actions={
+          <Link
+            href="/panel/ogretmenler/yeni"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)]"
+          >
+            <UserPlus className="h-4 w-4" /> Yeni Öğretmen
+          </Link>
+        }
+      />
 
       <div className="mb-4 flex items-center gap-1 rounded-md border border-[var(--color-border)] p-0.5 dark:border-slate-700" role="tablist" aria-label="Öğretmen durumu">
         <Link
@@ -77,8 +74,7 @@ export default async function OgretmenlerPage({
         </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
           {visibleTeachers.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
@@ -92,29 +88,17 @@ export default async function OgretmenlerPage({
             return (
               <Card key={t.id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-lg text-sm font-bold text-white shadow-sm"
-                      style={{ background: t.color }}
+                  <div>
+                    <Link
+                      href={`/panel/ogretmenler/${t.id}`}
+                      className="font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)] dark:text-slate-50"
                     >
-                      {t.name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </div>
-                    <div>
-                      <Link
-                        href={`/panel/ogretmenler/${t.id}`}
-                        className="font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)] dark:text-slate-50"
-                      >
-                        {t.name}
-                      </Link>
-                      <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
-                        {data.settings.branches.find((b) => b.id === t.branchId)?.shortName} ·{" "}
-                        {t.email} · {t.phone}
-                      </p>
-                    </div>
+                      {t.name}
+                    </Link>
+                    <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
+                      {data.settings.branches.find((b) => b.id === t.branchId)?.shortName} ·{" "}
+                      {t.email} · {t.phone}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex flex-wrap gap-1">
@@ -128,7 +112,7 @@ export default async function OgretmenlerPage({
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
                     <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Öğrenci</p>
                     <p className="text-lg font-semibold">{studentCount}</p>
@@ -136,10 +120,6 @@ export default async function OgretmenlerPage({
                   <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
                     <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Kayıtlı ders</p>
                     <p className="text-lg font-semibold">{weekLessons}</p>
-                  </div>
-                  <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
-                    <p className="text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">Günlük limit</p>
-                    <p className="text-lg font-semibold">{t.maxDailyLessons}</p>
                   </div>
                 </div>
 
@@ -209,74 +189,6 @@ export default async function OgretmenlerPage({
               </Card>
             );
           })}
-        </div>
-
-        <Card>
-          <h2 className="mb-4 font-semibold text-[var(--color-text)] dark:text-slate-50">Yeni öğretmen</h2>
-          {kurum.scope.mode !== "single" ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              &quot;Tüm kurumlar&quot; görünümündesiniz — yeni öğretmen eklemek için üstteki kurum
-              seçiciden tek bir kurum seçin.
-            </p>
-          ) : (
-          <form action={actionAddTeacher} className="space-y-3">
-            <div>
-              <Label>Ad soyad</Label>
-              <Input name="name" required placeholder="Örn. Selin Kara" />
-            </div>
-            <div>
-              <Label>E-posta</Label>
-              <Input name="email" type="email" placeholder="ogretmen@okul.com" />
-            </div>
-            <div>
-              <Label>Telefon</Label>
-              <Input name="phone" placeholder="05xx xxx xxxx" />
-            </div>
-            <div>
-              {/* T.C. kimlik — şifreli saklanır (setNationalIdTool), listede/exportta asla düz metin görünmez. */}
-              <Label>T.C. kimlik no (opsiyonel — şifreli saklanır)</Label>
-              <Input name="nationalId" inputMode="numeric" maxLength={11} placeholder="11 haneli" />
-            </div>
-            <div>
-              <Label>Ana enstrüman (yalnızca hiç enstrüman eklenmezse kullanılır)</Label>
-              <Select name="instrument" defaultValue={instrumentOptions?.[0] ?? "Piyano"}>
-                {(instrumentOptions ?? ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]).map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Enstrümanlar ve seviyeleri</Label>
-              <TeacherInstrumentsField name="instrumentLevelsJson" instrumentOptions={instrumentOptions} />
-            </div>
-            <div>
-              <Label>Şube</Label>
-              <Select name="branchId" defaultValue={data.settings.branches[0]?.id}>
-                {data.settings.branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Haftalık müsaitlik (şube bazlı — opsiyonel)</Label>
-              <TeacherAvailabilityField
-                name="availabilityJson"
-                branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
-              />
-              <p className="mt-1 text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
-                Şube seçilmezse pencere tüm şubeler için geçerli sayılır. Daha sonra öğretmen detay ekranından da düzenlenebilir.
-              </p>
-            </div>
-            <Button type="submit" className="w-full">
-              Öğretmen ekle
-            </Button>
-          </form>
-          )}
-        </Card>
       </div>
     </div>
   );

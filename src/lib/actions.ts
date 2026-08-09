@@ -432,6 +432,8 @@ export async function actionAddStudent(formData: FormData) {
           phone: String(formData.get("phone") || ""),
           parentName: String(formData.get("parentName") || ""),
           parentPhone: String(formData.get("parentPhone") || ""),
+          motherName: String(formData.get("motherName") || "") || undefined,
+          fatherName: String(formData.get("fatherName") || "") || undefined,
           branchId: String(formData.get("branchId") || ""),
           instrument: String(formData.get("instrument") || "Piyano"),
           teacherId: String(formData.get("teacherId") || ""),
@@ -522,6 +524,8 @@ export async function actionUpdateStudentProfile(input: {
   phone?: string;
   parentName?: string;
   parentPhone?: string;
+  motherName?: string;
+  fatherName?: string;
   address?: string;
   birthDate?: string;
   birthPlace?: string;

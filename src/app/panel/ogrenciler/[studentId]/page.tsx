@@ -277,6 +277,8 @@ export default async function StudentDetailPage({
                 phone: student.phone,
                 parentName: student.parentName,
                 parentPhone: student.parentPhone,
+                motherName: student.motherName,
+                fatherName: student.fatherName,
                 address: student.address,
                 birthDate: student.birthDate,
                 birthPlace: student.birthPlace,

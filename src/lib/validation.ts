@@ -45,6 +45,9 @@ export const studentSchema = z.object({
   phone: z.string().min(1),
   parentName: z.string().min(1),
   parentPhone: z.string().min(1),
+  /** Paket 7 — TC kimlik alanından hemen sonra istenir; opsiyonel (legacy kayıtlar kırılmaz). */
+  motherName: optionalTrimmed,
+  fatherName: optionalTrimmed,
   branchId: z.string().min(1),
   instrument: z.enum(["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"]),
   teacherId: z.string().min(1),
@@ -102,6 +105,8 @@ export const updateStudentProfileSchema = z.object({
   phone: optionalTrimmed,
   parentName: optionalTrimmed,
   parentPhone: optionalTrimmed,
+  motherName: optionalTrimmed,
+  fatherName: optionalTrimmed,
   address: optionalTrimmed,
   birthDate: optionalTrimmed,
   birthPlace: optionalTrimmed,

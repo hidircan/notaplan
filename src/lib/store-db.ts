@@ -178,6 +178,8 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       phone: student.phone,
       parentName: student.parentName,
       parentPhone: student.parentPhone,
+      motherName: (student as { motherName?: string | null }).motherName ?? undefined,
+      fatherName: (student as { fatherName?: string | null }).fatherName ?? undefined,
       branchId: student.branchId as BranchId,
       instruments: student.instruments as Instrument[],
       teacherId: student.teacherId,
@@ -1083,6 +1085,8 @@ export async function updateStudentProfile(
       phone: patch.phone,
       parentName: patch.parentName,
       parentPhone: patch.parentPhone,
+      motherName: patch.motherName,
+      fatherName: patch.fatherName,
       address: patch.address,
       birthDate: patch.birthDate ? new Date(patch.birthDate) : undefined,
       // Package C — ödeme profili + paket fiyatlandırma alanları. Bu

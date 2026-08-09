@@ -216,6 +216,9 @@ model Student {
   phone             String
   parentName        String
   parentPhone       String
+  /// Paket 7 — TC kimlik alanından hemen sonra istenir; opsiyonel.
+  motherName        String?
+  fatherName        String?
   branch            Branch    @relation(fields: [branchId], references: [id])
   branchId          String
   school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)

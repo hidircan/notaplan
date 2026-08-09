@@ -39,18 +39,26 @@ export type PanelNavItem = {
   roles?: Array<"SUPER_ADMIN" | "SCHOOL_ADMIN" | "AI_AGENT">;
 };
 
-/** Ana menü — sıra kesindir (prompt §B). */
+/**
+ * Ana menü — sıra kesindir (prompt §B). Paket 7 — "Tahsilatlar" kaldırıldı
+ * (Ödemeler ekranındaki "Tahsilat takibini aç" bağlantısından hâlâ
+ * erişilebilir; route/izin/RBAC hiçbiri değişmedi, yalnızca sidebar
+ * girdisi kaldırıldı).
+ */
 export const PANEL_MAIN_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Özet", icon: LayoutDashboard },
   { href: "/panel/program", label: "Ders Programı", icon: CalendarDays },
-  { href: "/panel/ai/tahsilat-agent", label: "Tahsilatlar", icon: Wallet },
-  { href: "/panel/odemeler", label: "Ödemeler", icon: CreditCard },
+  { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
   { href: "/panel/telafi", label: "Telafi Merkezi", icon: RefreshCcw },
   { href: "/panel/ogrenciler", label: "Öğrenciler", icon: GraduationCap },
   { href: "/panel/ogretmenler", label: "Öğretmenler", icon: Users },
+];
+
+/** Paket 7 — Finans grubu: ödeme/hakediş/paket/kampanya ile ilgili tüm ekranlar tek yerde. */
+export const PANEL_FINANCE_NAV: PanelNavItem[] = [
+  { href: "/panel/odemeler", label: "Ödemeler", icon: CreditCard },
   { href: "/panel/hakedisler", label: "Öğretmen Hakedişleri", icon: Wallet },
-  { href: "/panel/bildirimler", label: "WhatsApp", icon: MessageCircle },
-  { href: "/panel/yoklama", label: "Yoklama", icon: ClipboardCheck },
+  { href: "/panel/paketler", label: "Paketler", icon: PackageIcon, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
 ];
 
 export const PANEL_OPS_NAV: PanelNavItem[] = [
@@ -60,11 +68,12 @@ export const PANEL_OPS_NAV: PanelNavItem[] = [
   { href: "/panel/deneme", label: "Deneme Dersleri", icon: FlaskConical },
   { href: "/panel/ders-duzeltme", label: "Ders düzeltme", icon: Wrench },
   { href: "/panel/duyurular", label: "Duyurular", icon: MessageCircle },
+  { href: "/panel/bildirimler", label: "WhatsApp", icon: MessageCircle },
   { href: "/panel/subeler", label: "Şubeler", icon: Building2 },
-  /** ÖNCELİK 4 (devam) — Paket Yönetimi: yalnız admin roller yönetebilir. */
-  { href: "/panel/paketler", label: "Paketler", icon: PackageIcon, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   /** ÖNCELİK 4 (devam) — Yönetilebilir Enstrüman Kataloğu: yalnız admin roller. */
   { href: "/panel/enstrumanlar", label: "Enstrümanlar", icon: Music, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  /** Paket 7 — ödev atama/teslim raporu. */
+  { href: "/panel/odev-raporu", label: "Ödev Raporu", icon: FileText, roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
 ];
 
 export const PANEL_AI_NAV: PanelNavItem[] = [
