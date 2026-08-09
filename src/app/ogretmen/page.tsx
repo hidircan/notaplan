@@ -14,6 +14,7 @@ import { TelafiSubmitButton } from "@/components/telafi-submit-button";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
 import { LessonLiveActions } from "@/components/lesson-live-actions";
+import { LessonCountdown } from "@/components/lesson-countdown";
 
 export const dynamic = "force-dynamic";
 
@@ -124,7 +125,11 @@ export default async function OgretmenPortalPage() {
                 const student = data.students.find((s) => s.id === lesson.studentId);
                 const attendance = data.attendances.find((a) => a.lessonId === lesson.id);
                 const room = data.rooms.find((r) => r.id === lesson.roomId);
+                const lessonBranch = data.settings.branches.find((b) => b.id === lesson.branchId);
                 const liveStatus = computeLiveDisplayStatus(lesson);
+                const plannedMinutes = Math.round(
+                  (new Date(lesson.endAt).getTime() - new Date(lesson.startAt).getTime()) / 60_000
+                );
                 return (
                   <Card key={lesson.id} className="!p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -133,13 +138,16 @@ export default async function OgretmenPortalPage() {
                           {formatTime(lesson.startAt)} · {student?.name}
                         </p>
                         <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
-                          {lesson.instrument} · {room?.name}
+                          {lesson.instrument} · {lessonBranch?.shortName ?? "—"} · {room?.name}
                           {lesson.type === "makeup" ? " · Telafi" : ""}
                         </p>
                       </div>
                       <Badge status={attendance?.status ?? liveStatus} />
                     </div>
                     <LessonLiveActions lessonId={lesson.id} displayStatus={liveStatus} />
+                    {liveStatus === "in_progress" && lesson.actualStartAt ? (
+                      <LessonCountdown actualStartAt={lesson.actualStartAt} plannedDurationMinutes={plannedMinutes} />
+                    ) : null}
                     {!attendance &&
                     (lesson.status === "scheduled" || lesson.status === "in_progress") ? (
                       <div className="mt-3 flex flex-wrap gap-2">

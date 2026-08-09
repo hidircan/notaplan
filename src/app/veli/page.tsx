@@ -25,6 +25,7 @@ import { listNotificationsForUser } from "@/lib/notifications";
 import { NotificationList } from "@/components/notification-list";
 import { listAnnouncementsForUserTool } from "@/lib/services";
 import { computeLiveDisplayStatus } from "@/lib/lesson-live-status";
+import { LessonCountdown } from "@/components/lesson-countdown";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
 
 export const dynamic = "force-dynamic";
@@ -272,20 +273,31 @@ export default async function VeliPortalPage() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {upcoming.map((l) => (
-                <Card key={l.id} className="!p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{formatDateTime(l.startAt)}</p>
-                      <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
-                        {formatTime(l.startAt)}–{formatTime(l.endAt)} · {l.instrument}
-                        {l.type === "makeup" ? " · Telafi" : ""}
-                      </p>
+              {upcoming.map((l) => {
+                const liveStatus = computeLiveDisplayStatus(l);
+                return (
+                  <Card key={l.id} className="!p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-[var(--color-text)] dark:text-slate-50">{formatDateTime(l.startAt)}</p>
+                        <p className="text-sm text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
+                          {formatTime(l.startAt)}–{formatTime(l.endAt)} · {l.instrument}
+                          {l.type === "makeup" ? " · Telafi" : ""}
+                        </p>
+                      </div>
+                      <Badge status={l.type === "makeup" ? "makeup" : liveStatus} />
                     </div>
-                    <Badge status={l.type === "makeup" ? "makeup" : computeLiveDisplayStatus(l)} />
-                  </div>
-                </Card>
-              ))}
+                    {liveStatus === "in_progress" && l.actualStartAt ? (
+                      <LessonCountdown
+                        actualStartAt={l.actualStartAt}
+                        plannedDurationMinutes={Math.round(
+                          (new Date(l.endAt).getTime() - new Date(l.startAt).getTime()) / 60_000
+                        )}
+                      />
+                    ) : null}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
