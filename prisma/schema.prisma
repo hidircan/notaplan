@@ -1243,15 +1243,18 @@ model TaskAttachment {
 /// engeller (idempotency — bkz. src/lib/task-reminder-log.ts).
 model TaskReminderLog {
   id             String   @id
-  tenantId       String
+  /// MySQL/utf8mb4 altında 5 sütunlu benzersiz index 3072 bayt sınırını aşmasın diye
+  /// (191*4 bayt × 5 > 3072) burada ve aşağıdaki 3 alanda açık VARCHAR uzunluğu
+  /// verildi — gerçek değerler (bkz. src/lib/utils.ts uid()) zaten çok daha kısa.
+  tenantId       String   @db.VarChar(100)
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  taskId         String
+  taskId         String   @db.VarChar(100)
   /// Bildirimin gittiği User.id — sorumlu değişirse yeni bir satır (eski sorumluya tekrar bildirim GİTMEZ, ayrı anahtar).
-  assigneeUserId String
+  assigneeUserId String   @db.VarChar(100)
   /// DUE_SOON | DUE_TODAY | OVERDUE
-  kind           String
+  kind           String   @db.VarChar(20)
   /// Kurum saat diliminde "yyyy-MM-dd" — OVERDUE için "günde en fazla 1" bunun sayesinde garanti edilir.
-  calendarDay    String
+  calendarDay    String   @db.VarChar(10)
   createdAt      DateTime @default(now())
 
   @@unique([tenantId, taskId, assigneeUserId, kind, calendarDay])

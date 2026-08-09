@@ -1037,7 +1037,14 @@ export async function createStudentTool(
       };
     }
 
-    const { monthlyFeeOverrideAmount: _ignoredOverrideAmount, ...studentInput } = v.data;
+    // `instrument` (tekil) yalnızca giriş şemasının alanı — model karşılığı
+    // `instruments` (dizi). STORE_MODE=db'de `addStudent`'ın Prisma
+    // `student.create` çağrısı `...student` ile geniş bir spread yapıyor;
+    // `instrument` burada süzülmezse Prisma'ya bilinmeyen bir alan olarak
+    // gider ve "Unknown argument `instrument`" hatasıyla TÜM öğrenci
+    // oluşturma db-modunda kırılır (json/memory modda sessizce yutulduğu
+    // için bu hata testlerde hiç görünmüyordu — STORE_MODE=json'da çalışır).
+    const { monthlyFeeOverrideAmount: _ignoredOverrideAmount, instrument: _ignoredInstrument, ...studentInput } = v.data;
     const ids = new Set(before.students.map((s) => s.id));
     await addStudent({
       ...studentInput,
