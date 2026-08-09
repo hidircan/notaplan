@@ -556,6 +556,7 @@ export function AttendanceCalendarPanel({
                       type="button"
                       disabled={savingMonth === key}
                       onClick={() => void onSaveAmount(key)}
+                      title="Bu ayın ödemesini girilen tutar/tarih/yöntemle tahsil edilmiş (Ödendi) olarak kaydeder."
                       className="rounded-md border border-stone-300 bg-[var(--color-surface)] px-2 py-1 text-[11px] font-semibold text-stone-800 hover:border-[#A56A00] hover:bg-[#fbf6ee] disabled:opacity-50"
                     >
                       {savingMonth === key ? "…" : "Kaydet"}
@@ -563,6 +564,11 @@ export function AttendanceCalendarPanel({
                   </div>
                 ) : null}
               </div>
+              {canEdit && !readOnly ? (
+                <p className="mb-1 text-[10px] text-[var(--color-text-muted)]">
+                  Kaydet, bu ayın ödemesini girilen tutar/tarih/yöntemle Ödendi olarak tahsil eder.
+                </p>
+              ) : null}
 
               {!data ? (
                 <p className="text-xs text-[var(--color-text-muted)]">

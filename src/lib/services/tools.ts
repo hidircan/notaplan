@@ -818,10 +818,12 @@ export async function createPaymentTool(
       amount: v.data.amount,
       paidAt: v.data.paidAt,
       paymentNote: v.data.paymentNote,
+      receivedByUserId: ctx.userId,
     });
     audit(ctx, "payment.mark_paid", "Payment", v.data.paymentId, {
       method: v.data.method,
       amount: v.data.amount,
+      receivedByUserId: ctx.userId,
     });
     return ok({ paymentId: v.data.paymentId, status: "paid" });
   } catch (e) {
@@ -4912,14 +4914,24 @@ export async function setDayOverrideTool(
 }
 
 /**
- * ÖNCELİK 4 — öğrenci+ay başına aylık planlanan tutar (Tutar). Yalnızca
- * planlanan borcu günceller — asla "paid"/collected kaydı yaratmaz.
- * source:"monthly_plan" ile lesson_ops'tan kesin ayrışır (mükerrer sayım yok).
+ * Yoklama Takvimi ay kutusu — "Kaydet" GERÇEK bir tahsilat işlemidir (aylık
+ * borç ön-kaydı değil). Ortak Tool Layer/servis mantığı kullanılır — YENİ/
+ * paralel bir ödeme yolu YOK:
+ *   1. `upsertMonthlyPlanPayment` — öğrenci+ay başına TEK Payment satırını
+ *      idempotent şekilde bulur/oluşturur (source:"monthly_plan"), girilen
+ *      tutar/tarih/yöntemi `amount`/`dueDate`/`method` alanlarına yazar.
+ *   2. `markPaymentPaid` — Ödemeler ekranı "Ödendi işaretle" VE Yoklama
+ *      Takvimi "Tahsil Et" ile BİREBİR AYNI fonksiyon; `status:"paid"`,
+ *      `paidAmount`, `paidAt` ve `receivedByUserId` (bu işlemi yapan
+ *      `ctx.userId`) buradan yazılır.
+ * Aynı öğrenci+ay için tekrar çağrılırsa (1) AYNI Payment satırını bulur,
+ * (2) `markPaymentPaid` zaten idempotent bir güncelleme yapar — yeni satır
+ * ASLA oluşmaz.
  */
-export async function setMonthlyPlanAmountTool(
+export async function collectAttendanceCalendarPaymentTool(
   ctx: ServiceContext,
   input: unknown
-): Promise<ServiceResult<{ paymentId: string; studentId: string; month: string; amount: number }>> {
+): Promise<ServiceResult<{ paymentId: string; studentId: string; month: string; amount: number; status: string }>> {
   const auth = requireRole(ctx, ["SCHOOL_ADMIN", "SUPER_ADMIN"]);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
@@ -4927,10 +4939,10 @@ export async function setMonthlyPlanAmountTool(
     z.object({
       studentId: z.string().min(1),
       month: z.string().regex(/^\d{4}-\d{2}$/),
-      amount: z.number().min(0),
-      /** Yoklama takvimi ay kutusu — ödeme tarihi (yyyy-MM-dd), opsiyonel. Verilmezse ayın 1'i (mevcut davranış). */
+      amount: z.number().positive(),
+      /** Ödeme tarihi (yyyy-MM-dd) — tahsilat anının GERÇEK tarihi. Verilmezse bugün. */
       dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      /** Yoklama takvimi ay kutusu — ödeme şekli, opsiyonel. */
+      /** Ödeme şekli — zorunlu değil, verilmezse markPaymentPaid'in mevcut varsayılan zinciri (öğrencinin kayıtlı yöntemi) kullanılır. */
       method: z.enum(["cash", "transfer", "credit_card"]).optional(),
     }),
     input
@@ -4942,6 +4954,11 @@ export async function setMonthlyPlanAmountTool(
   if (!student) return fail("NOT_FOUND", "Öğrenci bulunamadı");
 
   try {
+    // `dueDate`/`method` verilmezse (bu çağrıda değiştirilmek istenmiyorsa)
+    // `upsertMonthlyPlanPayment`'a undefined geçilir — o da mevcut değeri
+    // KORUR (aşağıya bkz. store implementasyonları); yalnızca verilenler
+    // güncellenir. `markPaymentPaid`'in kendi "paidAt verilmezse şimdi"
+    // varsayılanı, tahsilat ANI için ayrıca doğru davranıştır.
     const { paymentId } = await upsertMonthlyPlanPayment({
       studentId: v.data.studentId,
       month: v.data.month,
@@ -4949,16 +4966,23 @@ export async function setMonthlyPlanAmountTool(
       dueDate: v.data.dueDate,
       method: v.data.method,
     });
-    audit(ctx, "attendance_calendar.monthly_plan.set", "Payment", paymentId, {
+    await markPaymentPaid(paymentId, {
+      amount: v.data.amount,
+      method: v.data.method,
+      paidAt: v.data.dueDate,
+      receivedByUserId: ctx.userId,
+    });
+    audit(ctx, "PAYMENT_COLLECTED_FROM_ATTENDANCE_CALENDAR", "Payment", paymentId, {
       studentId: v.data.studentId,
       month: v.data.month,
       amount: v.data.amount,
-      dueDate: v.data.dueDate,
       method: v.data.method,
+      dueDate: v.data.dueDate,
+      receivedByUserId: ctx.userId,
     });
-    return ok({ paymentId, studentId: v.data.studentId, month: v.data.month, amount: v.data.amount });
+    return ok({ paymentId, studentId: v.data.studentId, month: v.data.month, amount: v.data.amount, status: "paid" });
   } catch (e) {
-    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "setMonthlyPlanAmount failed");
+    return fail("INTERNAL_ERROR", e instanceof Error ? e.message : "collectAttendanceCalendarPayment failed");
   }
 }
 

@@ -6,7 +6,7 @@ import {
   createLessonTool,
   createStudentTool,
   setLessonOpsFlagTool,
-  setMonthlyPlanAmountTool,
+  collectAttendanceCalendarPaymentTool,
   setDayOverrideTool,
   getAttendanceCalendarMonthTool,
   updateStudentProfileTool,
@@ -128,31 +128,36 @@ describe("ÖNCELİK 4 — kapalı gün mali/yoklama gate", () => {
   });
 });
 
-describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
-  it("aynı öğrenci+ay için tekrar set etmek yeni kayıt değil, güncelleme yapar (idempotent)", async () => {
-    const r1 = await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
+describe("Yoklama Takvimi ay kutusu — GERÇEK tahsilat (collectAttendanceCalendarPaymentTool)", () => {
+  it("aynı öğrenci+ay için tekrar Kaydet demek yeni kayıt değil, AYNI Payment'ı günceller (idempotent)", async () => {
+    const r1 = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
     expect(r1.ok).toBe(true);
-    const r2 = await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3500 });
+    const r2 = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3500 });
     expect(r2.ok).toBe(true);
+    if (r1.ok && r2.ok) expect(r2.data.paymentId).toBe(r1.data.paymentId);
 
     const data = await readData();
     const rows = data.payments.filter((p) => p.studentId === "s1" && p.source === "monthly_plan");
     expect(rows).toHaveLength(1);
     expect(rows[0]!.amount).toBe(3500);
+    expect(rows[0]!.paidAmount).toBe(3500);
+    expect(rows[0]!.status).toBe("paid");
   });
 
-  it("aylık plan kaydı asla 'paid'/tahsil edilmiş olarak işaretlenmez", async () => {
-    await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
+  it("Kaydet sonrası ödeme 'paid' statüsündedir ve girilen tutar gerçek Payment.amount/paidAmount olur", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
+    expect(res.ok).toBe(true);
     const data = await readData();
     const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
-    expect(row?.status).not.toBe("paid");
-    expect(row?.paidAmount).toBe(0);
+    expect(row?.status).toBe("paid");
+    expect(row?.amount).toBe(3000);
+    expect(row?.paidAmount).toBe(3000);
   });
 
-  it("Package B — Geldi/İşlendi/Telafi artık lesson_ops kaydı üretmez; aylık plan bundan bağımsız çalışır", async () => {
+  it("Package B — Geldi/İşlendi/Telafi artık lesson_ops kaydı üretmez; ay kutusu tahsilatı bundan bağımsız çalışır", async () => {
     const lessonId = await createTestLesson();
     await setLessonOpsFlagTool(ctx(), { lessonId, flag: "attended" });
-    await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
+    await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
 
     const data = await readData();
     const lessonOpsRows = data.payments.filter((p) => p.studentId === "s1" && p.source === "lesson_ops");
@@ -161,17 +166,28 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
     expect(planRows).toHaveLength(1);
   });
 
-  it("TEACHER/PARENT rolü aylık plan tutarını değiştiremez (RBAC)", async () => {
-    const res = await setMonthlyPlanAmountTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
+  it("TEACHER rolü ay kutusundan tahsilat yapamaz (RBAC)", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx({ role: "TEACHER", teacherId: "t1" }), {
       studentId: "s1",
       month: "2026-09",
       amount: 3000,
     });
     expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
   });
 
-  it("ödeme tarihi ve ödeme şekli verilirse kaydedilir (Yoklama takvimi ay kutusu)", async () => {
-    const res = await setMonthlyPlanAmountTool(ctx(), {
+  it("PARENT (veli/salt-okunur) rolü ay kutusundan tahsilat yapamaz (RBAC)", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx({ role: "PARENT", studentId: "s1" }), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 3000,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("ödeme tarihi ve ödeme şekli gerçek Payment alanlarına (dueDate/method) ve tahsilat tarihine (paidAt) yazılır", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx(), {
       studentId: "s1",
       month: "2026-09",
       amount: 3000,
@@ -183,17 +199,31 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
     const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
     expect(row?.dueDate.slice(0, 10)).toBe("2026-09-15");
     expect(row?.method).toBe("transfer");
+    expect(row?.paidAt?.slice(0, 10)).toBe("2026-09-15");
   });
 
-  it("ödeme tarihi/şekli verilmeden ikinci kez set edilirse önceki değerler korunur", async () => {
-    await setMonthlyPlanAmountTool(ctx(), {
+  it("tahsilatı yapan kullanıcı Payment.receivedByUserId olarak kalıcı tutulur", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx({ userId: "u_admin_42" }), {
+      studentId: "s1",
+      month: "2026-09",
+      amount: 3000,
+      method: "cash",
+    });
+    expect(res.ok).toBe(true);
+    const data = await readData();
+    const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
+    expect(row?.receivedByUserId).toBe("u_admin_42");
+  });
+
+  it("ödeme tarihi/şekli verilmeden ikinci kez Kaydet edilirse önceki dueDate/method değerleri korunur", async () => {
+    await collectAttendanceCalendarPaymentTool(ctx(), {
       studentId: "s1",
       month: "2026-09",
       amount: 3000,
       dueDate: "2026-09-15",
       method: "cash",
     });
-    const res2 = await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3200 });
+    const res2 = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3200 });
     expect(res2.ok).toBe(true);
     const data = await readData();
     const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
@@ -203,12 +233,17 @@ describe("ÖNCELİK 4 — aylık plan (Tutar)", () => {
   });
 
   it("geçersiz ödeme şekli reddedilir", async () => {
-    const res = await setMonthlyPlanAmountTool(ctx(), {
+    const res = await collectAttendanceCalendarPaymentTool(ctx(), {
       studentId: "s1",
       month: "2026-09",
       amount: 3000,
       method: "bitcoin",
     });
+    expect(res.ok).toBe(false);
+  });
+
+  it("sıfır/negatif tutar reddedilir", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 0 });
     expect(res.ok).toBe(false);
   });
 });
@@ -269,7 +304,7 @@ describe("ÖNCELİK 4 — veli (PARENT) salt-okunur takvim erişimi", () => {
   });
 
   it("veli aylık Tutar'ı değiştiremez", async () => {
-    const res = await setMonthlyPlanAmountTool(ctx({ role: "PARENT", studentId: "s1" }), {
+    const res = await collectAttendanceCalendarPaymentTool(ctx({ role: "PARENT", studentId: "s1" }), {
       studentId: "s1",
       month: "2026-09",
       amount: 5000,

@@ -360,6 +360,7 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       source: (payment.source as import("./types").PaymentSource | undefined) ?? "manual",
       createdAt: (payment as { createdAt?: Date }).createdAt?.toISOString() ?? undefined,
       paymentNote: payment.paymentNote ?? undefined,
+      receivedByUserId: payment.receivedByUserId ?? undefined,
     })),
     teacherFeeRules: school.teacherFeeRules.map((rule) => ({
       id: rule.id,
@@ -1223,6 +1224,8 @@ export type MarkPaymentPaidOptions = {
   /** ISO tarih — verilmezse şimdi. */
   paidAt?: string;
   paymentNote?: string;
+  /** Tahsilatı alan kullanıcı — bkz. Payment.receivedByUserId yorumu (schema.prisma). */
+  receivedByUserId?: string;
 };
 
 export async function markPaymentPaid(paymentId: string, opts?: string | MarkPaymentPaidOptions): Promise<AppData> {
@@ -1247,6 +1250,7 @@ export async function markPaymentPaid(paymentId: string, opts?: string | MarkPay
       paidAt: normalized.paidAt ? new Date(normalized.paidAt) : new Date(),
       ...(resolvedMethod ? { method: resolvedMethod } : {}),
       ...(normalized.paymentNote !== undefined ? { paymentNote: normalized.paymentNote } : {}),
+      ...(normalized.receivedByUserId !== undefined ? { receivedByUserId: normalized.receivedByUserId } : {}),
     },
   });
 

@@ -607,6 +607,15 @@ export interface Payment {
    * taksiti"), bu alan ise tahsilat ANINA dair serbest metni taşır.
    */
   paymentNote?: string;
+  /**
+   * Tahsilatı ALAN kullanıcının kalıcı kimliği — `markPaymentPaid` her
+   * "ödendi" geçişinde (Ödemeler ekranı "Ödendi işaretle", Yoklama Takvimi
+   * "Tahsil Et" VE ay kutusu Kaydet — TEK ortak yol) `ctx.userId`'den yazar.
+   * Ödeme henüz tahsil edilmemişse (pending/overdue) veya bu alan
+   * eklenmeden önce tahsil edilmişse (legacy) `undefined` olabilir — UI bu
+   * durumda satırı hiç göstermez, hata vermez.
+   */
+  receivedByUserId?: string;
 }
 
 /**

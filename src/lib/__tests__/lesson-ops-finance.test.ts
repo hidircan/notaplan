@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { promises as fs } from "fs";
 import path from "path";
 import { resolveDataDir } from "../config";
-import { createLessonTool, setLessonOpsFlagTool, cancelLessonTool, setMonthlyPlanAmountTool } from "../services/tools";
+import { createLessonTool, setLessonOpsFlagTool, cancelLessonTool, collectAttendanceCalendarPaymentTool } from "../services/tools";
 import { readData } from "../store";
 import { DEFAULT_TENANT_ID } from "../auth/config";
 import type { ServiceContext } from "../services/context";
@@ -195,14 +195,15 @@ describe("Geçmiş lesson_ops Payment kayıtları — dokunulmadan okunabilir ka
 });
 
 describe("monthly_plan ve manual Payment akışları — Package B'den etkilenmez", () => {
-  it("aylık plan (Tutar) akışı çalışmaya devam eder", async () => {
-    const res = await setMonthlyPlanAmountTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
+  it("Yoklama Takvimi ay kutusu tahsilat akışı çalışmaya devam eder", async () => {
+    const res = await collectAttendanceCalendarPaymentTool(ctx(), { studentId: "s1", month: "2026-09", amount: 3000 });
     expect(res.ok).toBe(true);
 
     const data = await readData();
     const row = data.payments.find((p) => p.studentId === "s1" && p.source === "monthly_plan");
     expect(row).toBeDefined();
     expect(row?.amount).toBe(3000);
+    expect(row?.status).toBe("paid");
   });
 });
 

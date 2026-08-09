@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/utils";
 import { computeStudentPaymentSummary, filterPaymentHistory, sortPaymentsForProfile } from "@/lib/payment-profile";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 import { StudentPaymentHistoryTable } from "@/components/student-payment-history-table";
+import { getUserById } from "@/lib/auth/users";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,23 @@ export default async function StudentPaymentProfilePage({
   const payments = sortPaymentsForProfile(data.payments.filter((p) => p.studentId === studentId));
   const summary = computeStudentPaymentSummary(payments);
   const hasOpenPayment = summary.openCount > 0;
+
+  // "Tahsilatı alan" görüntü adı — Payment.receivedByUserId'den (kalıcı
+  // kimlik) çözülür; yalnızca GÖRÜNTÜLEME içindir, Payment'a yazılmaz.
+  // Aynı kullanıcı birden çok kayıtta tekrar edebileceği için tek seferde
+  // (Set ile benzersizleştirip) çözülür.
+  const receiverIds = Array.from(
+    new Set(payments.map((p) => p.receivedByUserId).filter((id): id is string => Boolean(id)))
+  );
+  const receiverNames = new Map<string, string>();
+  for (const userId of receiverIds) {
+    const user = await getUserById(userId);
+    if (user?.email) receiverNames.set(userId, user.email);
+  }
+  const historyPayments = filterPaymentHistory(payments).map((p) => ({
+    ...p,
+    receivedByName: p.receivedByUserId ? receiverNames.get(p.receivedByUserId) : undefined,
+  }));
 
   return (
     <div>
@@ -129,7 +147,7 @@ export default async function StudentPaymentProfilePage({
         Ödemeler ekranındaki tam liste) bu filtreden ETKİLENMEZ — `payments`
         değişkeni burada değiştirilmiyor, yalnız görüntülenen alt küme.
       */}
-      <StudentPaymentHistoryTable payments={filterPaymentHistory(payments)} />
+      <StudentPaymentHistoryTable payments={historyPayments} />
     </div>
   );
 }

@@ -13,7 +13,9 @@ import type { Payment } from "@/lib/types";
  * için sayfalama (10/30/50) burada, öğrenciler/ödemeler listeleriyle AYNI
  * ortak `PaginationControls`/`usePagination` ile uygulanır.
  */
-export function StudentPaymentHistoryTable({ payments }: { payments: Payment[] }) {
+type PaymentRow = Payment & { receivedByName?: string };
+
+export function StudentPaymentHistoryTable({ payments }: { payments: PaymentRow[] }) {
   const { pageItems, page, setPage, pageSize, setPageSize, totalPages, totalCount } = usePagination(payments, 10);
 
   if (payments.length === 0) {
@@ -58,6 +60,9 @@ export function StudentPaymentHistoryTable({ payments }: { payments: Payment[] }
               <td className="px-4 py-3 text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">{p.method ?? "—"}</td>
               <td className="px-4 py-3">
                 <Badge status={p.status} />
+                {p.receivedByName ? (
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Tahsilatı alan: {p.receivedByName}</p>
+                ) : null}
               </td>
               <td className="px-4 py-3">
                 {p.status === "paid" ? (

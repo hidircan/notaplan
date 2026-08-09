@@ -565,6 +565,13 @@ model Payment {
   lessonId    String?
   /// "manual" (varsayılan, mevcut tüm kayıtlar) | "lesson_ops" (Geldi/İşlendi otomatik oluşturdu)
   source      String    @default("manual")
+  /// Tahsilatı ALAN kullanıcının kalıcı kimliği — `markPaymentPaid`'in ortak
+  /// yolundan (Ödemeler "Ödendi işaretle", Yoklama Takvimi "Tahsil Et" ve ay
+  /// kutusu Kaydet) her "ödendi" geçişinde `ctx.userId`'den yazılır. FK YOK
+  /// (AuditLog/AiAuditLog ile aynı gerekçe — tahsilatı yapan kullanıcı
+  /// silinse bile geçmiş kayıt okunabilir kalır). NULL = henüz tahsil
+  /// edilmemiş veya bu alan eklenmeden önce tahsil edilmiş (legacy).
+  receivedByUserId String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

@@ -362,6 +362,8 @@ export type MarkPaymentPaidOptions = {
   amount?: number;
   paidAt?: string;
   paymentNote?: string;
+  /** Tahsilatı alan kullanıcı — bkz. Payment.receivedByUserId yorumu. */
+  receivedByUserId?: string;
 };
 
 export async function markPaymentPaid(paymentId: string, opts?: string | MarkPaymentPaidOptions): Promise<AppData> {
@@ -377,6 +379,7 @@ export async function markPaymentPaid(paymentId: string, opts?: string | MarkPay
       paidAt: normalized.paidAt ?? new Date().toISOString(),
       method: normalized.method || p.method || student?.paymentMethod || "Havale",
       ...(normalized.paymentNote !== undefined ? { paymentNote: normalized.paymentNote } : {}),
+      ...(normalized.receivedByUserId !== undefined ? { receivedByUserId: normalized.receivedByUserId } : {}),
     };
   });
   return save({ ...data, payments });
