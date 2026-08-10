@@ -1,0 +1,62 @@
+import type { AppData } from "../types";
+
+/**
+ * Deterministic teacher performance score — NO AI/LLM involved in the
+ * number itself (only an optional narration layer on top, via the
+ * `teacherPerformanceScore` AI capability). Based only on attendance
+ * records that already happened (`Attendance` rows), never invented data.
+ */
+export type TeacherPerformanceScore = {
+  teacherId: string;
+  /** 0–100, or null when there isn't enough graded history to score fairly. */
+  score: number | null;
+  gradedLessonCount: number;
+  presentCount: number;
+  lateCount: number;
+  absentCount: number;
+  schoolCancelledCount: number;
+  activeStudentCount: number;
+};
+
+const MIN_GRADED_LESSONS_FOR_SCORE = 3;
+
+export function computeTeacherPerformanceScore(data: AppData, teacherId: string): TeacherPerformanceScore {
+  const lessonIdsForTeacher = new Set(
+    data.lessons.filter((l) => l.teacherId === teacherId).map((l) => l.id)
+  );
+  const graded = data.attendances.filter((a) => lessonIdsForTeacher.has(a.lessonId));
+
+  const presentCount = graded.filter((a) => a.status === "present").length;
+  const lateCount = graded.filter((a) => a.status === "late").length;
+  const absentCount = graded.filter((a) => a.status === "absent").length;
+  const schoolCancelledCount = graded.filter((a) => a.status === "cancelled_by_school").length;
+  const gradedLessonCount = graded.length;
+  const activeStudentCount = data.students.filter((s) => s.teacherId === teacherId && s.active).length;
+
+  let score: number | null = null;
+  if (gradedLessonCount >= MIN_GRADED_LESSONS_FOR_SCORE) {
+    // Present = full credit, late = partial credit; school-side cancellations
+    // (teacher/school initiated, per attendance.ts reason convention) are a
+    // direct penalty since they are attributable to the teacher/school, not
+    // the student.
+    const raw =
+      ((presentCount + lateCount * 0.6) / gradedLessonCount) * 100 -
+      (schoolCancelledCount / gradedLessonCount) * 20;
+    score = Math.max(0, Math.min(100, Math.round(raw)));
+  }
+
+  return {
+    teacherId,
+    score,
+    gradedLessonCount,
+    presentCount,
+    lateCount,
+    absentCount,
+    schoolCancelledCount,
+    activeStudentCount,
+  };
+}
+
+export function computeAllTeacherPerformanceScores(data: AppData): TeacherPerformanceScore[] {
+  return data.teachers.map((t) => computeTeacherPerformanceScore(data, t.id));
+}

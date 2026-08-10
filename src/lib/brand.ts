@@ -24,6 +24,6 @@ export const BRAND = {
   logoMarkPath: "/brand/maestron-mark.png",
   /** Şeffaf arka planlı mark — koyu/renkli zeminlerde beyaz kutu olmadan kullanmak için (ör. Gece Obsidyen). */
   logoMarkTransparentPath: "/brand/maestron-mark-transparent.png",
-  faviconPath: "/favicon.svg",
+  faviconPath: "/icon.png",
   ogImagePath: "/brand/maestron-logo.png",
 } as const;
