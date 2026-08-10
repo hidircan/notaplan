@@ -85,41 +85,69 @@ export const studentSchema = z.object({
   path: ["monthlyFeeOverrideReason"],
 });
 
-export const updateStudentProfileSchema = z.object({
-  studentId: z.string().min(1),
-  studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
-  enrollmentStartDate: optionalTrimmed,
-  enrollmentEndDate: optionalTrimmed,
-  level: optionalTrimmed,
-  targetExam: optionalTrimmed,
-  specialNotes: optionalTrimmed,
-  /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
-  termType: z.enum(["guz", "yaz"]).optional(),
-  /**
-   * Bu sprint — temel iletişim/kişisel alanlar (T.C. kimlik hariç; o ayrı
-   * `setNationalIdSchema`/`setNationalIdTool`'dan, mevcut şifreleme/audit
-   * yoluyla değişir). `teacherId`/`instruments` bilinçli olarak BU şemaya
-   * dahil edilmedi — MT-003 ürün kararı: bu ekranda öğretmen/enstrüman
-   * DEĞİŞTİRİLEMEZ (kayıt oluşturmada seçilir, sonradan değişimin ders/
-   * hakediş etkisi ayrı bir akış gerektirir).
-   */
-  phone: optionalTrimmed,
-  parentName: optionalTrimmed,
-  parentPhone: optionalTrimmed,
-  motherName: optionalTrimmed,
-  fatherName: optionalTrimmed,
-  address: optionalTrimmed,
-  birthDate: optionalTrimmed,
-  birthPlace: optionalTrimmed,
-  schoolOrOccupation: optionalTrimmed,
-  communicationOptOut: z.boolean().optional(),
-  /** Bu sprint — kayıt kimliği/eğitim profili düzenlemesi eklendi. */
-  name: z.string().min(1).optional(),
-  email: optionalEmail,
-  /** Tenant-scoped: tools.ts içinde `data.settings.branches`'ta var mı diye doğrulanır. */
-  branchId: optionalTrimmed,
-  educationMethod: z.enum(["Suzuki", "Klasik", "LCM", "MEB", "Kurum İçi", "Diğer"]).optional(),
-});
+export const updateStudentProfileSchema = z
+  .object({
+    studentId: z.string().min(1),
+    studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
+    enrollmentStartDate: optionalTrimmed,
+    enrollmentEndDate: optionalTrimmed,
+    level: optionalTrimmed,
+    targetExam: optionalTrimmed,
+    specialNotes: optionalTrimmed,
+    /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
+    termType: z.enum(["guz", "yaz"]).optional(),
+    /**
+     * Bu sprint — temel iletişim/kişisel alanlar (T.C. kimlik hariç; o ayrı
+     * `setNationalIdSchema`/`setNationalIdTool`'dan, mevcut şifreleme/audit
+     * yoluyla değişir). `teacherId`/`instruments` bilinçli olarak BU şemaya
+     * dahil edilmedi — MT-003 ürün kararı: bu ekranda öğretmen/enstrüman
+     * DEĞİŞTİRİLEMEZ (kayıt oluşturmada seçilir, sonradan değişimin ders/
+     * hakediş etkisi ayrı bir akış gerektirir).
+     */
+    phone: optionalTrimmed,
+    parentName: optionalTrimmed,
+    parentPhone: optionalTrimmed,
+    motherName: optionalTrimmed,
+    fatherName: optionalTrimmed,
+    address: optionalTrimmed,
+    birthDate: optionalTrimmed,
+    birthPlace: optionalTrimmed,
+    schoolOrOccupation: optionalTrimmed,
+    communicationOptOut: z.boolean().optional(),
+    /** Bu sprint — kayıt kimliği/eğitim profili düzenlemesi eklendi. */
+    name: z.string().min(1).optional(),
+    email: optionalEmail,
+    /** Tenant-scoped: tools.ts içinde `data.settings.branches`'ta var mı diye doğrulanır. */
+    branchId: optionalTrimmed,
+    educationMethod: z.enum(["Suzuki", "Klasik", "LCM", "MEB", "Kurum İçi", "Diğer"]).optional(),
+    /**
+     * ÖNCELİK 4 (devam) — Paket Yönetimi + Ödeme profili: paket, süre,
+     * indirim, ödeme günü/türü, override. `computeStudentMonthlyAmount`
+     * (src/lib/student-payment-profile.ts) bu alanları okur; Yoklama
+     * Takvimi ve Ödemeler ekranı AYNI hesaba göre varsayılan tutar gösterir.
+     * discountType burada BİLİNÇLİ OLARAK "percentage"/"fixed" — Package C'nin
+     * ayrı `updateStudentPaymentProfileSchema`'sındaki "percent"/"amount"
+     * İLE KARIŞMAZ (bkz. types.ts DiscountType yorumu, iki ayrı yazma yolu).
+     */
+    packageId: z.string().optional(),
+    lessonDurationMinutes: z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+      message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+    }).optional(),
+    paymentMethod: z.enum(["credit_card", "cash", "transfer"]).optional(),
+    paymentDueDay: z.coerce.number().int().min(1).max(28).optional(),
+    discountType: z.enum(["percentage", "fixed"]).optional(),
+    discountValue: z.coerce.number().int().min(0).optional(),
+    /** Öğrenciye özel override tutar (TL) — set edilirse paket/indirim hesabının yerine geçer. */
+    paymentAmount: z.coerce.number().int().min(0).optional(),
+  })
+  .refine((v) => (v.discountType === undefined) === (v.discountValue === undefined), {
+    message: "İndirim türü ve değeri birlikte belirtilmeli.",
+    path: ["discountValue"],
+  })
+  .refine((v) => v.discountType !== "percentage" || v.discountValue === undefined || v.discountValue <= 100, {
+    message: "Yüzde indirim 100'ü geçemez.",
+    path: ["discountValue"],
+  });
 
 /**
  * Package C — öğrenci paket/süre/indirim/ödeme günü/türü ve (yetkili
@@ -826,6 +854,12 @@ export const updateInstrumentCatalogSchema = z.object({
   status: z.enum(["active", "archived"]).optional(),
 });
 
+const packageDurationSchema = z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+  message: "Varsayılan ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+});
+const packageDueDaySchema = z.coerce.number().int().min(1).max(28);
+const packageLessonCountSchema = z.coerce.number().int().min(0);
+
 export const createPackageSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -833,6 +867,11 @@ export const createPackageSchema = z.object({
   price40Min: z.coerce.number().int().min(0),
   price50Min: z.coerce.number().int().min(0),
   termLabel: z.enum(["guz", "yaz"]).optional(),
+  monthlyLessonCount: packageLessonCountSchema.optional(),
+  groupLessonCount: packageLessonCountSchema.optional(),
+  defaultDurationMinutes: packageDurationSchema.optional(),
+  defaultPaymentDueDay: packageDueDaySchema.optional(),
+  notes: z.string().optional(),
 });
 
 export const updatePackageSchema = z.object({
@@ -844,6 +883,11 @@ export const updatePackageSchema = z.object({
   price50Min: z.coerce.number().int().min(0).optional(),
   termLabel: z.enum(["guz", "yaz"]).optional(),
   status: z.enum(["active", "archived"]).optional(),
+  monthlyLessonCount: packageLessonCountSchema.optional(),
+  groupLessonCount: packageLessonCountSchema.optional(),
+  defaultDurationMinutes: packageDurationSchema.optional(),
+  defaultPaymentDueDay: packageDueDaySchema.optional(),
+  notes: z.string().optional(),
 });
 
 /** Paket 5 — yüzde tabanlı kampanya/indirim (ör. "Kardeş Kampanyası"). */

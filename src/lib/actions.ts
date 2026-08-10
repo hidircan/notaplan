@@ -538,6 +538,14 @@ export async function actionUpdateStudentProfile(input: {
   email?: string;
   branchId?: string;
   educationMethod?: string;
+  /** ÖNCELİK 4 (devam) — Ödeme profili: paket, süre, indirim, ödeme günü/türü, override tutar. */
+  packageId?: string;
+  lessonDurationMinutes?: number;
+  paymentMethod?: "credit_card" | "cash" | "transfer";
+  paymentDueDay?: number;
+  discountType?: "percentage" | "fixed";
+  discountValue?: number;
+  paymentAmount?: number;
 }): Promise<UpdateStudentProfileActionResult> {
   try {
     const result = await withAuthContext("actionUpdateStudentProfile", (ctx) =>
@@ -975,6 +983,18 @@ export async function actionCreatePackage(formData: FormData): Promise<CreatePac
           const raw = String(formData.get("termLabel") || "");
           return raw === "guz" || raw === "yaz" ? raw : undefined;
         })(),
+        monthlyLessonCount: formData.get("monthlyLessonCount")
+          ? Number(formData.get("monthlyLessonCount"))
+          : undefined,
+        groupLessonCount: formData.get("groupLessonCount") ? Number(formData.get("groupLessonCount")) : undefined,
+        defaultDurationMinutes: (() => {
+          const raw = String(formData.get("defaultDurationMinutes") || "");
+          return raw === "30" || raw === "40" || raw === "50" ? Number(raw) : undefined;
+        })(),
+        defaultPaymentDueDay: formData.get("defaultPaymentDueDay")
+          ? Number(formData.get("defaultPaymentDueDay"))
+          : undefined,
+        notes: String(formData.get("notes") || "") || undefined,
       });
       if (!result.ok) return { ok: false as const, message: result.error.message };
       revalidateAll();
@@ -998,6 +1018,11 @@ export async function actionUpdatePackage(input: {
   price50Min?: number;
   termLabel?: "guz" | "yaz";
   status?: "active" | "archived";
+  monthlyLessonCount?: number;
+  groupLessonCount?: number;
+  defaultDurationMinutes?: number;
+  defaultPaymentDueDay?: number;
+  notes?: string;
 }): Promise<UpdatePackageActionResult> {
   try {
     const result = await withAuthContext("actionUpdatePackage", (ctx) => updatePackageTool(ctx, input));

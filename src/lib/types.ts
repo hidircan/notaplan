@@ -210,6 +210,12 @@ export interface Student {
   educationMethod?: EducationMethod;
   lessonDurationMinutes?: LessonDurationPreference;
   paymentMethod?: StudentPaymentMethod;
+  /**
+   * ÖNCELİK 4 (devam) — Ödeme profili override. Set edilmişse hesaplanan
+   * paket/indirim tutarının yerine GEÇER (liste fiyatı + indirim yok
+   * sayılır). Boşsa aylık tutar paket+süre+indirimden hesaplanır — bkz.
+   * src/lib/student-payment-profile.ts.
+   */
   paymentAmount?: number;
   /** Ayın günü (1–31) vade hedefi — ay sonu taşması mevcut ödeme motoru (dueWindowForPaymentMethod) davranışıyla çözülür. */
   paymentDueDay?: number;
@@ -221,7 +227,10 @@ export interface Student {
    */
   packageBaseMonthlyFee?: number;
   discountType?: DiscountType;
-  /** discountType="percent" ise 0–100 arası yüzde, "amount" ise TL tutar. */
+  /**
+   * discountType="percent"/"percentage" ise 0–100 arası yüzde, "amount"/
+   * "fixed" ise TL tutar — bkz. DiscountType yorumu (iki ayrı yazma yolu).
+   */
   discountValue?: number;
   /** true ise `monthlyFee` hesaplanan (taban - indirim) değerden FARKLI, admin tarafından elle girilmiştir. */
   monthlyFeeManualOverride?: boolean;
@@ -263,6 +272,16 @@ export interface Package {
   price50Min: number;
   /** "guz" | "yaz" | undefined (Genel — her iki dönemde de geçerli). */
   termLabel?: StudentTermType;
+  /** Aylık (bireysel) ders adedi. */
+  monthlyLessonCount?: number;
+  /** Grup solfej / ek ders adedi (aylık). */
+  groupLessonCount?: number;
+  /** Öğrenci kaydında önerilen varsayılan ders süresi. */
+  defaultDurationMinutes?: LessonDurationPreference;
+  /** Öğrenci kaydında önerilen varsayılan ödeme günü (1–28). */
+  defaultPaymentDueDay?: number;
+  /** Paket kapsamını açıklayan serbest metin not. */
+  notes?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -930,8 +949,16 @@ export type LessonDurationPreference = 30 | 40 | 50;
 
 export type StudentPaymentMethod = "credit_card" | "cash" | "transfer";
 
-/** Package C — paket fiyatına uygulanan indirim türü: yüzde veya sabit TL tutar. */
-export type DiscountType = "percent" | "amount";
+/**
+ * Package C (`updateStudentPaymentProfileTool`, eski editör) "percent"/
+ * "amount" yazar; Paket Yönetimi (`updateStudentProfileTool` genişletmesi,
+ * `computeStudentMonthlyAmount`) "percentage"/"fixed" yazar — İKİ ayrı,
+ * halen çalışan yazma yolu AYNI `Student.discountType` alanını paylaşıyor.
+ * Birini diğerinin yerine koymak yerine (ikisi de test edilmiş/kullanımda)
+ * kabul edilen değer kümesi BİLEREK birleştirildi (union); her yol yalnızca
+ * KENDİ yazdığı sözlüğü okur/yorumlar, karışmaz.
+ */
+export type DiscountType = "percent" | "amount" | "percentage" | "fixed";
 
 export type InstrumentLevel = "Başlangıç" | "Orta" | "İleri";
 

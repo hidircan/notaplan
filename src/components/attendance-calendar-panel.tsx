@@ -173,6 +173,7 @@ export function AttendanceCalendarPanel({
   readOnly = false,
   studentActive = true,
   defaultMonthlyFee,
+  defaultMonthlyAmount,
 }: {
   studentId: string;
   /** Öğrencinin kayıtlı dönemi — ilk açılışta seçili dönem olarak kullanılır, kullanıcı değiştirebilir. */
@@ -185,6 +186,14 @@ export function AttendanceCalendarPanel({
   studentActive?: boolean;
   /** Öğrencinin güncel varsayılan aylık ücreti (Student.monthlyFee) — yalnızca bilgi amaçlı gösterilir, ay kutusundaki Tutar alanının değerini belirlemez/değiştirmez. */
   defaultMonthlyFee?: number;
+  /**
+   * ÖNCELİK 4 (devam) — Ödeme profili entegrasyonu: öğrencinin paket/süre/
+   * indirim/override'dan hesaplanan aylık beklenen tutarı (bkz.
+   * src/lib/student-payment-profile.ts computeStudentMonthlyAmount). Ay
+   * kutusunun varsayılan/placeholder değeri — admin dilediği ayda farklı
+   * bir tutar girip Kaydet edebilir, bu yalnızca bir başlangıç değeridir.
+   */
+  defaultMonthlyAmount?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -369,8 +378,11 @@ export function AttendanceCalendarPanel({
   async function onSaveAmount(key: string) {
     if (!canEdit || readOnly) return;
     const raw = amounts[key];
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount < 0) {
+    const amount =
+      raw === undefined || raw.trim() === ""
+        ? defaultMonthlyAmount
+        : Number(raw);
+    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
       setError("Geçerli bir tutar girin.");
       return;
     }
@@ -528,7 +540,9 @@ export function AttendanceCalendarPanel({
                     <input
                       type="number"
                       min={0}
-                      placeholder="Tutar"
+                      placeholder={
+                        defaultMonthlyAmount !== undefined ? String(defaultMonthlyAmount) : "Tutar"
+                      }
                       value={amounts[key] ?? ""}
                       onChange={(e) => setAmounts((prev) => ({ ...prev, [key]: e.target.value }))}
                       className="w-20 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs"

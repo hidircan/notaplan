@@ -1,217 +1,237 @@
 "use client";
 
 /**
- * Package C — öğrenci detayında paket/süre/indirim/ödeme günü/türü ve
- * (yalnızca yetkili yönetici) manuel nihai ücret override'ı. Yalnızca
- * SCHOOL_ADMIN/SUPER_ADMIN render edilir (çağıran taraftan); backend'de de
- * yalnız bu roller yazabilir (`updateStudentPaymentProfileTool` RBAC'ı) —
- * bu bileşen ikinci bir savunma katmanıdır, tek kaynak değildir. Canlı
- * önizleme aynı `computeMonthlyFee` helper'ını kullanır; kaydedilen değer
- * her zaman sunucuda yeniden hesaplanır.
+ * ÖNCELİK 4 (devam) — Paket Yönetimi + öğrenci ödeme profili. Öğrenci
+ * detayında paket/süre/indirim/ödeme günü-türü/override düzenler; liste
+ * fiyatı, indirim ve net tutarı canlı hesaplar (bkz.
+ * src/lib/student-payment-profile.ts — Yoklama Takvimi ay kutusu ve
+ * Ödemeler ekranı AYNI fonksiyonu kullanır, burada da aynı sonuç
+ * gösterilir). Yalnızca SCHOOL_ADMIN/SUPER_ADMIN render edilir (çağıran
+ * taraftan kontrol edilir); backend RBAC (updateStudentProfileTool) ikinci
+ * savunma katmanıdır. Paket/indirim/override değişikliği GEÇMİŞ Payment
+ * kayıtlarına asla dokunmaz — yalnızca bundan sonraki Yoklama Takvimi ay
+ * kutusu varsayılan tutarını değiştirir.
  */
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { actionUpdateStudentProfile } from "@/lib/actions";
 import { Button, Input, Label, Select } from "@/components/ui";
-import { actionUpdateStudentPaymentProfile } from "@/lib/actions";
-import { computeMonthlyFee } from "@/lib/packages";
-import { LESSON_DURATION_OPTIONS } from "@/lib/lesson-duration";
-import type { PricingPackageOption } from "./student-package-pricing-fields";
+import { formatMoney } from "@/lib/utils";
+import { activePackages, packageStatusLabel, priceForDuration } from "@/lib/packages";
+import { computeStudentMonthlyAmount } from "@/lib/student-payment-profile";
+import type { DiscountType, LessonDurationPreference, Package, StudentPaymentMethod } from "@/lib/types";
 
-function formatTL(amount: number): string {
-  return `${amount.toLocaleString("tr-TR")} TL`;
-}
+const DURATIONS: LessonDurationPreference[] = [30, 40, 50];
+const PAYMENT_METHOD_LABELS: Record<StudentPaymentMethod, string> = {
+  credit_card: "Kredi kartı",
+  cash: "Nakit",
+  transfer: "Havale/EFT",
+};
 
 export function StudentPaymentProfileEditor({
   studentId,
   packages,
-  initial,
+  initialPackageId,
+  initialDurationMinutes,
+  initialPaymentMethod,
+  initialPaymentDueDay,
+  initialDiscountType,
+  initialDiscountValue,
+  initialOverrideAmount,
 }: {
   studentId: string;
-  packages: PricingPackageOption[];
-  initial: {
-    packageId?: string;
-    lessonDurationMinutes?: number;
-    discountType?: "percent" | "amount";
-    discountValue?: number;
-    paymentMethod?: "cash" | "transfer" | "credit_card";
-    paymentDueDay?: number;
-    monthlyFee: number;
-    monthlyFeeManualOverride?: boolean;
-  };
+  packages: Package[];
+  initialPackageId?: string;
+  initialDurationMinutes?: LessonDurationPreference;
+  initialPaymentMethod?: StudentPaymentMethod;
+  initialPaymentDueDay?: number;
+  initialDiscountType?: DiscountType;
+  initialDiscountValue?: number;
+  initialOverrideAmount?: number;
 }) {
   const router = useRouter();
-  const [packageId, setPackageId] = useState(initial.packageId ?? "");
-  const [duration, setDuration] = useState(initial.lessonDurationMinutes ?? 40);
-  const [discountType, setDiscountType] = useState<"" | "percent" | "amount">(initial.discountType ?? "");
-  const [discountValue, setDiscountValue] = useState(initial.discountValue ? String(initial.discountValue) : "");
-  const [paymentMethod, setPaymentMethod] = useState<"" | "cash" | "transfer" | "credit_card">(
-    initial.paymentMethod ?? ""
-  );
-  const [paymentDueDay, setPaymentDueDay] = useState(initial.paymentDueDay ? String(initial.paymentDueDay) : "");
-  const [overrideAmount, setOverrideAmount] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const [packageId, setPackageId] = useState(initialPackageId ?? "");
+  const [durationMinutes, setDurationMinutes] = useState<LessonDurationPreference>(initialDurationMinutes ?? 30);
+  const [paymentMethod, setPaymentMethod] = useState<StudentPaymentMethod | "">(initialPaymentMethod ?? "");
+  const [paymentDueDay, setPaymentDueDay] = useState(initialPaymentDueDay ? String(initialPaymentDueDay) : "");
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed" | "">(
+    initialDiscountType === "percentage" || initialDiscountType === "fixed" ? initialDiscountType : ""
+  );
+  const [discountValue, setDiscountValue] = useState(initialDiscountValue !== undefined ? String(initialDiscountValue) : "");
+  const [overrideAmount, setOverrideAmount] = useState(initialOverrideAmount !== undefined ? String(initialOverrideAmount) : "");
+
+  // Pasif paket, önceden atanmışsa görünmeye devam eder — yeni öğrenciye
+  // (veya bu öğrencinin BAŞKA bir arşivlenmiş pakete geçişine) seçilemez.
+  const selectablePackages = useMemo(() => {
+    const active = activePackages(packages);
+    const current = packages.find((p) => p.id === initialPackageId);
+    if (current && current.status === "archived" && !active.some((p) => p.id === current.id)) {
+      return [current, ...active];
+    }
+    return active;
+  }, [packages, initialPackageId]);
+
   const selectedPackage = packages.find((p) => p.id === packageId);
-  const computation = useMemo(() => {
-    if (!selectedPackage) return null;
-    const dv = discountType ? Number(discountValue) : undefined;
-    return computeMonthlyFee({
-      pkg: selectedPackage,
-      durationMinutes: duration as 30 | 40 | 50,
-      discountType: discountType || undefined,
-      discountValue: dv && Number.isFinite(dv) && dv > 0 ? dv : undefined,
-    });
-  }, [selectedPackage, duration, discountType, discountValue]);
+  const preview = useMemo(
+    () =>
+      computeStudentMonthlyAmount(
+        {
+          paymentAmount: overrideAmount.trim() === "" ? undefined : Number(overrideAmount),
+          discountType: discountType || undefined,
+          discountValue: discountValue.trim() === "" ? undefined : Number(discountValue),
+        },
+        selectedPackage,
+        durationMinutes
+      ),
+    [selectedPackage, durationMinutes, discountType, discountValue, overrideAmount]
+  );
 
   function onSave() {
     setError(null);
     setSaved(false);
-    const overrideNum = overrideAmount ? Number(overrideAmount) : undefined;
+    if (discountType && discountValue.trim() === "") {
+      setError("İndirim değeri gerekli.");
+      return;
+    }
+    if (!discountType && discountValue.trim() !== "") {
+      setError("İndirim türü gerekli.");
+      return;
+    }
     startTransition(async () => {
-      const result = await actionUpdateStudentPaymentProfile({
+      const result = await actionUpdateStudentProfile({
         studentId,
         packageId: packageId || undefined,
-        lessonDurationMinutes: selectedPackage ? duration : undefined,
-        discountType: selectedPackage && discountType ? discountType : undefined,
-        discountValue:
-          selectedPackage && discountType && discountValue ? Number(discountValue) : undefined,
+        lessonDurationMinutes: durationMinutes,
         paymentMethod: paymentMethod || undefined,
-        paymentDueDay: paymentDueDay ? Number(paymentDueDay) : undefined,
-        monthlyFeeOverrideAmount: overrideNum,
-        monthlyFeeOverrideReason: overrideReason || undefined,
+        paymentDueDay: paymentDueDay.trim() === "" ? undefined : Number(paymentDueDay),
+        discountType: discountType || undefined,
+        discountValue: discountValue.trim() === "" ? undefined : Number(discountValue),
+        paymentAmount: overrideAmount.trim() === "" ? undefined : Number(overrideAmount),
       });
       if (!result.ok) {
         setError(result.message);
         return;
       }
       setSaved(true);
-      setOverrideAmount("");
-      setOverrideReason("");
       router.refresh();
     });
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-      <div>
-        <Label>Paket</Label>
-        <Select name="packageId" value={packageId} onChange={(e) => setPackageId(e.target.value)}>
-          <option value="">Seçilmedi (serbest ücret)</option>
-          {packages.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      {selectedPackage ? (
-        <>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label>Ders süresi</Label>
-              <Select value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
-                {LESSON_DURATION_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d} dk
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>İndirim türü</Label>
-              <Select
-                value={discountType}
-                onChange={(e) => setDiscountType(e.target.value as "" | "percent" | "amount")}
-              >
-                <option value="">İndirim yok</option>
-                <option value="percent">Yüzde (%)</option>
-                <option value="amount">Tutar (TL)</option>
-              </Select>
-            </div>
-          </div>
-          {discountType ? (
-            <div>
-              <Label>İndirim değeri</Label>
-              <Input
-                type="number"
-                min={0}
-                value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
-              />
-            </div>
-          ) : null}
-          <div className="rounded-md bg-[var(--color-bg)] p-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--color-text-muted)]">Liste fiyatı</span>
-              <span className="font-medium">{formatTL(computation?.baseMonthlyFee ?? 0)}</span>
-            </div>
-            {computation && computation.discountAmount > 0 ? (
-              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
-                <span>İndirim</span>
-                <span className="font-medium">−{formatTL(computation.discountAmount)}</span>
-              </div>
-            ) : null}
-            <div className="mt-1 flex items-center justify-between border-t border-[var(--color-border)] pt-1 font-semibold">
-              <span>Hesaplanan nihai ücret</span>
-              <span>{formatTL(computation?.finalMonthlyFee ?? 0)}</span>
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <Label>Ödeme türü</Label>
-          <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}>
-            <option value="">Belirtilmemiş</option>
-            <option value="cash">Nakit</option>
-            <option value="transfer">Havale</option>
-            <option value="credit_card">Kredi Kartı</option>
+          <Label>Paket</Label>
+          <Select value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+            <option value="">Seçilmedi (serbest metin paket kullanılıyor)</option>
+            {selectablePackages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+                {p.status === "archived" ? ` (${packageStatusLabel(p.status)})` : ""}
+              </option>
+            ))}
           </Select>
         </div>
         <div>
-          <Label>Ödeme günü (1–31)</Label>
-          <Input
-            type="number"
-            min={1}
-            max={31}
-            value={paymentDueDay}
-            onChange={(e) => setPaymentDueDay(e.target.value)}
-          />
+          <Label>Ders süresi</Label>
+          <Select
+            value={String(durationMinutes)}
+            onChange={(e) => setDurationMinutes(Number(e.target.value) as LessonDurationPreference)}
+          >
+            {DURATIONS.map((d) => (
+              <option key={d} value={d}>
+                {d} dk{selectedPackage ? ` — ${formatMoney(priceForDuration(selectedPackage, d))}` : ""}
+              </option>
+            ))}
+          </Select>
         </div>
-      </div>
-
-      <div className="rounded-md border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-800 dark:bg-amber-950/20">
-        <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-          Manuel nihai ücret (opsiyonel) — mevcut: {formatTL(initial.monthlyFee)}
-          {initial.monthlyFeeManualOverride ? " (elle girilmiş)" : ""}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>İndirim türü</Label>
+          <Select value={discountType} onChange={(e) => setDiscountType(e.target.value as "percentage" | "fixed" | "")}>
+            <option value="">İndirim yok</option>
+            <option value="percentage">Yüzde (%)</option>
+            <option value="fixed">Sabit tutar (TL)</option>
+          </Select>
+        </div>
+        <div>
+          <Label>İndirim değeri</Label>
           <Input
             type="number"
             min={0}
-            placeholder="Yeni tutar"
+            max={discountType === "percentage" ? 100 : undefined}
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+            disabled={!discountType}
+            placeholder={discountType === "percentage" ? "Örn. 10" : "Örn. 500"}
+          />
+        </div>
+        <div>
+          <Label>Ödeme günü</Label>
+          <Input
+            type="number"
+            min={1}
+            max={28}
+            value={paymentDueDay}
+            onChange={(e) => setPaymentDueDay(e.target.value)}
+            placeholder="Ayın günü (1–28)"
+          />
+        </div>
+        <div>
+          <Label>Ödeme türü</Label>
+          <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as StudentPaymentMethod | "")}>
+            <option value="">Belirtilmemiş</option>
+            {(Object.keys(PAYMENT_METHOD_LABELS) as StudentPaymentMethod[]).map((m) => (
+              <option key={m} value={m}>
+                {PAYMENT_METHOD_LABELS[m]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="sm:col-span-2">
+          <Label>Özel tutar (override, opsiyonel)</Label>
+          <Input
+            type="number"
+            min={0}
             value={overrideAmount}
             onChange={(e) => setOverrideAmount(e.target.value)}
-          />
-          <Input
-            placeholder="Gerekçe (zorunlu)"
-            value={overrideReason}
-            onChange={(e) => setOverrideReason(e.target.value)}
+            placeholder="Boş bırakılırsa paket + indirimden hesaplanan tutar kullanılır"
           />
         </div>
       </div>
 
-      <Button type="button" variant="secondary" disabled={pending} onClick={onSave}>
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm">
+        <p className="font-semibold text-[var(--color-text)]">Ödeme profili özeti</p>
+        <dl className="mt-1 space-y-0.5 text-xs text-[var(--color-text-muted)]">
+          <div>Liste fiyatı: {preview.listPrice !== null ? formatMoney(preview.listPrice) : "Paket seçilmedi"}</div>
+          {preview.discountAmount > 0 ? <div>İndirim: -{formatMoney(preview.discountAmount)}</div> : null}
+          {preview.overrideAmount !== null ? (
+            <div className="font-medium text-amber-800">
+              Override uygulanıyor: {formatMoney(preview.overrideAmount)}
+              {preview.discountedPrice !== null && preview.discountedPrice !== preview.overrideAmount ? (
+                <> (paket/indirim tutarı yerine geçer — liste+indirim: {formatMoney(preview.discountedPrice)})</>
+              ) : null}
+            </div>
+          ) : null}
+        </dl>
+        <p className="mt-2 text-sm font-semibold text-[var(--color-text)]">
+          Net aylık tutar: {preview.netAmount !== null ? formatMoney(preview.netAmount) : "—"}
+        </p>
+      </div>
+
+      {error ? <p className="text-xs font-medium text-[#8b3a3a]">{error}</p> : null}
+      {saved && !pending ? <p className="text-xs text-emerald-700">Kaydedildi.</p> : null}
+      <Button type="button" disabled={pending} onClick={onSave}>
         {pending ? "Kaydediliyor…" : "Ödeme profilini kaydet"}
       </Button>
-      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
-      {saved ? <p className="text-xs font-medium text-emerald-600">Kaydedildi.</p> : null}
+      <p className="text-[11px] text-[var(--color-text-muted)]">
+        Not: bu değişiklik geçmiş ödeme kayıtlarını etkilemez — yalnızca Yoklama Takvimi&apos;ndeki bundan sonraki ay
+        kutularının varsayılan tutarını günceller.
+      </p>
     </div>
   );
 }

@@ -744,6 +744,11 @@ async function readPackages(tid: string): Promise<AppData["packages"]> {
     price40Min: p.price40Min,
     price50Min: p.price50Min,
     termLabel: (p.termLabel as import("./types").StudentTermType | null) ?? undefined,
+    monthlyLessonCount: p.monthlyLessonCount ?? undefined,
+    groupLessonCount: p.groupLessonCount ?? undefined,
+    defaultDurationMinutes: (p.defaultDurationMinutes as import("./types").LessonDurationPreference | null) ?? undefined,
+    defaultPaymentDueDay: p.defaultPaymentDueDay ?? undefined,
+    notes: p.notes ?? undefined,
     createdBy: p.createdBy,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
@@ -1096,10 +1101,12 @@ export async function updateStudentProfile(
       fatherName: patch.fatherName,
       address: patch.address,
       birthDate: patch.birthDate ? new Date(patch.birthDate) : undefined,
-      // Package C — ödeme profili + paket fiyatlandırma alanları. Bu
-      // mapping öncesinde paymentMethod/paymentAmount/paymentDueDay hiçbir
-      // DB-mode yazma yoluna sahip değildi (JSON/memory store generic
-      // spread ile zaten destekliyordu) — burada eklenerek parity kapatıldı.
+      // Package C / Paket Yönetimi — ödeme profili + paket fiyatlandırma
+      // alanları. Bu mapping öncesinde lessonDurationMinutes/paymentMethod/
+      // paymentAmount/paymentDueDay hiçbir DB-mode yazma yoluna sahip
+      // değildi (JSON/memory store generic spread ile zaten destekliyordu)
+      // — burada eklenerek parity kapatıldı.
+      lessonDurationMinutes: patch.lessonDurationMinutes,
       paymentMethod: patch.paymentMethod,
       paymentAmount: patch.paymentAmount,
       paymentDueDay: patch.paymentDueDay,
@@ -2108,6 +2115,11 @@ export async function addPackage(input: PackageInput): Promise<PackageMutationRe
       price40Min: result.pkg.price40Min,
       price50Min: result.pkg.price50Min,
       termLabel: result.pkg.termLabel,
+      monthlyLessonCount: result.pkg.monthlyLessonCount,
+      groupLessonCount: result.pkg.groupLessonCount,
+      defaultDurationMinutes: result.pkg.defaultDurationMinutes,
+      defaultPaymentDueDay: result.pkg.defaultPaymentDueDay,
+      notes: result.pkg.notes,
       createdBy: result.pkg.createdBy,
       createdAt: new Date(result.pkg.createdAt),
       updatedAt: new Date(result.pkg.updatedAt),
@@ -2133,6 +2145,11 @@ export async function updatePackage(packageId: string, patch: PackagePatch): Pro
       price40Min: patch.price40Min,
       price50Min: patch.price50Min,
       termLabel: patch.termLabel,
+      monthlyLessonCount: patch.monthlyLessonCount,
+      groupLessonCount: patch.groupLessonCount,
+      defaultDurationMinutes: patch.defaultDurationMinutes,
+      defaultPaymentDueDay: patch.defaultPaymentDueDay,
+      notes: patch.notes,
     },
   });
   if (updateResult.count === 0) return { ok: false, message: "Paket bulunamadı." };

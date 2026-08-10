@@ -485,6 +485,20 @@ export function createSeedData(): AppData {
         createdAt: at(-90, 8),
         updatedAt: at(-90, 8),
       },
+      {
+        id: "pkg_bireysel_4gs",
+        title: "Bireysel ders + 4 grup solfej dersi",
+        description: "Aylık bireysel ders + 4 grup solfej dersi",
+        status: "active",
+        price30Min: 6000,
+        price40Min: 7000,
+        price50Min: 8000,
+        monthlyLessonCount: 4,
+        groupLessonCount: 4,
+        createdBy: "seed",
+        createdAt: at(-90, 8),
+        updatedAt: at(-90, 8),
+      },
     ],
   };
 }

@@ -263,7 +263,11 @@ model Student {
   /// Package C — paket+süre indirim ÖNCESİ liste fiyatı (bilgi/audit amaçlı).
   /// `monthlyFee` HER ZAMAN nihai (indirim/override uygulanmış) ücrettir.
   packageBaseMonthlyFee  Int?
-  /// "percent" | "amount" — bkz. src/lib/packages.ts computeMonthlyFee.
+  /// Package C: "percent" | "amount" (bkz. src/lib/packages.ts computeMonthlyFee).
+  /// Paket Yönetimi (ÖNCELİK 4 devam): "percentage" | "fixed" (bkz.
+  /// src/lib/student-payment-profile.ts computeStudentMonthlyAmount). İki ayrı
+  /// yazma yolu aynı alanı paylaşır — bkz. src/lib/types.ts DiscountType.
+  /// discountValue olmadan tek başına anlamsız — ikisi birlikte set edilir.
   discountType           String?
   discountValue          Float?
   /// true ise monthlyFee hesaplanan değerden farklı, admin tarafından elle girilmiştir.
@@ -1014,6 +1018,16 @@ model Package {
   price50Min  Int
   /// "guz" | "yaz" | null (Genel — her iki dönemde de geçerli).
   termLabel   String?
+  /// Aylık (bireysel) ders adedi.
+  monthlyLessonCount    Int?
+  /// Grup solfej / ek ders adedi (aylık).
+  groupLessonCount      Int?
+  /// Öğrenci kaydında önerilen varsayılan ders süresi (30/40/50).
+  defaultDurationMinutes Int?
+  /// Öğrenci kaydında önerilen varsayılan ödeme günü (1–28).
+  defaultPaymentDueDay  Int?
+  /// Paket kapsamını açıklayan serbest metin not.
+  notes       String?   @db.Text
   createdBy   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
