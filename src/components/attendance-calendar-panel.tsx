@@ -167,6 +167,7 @@ export function AttendanceCalendarPanel({
   canEdit,
   readOnly = false,
   studentActive = true,
+  defaultMonthlyAmount,
 }: {
   studentId: string;
   /** Öğrencinin kayıtlı dönemi — ilk açılışta seçili dönem olarak kullanılır, kullanıcı değiştirebilir. */
@@ -177,6 +178,14 @@ export function AttendanceCalendarPanel({
   readOnly?: boolean;
   /** Pasif/arşiv öğrenci için takvimden tahsilat aksiyonu render edilmez (yeni ders/tahsilat akışıyla tutarlı). */
   studentActive?: boolean;
+  /**
+   * ÖNCELİK 4 (devam) — Ödeme profili entegrasyonu: öğrencinin paket/süre/
+   * indirim/override'dan hesaplanan aylık beklenen tutarı (bkz.
+   * src/lib/student-payment-profile.ts). Ay kutusunun varsayılan değeri —
+   * admin dilediği ayda farklı bir tutar girip Kaydet edebilir, bu yalnızca
+   * bir başlangıç değeridir.
+   */
+  defaultMonthlyAmount?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -357,8 +366,11 @@ export function AttendanceCalendarPanel({
   async function onSaveAmount(key: string) {
     if (!canEdit || readOnly) return;
     const raw = amounts[key];
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount < 0) {
+    const amount =
+      raw === undefined || raw.trim() === ""
+        ? defaultMonthlyAmount
+        : Number(raw);
+    if (amount === undefined || !Number.isFinite(amount) || amount < 0) {
       setError("Geçerli bir tutar girin.");
       return;
     }
@@ -501,7 +513,9 @@ export function AttendanceCalendarPanel({
                     <input
                       type="number"
                       min={0}
-                      placeholder="Tutar"
+                      placeholder={
+                        defaultMonthlyAmount !== undefined ? String(defaultMonthlyAmount) : "Tutar"
+                      }
                       value={amounts[key] ?? ""}
                       onChange={(e) => setAmounts((prev) => ({ ...prev, [key]: e.target.value }))}
                       className="w-24 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs"

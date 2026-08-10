@@ -243,6 +243,10 @@ model Student {
   packageId              String?
   birthPlace             String?
   schoolOrOccupation     String?
+  /// ÖNCELİK 4 (devam) — Ödeme profili indirimi. "percentage" | "fixed".
+  /// discountValue olmadan tek başına anlamsız — ikisi birlikte set edilir.
+  discountType           String?
+  discountValue          Int?
   /// Sosyal medya izni — MEVCUT `SocialMediaConsent` modelinde tutulur
   /// (öğrenci başına en güncel kayıt + tarihçe); Student üzerinde ayrı bir
   /// alan/paralel model YOK — bkz. src/lib/social-media-consent.ts.
@@ -954,6 +958,16 @@ model Package {
   price50Min  Int
   /// "guz" | "yaz" | null (Genel — her iki dönemde de geçerli).
   termLabel   String?
+  /// Aylık (bireysel) ders adedi.
+  monthlyLessonCount    Int?
+  /// Grup solfej / ek ders adedi (aylık).
+  groupLessonCount      Int?
+  /// Öğrenci kaydında önerilen varsayılan ders süresi (30/40/50).
+  defaultDurationMinutes Int?
+  /// Öğrenci kaydında önerilen varsayılan ödeme günü (1–28).
+  defaultPaymentDueDay  Int?
+  /// Paket kapsamını açıklayan serbest metin not.
+  notes       String?   @db.Text
   createdBy   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

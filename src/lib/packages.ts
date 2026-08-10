@@ -4,7 +4,7 @@
  * yok, yalnızca AppData -> AppData dönüşümü + doğrulama.
  */
 
-import type { AppData, Package, PackageStatus, StudentTermType } from "./types";
+import type { AppData, LessonDurationPreference, Package, PackageStatus, StudentTermType } from "./types";
 import { uid } from "./utils";
 
 export type PackageInput = {
@@ -14,6 +14,11 @@ export type PackageInput = {
   price40Min: number;
   price50Min: number;
   termLabel?: StudentTermType;
+  monthlyLessonCount?: number;
+  groupLessonCount?: number;
+  defaultDurationMinutes?: LessonDurationPreference;
+  defaultPaymentDueDay?: number;
+  notes?: string;
   createdBy: string;
 };
 
@@ -34,10 +39,32 @@ function validatePrices(input: Pick<PackageInput, "price30Min" | "price40Min" | 
   return null;
 }
 
+function validateLessonCounts(
+  input: Pick<PackageInput, "monthlyLessonCount" | "groupLessonCount" | "defaultPaymentDueDay">
+): string | null {
+  for (const [label, value] of [
+    ["Aylık ders adedi", input.monthlyLessonCount],
+    ["Grup solfej / ek ders adedi", input.groupLessonCount],
+  ] as const) {
+    if (value === undefined) continue;
+    if (!Number.isInteger(value) || value < 0) {
+      return `${label} negatif olmayan bir tam sayı olmalı.`;
+    }
+  }
+  if (input.defaultPaymentDueDay !== undefined) {
+    if (!Number.isInteger(input.defaultPaymentDueDay) || input.defaultPaymentDueDay < 1 || input.defaultPaymentDueDay > 28) {
+      return "Varsayılan ödeme günü 1 ile 28 arasında olmalı.";
+    }
+  }
+  return null;
+}
+
 export function createPackageData(data: AppData, input: PackageInput, now: Date = new Date()): PackageMutationResult {
   if (!input.title.trim()) return { ok: false, message: "Paket başlığı boş olamaz." };
   const priceError = validatePrices(input);
   if (priceError) return { ok: false, message: priceError };
+  const countError = validateLessonCounts(input);
+  if (countError) return { ok: false, message: countError };
 
   const nowIso = now.toISOString();
   const pkg: Package = {
@@ -49,6 +76,11 @@ export function createPackageData(data: AppData, input: PackageInput, now: Date 
     price40Min: input.price40Min,
     price50Min: input.price50Min,
     termLabel: input.termLabel,
+    monthlyLessonCount: input.monthlyLessonCount,
+    groupLessonCount: input.groupLessonCount,
+    defaultDurationMinutes: input.defaultDurationMinutes,
+    defaultPaymentDueDay: input.defaultPaymentDueDay,
+    notes: input.notes?.trim() || undefined,
     createdBy: input.createdBy,
     createdAt: nowIso,
     updatedAt: nowIso,
@@ -57,7 +89,21 @@ export function createPackageData(data: AppData, input: PackageInput, now: Date 
 }
 
 export type PackagePatch = Partial<
-  Pick<Package, "title" | "description" | "price30Min" | "price40Min" | "price50Min" | "termLabel" | "status">
+  Pick<
+    Package,
+    | "title"
+    | "description"
+    | "price30Min"
+    | "price40Min"
+    | "price50Min"
+    | "termLabel"
+    | "status"
+    | "monthlyLessonCount"
+    | "groupLessonCount"
+    | "defaultDurationMinutes"
+    | "defaultPaymentDueDay"
+    | "notes"
+  >
 >;
 
 /**
@@ -86,6 +132,18 @@ export function updatePackageData(
       price50Min: patch.price50Min ?? existing.price50Min,
     });
     if (priceError) return { ok: false, message: priceError };
+  }
+  if (
+    patch.monthlyLessonCount !== undefined ||
+    patch.groupLessonCount !== undefined ||
+    patch.defaultPaymentDueDay !== undefined
+  ) {
+    const countError = validateLessonCounts({
+      monthlyLessonCount: patch.monthlyLessonCount ?? existing.monthlyLessonCount,
+      groupLessonCount: patch.groupLessonCount ?? existing.groupLessonCount,
+      defaultPaymentDueDay: patch.defaultPaymentDueDay ?? existing.defaultPaymentDueDay,
+    });
+    if (countError) return { ok: false, message: countError };
   }
   if (patch.title !== undefined && !patch.title.trim()) {
     return { ok: false, message: "Paket başlığı boş olamaz." };
@@ -117,4 +175,9 @@ export function priceForDuration(pkg: Package, durationMinutes: 30 | 40 | 50): n
 
 export function packageStatusLabel(status: PackageStatus): string {
   return status === "archived" ? "Arşivlendi" : "Aktif";
+}
+
+/** Bir paketi aktif olarak kullanan (arşivlenmemiş) öğrenci sayısı — tenant-scoped `data` üzerinden. */
+export function activeStudentCountForPackage(data: Pick<AppData, "students">, packageId: string): number {
+  return (data.students ?? []).filter((s) => s.packageId === packageId && s.active !== false && !s.archivedAt).length;
 }

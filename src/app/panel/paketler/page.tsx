@@ -35,7 +35,11 @@ export default async function PackagesPage() {
         title="Paketler"
         description="Öğrenci kaydında seçilebilecek ders paketlerini yönetin — 30/40/50 dk süreye göre fiyatlandırma."
       />
-      <PackageManager packages={data.packages ?? []} canWrite={kurum.scope.mode === "single"} />
+      <PackageManager
+        packages={data.packages ?? []}
+        students={data.students}
+        canWrite={kurum.scope.mode === "single"}
+      />
     </div>
   );
 }

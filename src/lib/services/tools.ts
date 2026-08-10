@@ -243,9 +243,11 @@ import {
   type HomeworkSubmission,
   type Instrument,
   type LessonAssessment,
+  type LessonDurationPreference,
   type MakeupSlot,
   type Notification,
   type Student,
+  type StudentProfilePatch,
   type Teacher,
   type TeacherAvailabilityRequest,
   type TeacherFeedback,
@@ -942,7 +944,11 @@ export async function updateStudentProfileTool(
 
   try {
     const { studentId, ...patch } = v.data;
-    await updateStudentProfile(studentId, patch);
+    const profilePatch: StudentProfilePatch = {
+      ...patch,
+      lessonDurationMinutes: patch.lessonDurationMinutes as LessonDurationPreference | undefined,
+    };
+    await updateStudentProfile(studentId, profilePatch);
     audit(ctx, "student.profile_update", "Student", studentId, patch);
     return ok({ studentId });
   } catch (e) {
@@ -1113,7 +1119,11 @@ export async function createPackageTool(
   const v = parseOrFail(createPackageSchema, input);
   if (!v.ok) return v;
 
-  const result = await addPackage({ ...v.data, createdBy: ctx.userId });
+  const result = await addPackage({
+    ...v.data,
+    defaultDurationMinutes: v.data.defaultDurationMinutes as LessonDurationPreference | undefined,
+    createdBy: ctx.userId,
+  });
   if (!result.ok) return fail("VALIDATION_ERROR", result.message);
   audit(ctx, "package.create", "Package", result.pkg.id, { title: result.pkg.title });
   return ok({ packageId: result.pkg.id });
@@ -1136,7 +1146,10 @@ export async function updatePackageTool(
   if (!v.ok) return v;
 
   const { packageId, ...patch } = v.data;
-  const result = await updatePackage(packageId, patch);
+  const result = await updatePackage(packageId, {
+    ...patch,
+    defaultDurationMinutes: patch.defaultDurationMinutes as LessonDurationPreference | undefined,
+  });
   if (!result.ok) return fail("VALIDATION_ERROR", result.message);
   audit(ctx, "package.update", "Package", packageId, patch);
   return ok({ packageId });

@@ -5,6 +5,7 @@ import { actionAddPayment } from "@/lib/actions";
 import { Badge, Button, Card, EmptyState, Input, Label, PageHeader, StatCard } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
+import { computeStudentMonthlyAmount } from "@/lib/student-payment-profile";
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,12 @@ export default async function StudentPaymentProfilePage({
   const payments = sortPaymentsForProfile(data.payments.filter((p) => p.studentId === studentId));
   const summary = computeStudentPaymentSummary(payments);
   const hasOpenPayment = summary.openCount > 0;
+  const studentPackage = (data.packages ?? []).find((p) => p.id === student.packageId);
+  const monthlyAmount = computeStudentMonthlyAmount(
+    student,
+    studentPackage,
+    (student.lessonDurationMinutes as 30 | 40 | 50 | undefined) ?? 30
+  );
 
   return (
     <div>
@@ -78,6 +85,24 @@ export default async function StudentPaymentProfilePage({
         <StatCard label="Açık ödeme kaydı" value={summary.openCount} accent="info" />
       </div>
 
+      {monthlyAmount.netAmount !== null ? (
+        <Card className="mb-6 !p-4">
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+            Beklenen aylık tutar: {formatMoney(monthlyAmount.netAmount)}
+          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {studentPackage ? `Paket: ${studentPackage.title}` : "Paket seçilmedi"}
+            {monthlyAmount.listPrice !== null ? ` · Liste fiyatı: ${formatMoney(monthlyAmount.listPrice)}` : ""}
+            {monthlyAmount.discountAmount > 0
+              ? ` · İndirim: -${formatMoney(monthlyAmount.discountAmount)}${
+                  monthlyAmount.discountType === "percentage" ? ` (%${monthlyAmount.discountValue})` : ""
+                }`
+              : ""}
+            {monthlyAmount.overrideAmount !== null ? " · Yönetici override'ı uygulanıyor" : ""}
+          </p>
+        </Card>
+      ) : null}
+
       {hasOpenPayment ? (
         <Card className="mb-6 border-amber-200 bg-amber-50/60">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -107,7 +132,7 @@ export default async function StudentPaymentProfilePage({
           </div>
           <div>
             <Label>Tutar (₺)</Label>
-            <Input name="amount" type="number" min={1} defaultValue={student.monthlyFee} required />
+            <Input name="amount" type="number" min={1} defaultValue={monthlyAmount.netAmount ?? student.monthlyFee} required />
           </div>
           <div>
             <Label>Vade tarihi</Label>

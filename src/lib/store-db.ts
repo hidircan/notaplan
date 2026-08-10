@@ -177,6 +177,21 @@ function mapSchoolToAppData(school: PrismaSchoolWithRelations): AppData {
       packageId: (student as { packageId?: string | null }).packageId ?? undefined,
       birthPlace: (student as { birthPlace?: string | null }).birthPlace ?? undefined,
       schoolOrOccupation: (student as { schoolOrOccupation?: string | null }).schoolOrOccupation ?? undefined,
+      // ÖNCELİK 4 (devam) — bu satırlar eksikti (db modunda hiç map
+      // edilmiyordu, yalnızca yazılıyordu); Ödeme profili entegrasyonu
+      // eklenirken fark edilip düzeltildi.
+      lessonDurationMinutes: (student as { lessonDurationMinutes?: number | null }).lessonDurationMinutes as
+        | import("./types").LessonDurationPreference
+        | undefined,
+      paymentMethod: (student as { paymentMethod?: string | null }).paymentMethod as
+        | import("./types").StudentPaymentMethod
+        | undefined,
+      paymentAmount: (student as { paymentAmount?: number | null }).paymentAmount ?? undefined,
+      paymentDueDay: (student as { paymentDueDay?: number | null }).paymentDueDay ?? undefined,
+      discountType: (student as { discountType?: string | null }).discountType as
+        | import("./types").DiscountType
+        | undefined,
+      discountValue: (student as { discountValue?: number | null }).discountValue ?? undefined,
     })),
     rooms: school.rooms.map((room) => ({
       id: room.id,
@@ -668,6 +683,11 @@ async function readPackages(tid: string): Promise<AppData["packages"]> {
     price40Min: p.price40Min,
     price50Min: p.price50Min,
     termLabel: (p.termLabel as import("./types").StudentTermType | null) ?? undefined,
+    monthlyLessonCount: p.monthlyLessonCount ?? undefined,
+    groupLessonCount: p.groupLessonCount ?? undefined,
+    defaultDurationMinutes: (p.defaultDurationMinutes as import("./types").LessonDurationPreference | null) ?? undefined,
+    defaultPaymentDueDay: p.defaultPaymentDueDay ?? undefined,
+    notes: p.notes ?? undefined,
     createdBy: p.createdBy,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
@@ -978,6 +998,14 @@ export async function updateStudentProfile(
       packageId: patch.packageId,
       birthPlace: patch.birthPlace,
       schoolOrOccupation: patch.schoolOrOccupation,
+      // ÖNCELİK 4 (devam) — Ödeme profili: paket süresi, indirim, ödeme
+      // günü/türü, override tutar.
+      lessonDurationMinutes: patch.lessonDurationMinutes,
+      paymentMethod: patch.paymentMethod,
+      paymentAmount: patch.paymentAmount,
+      paymentDueDay: patch.paymentDueDay,
+      discountType: patch.discountType,
+      discountValue: patch.discountValue,
     },
   });
   if (result.count === 0) throw new Error("Öğrenci bulunamadı");
@@ -1887,6 +1915,11 @@ export async function addPackage(input: PackageInput): Promise<PackageMutationRe
       price40Min: result.pkg.price40Min,
       price50Min: result.pkg.price50Min,
       termLabel: result.pkg.termLabel,
+      monthlyLessonCount: result.pkg.monthlyLessonCount,
+      groupLessonCount: result.pkg.groupLessonCount,
+      defaultDurationMinutes: result.pkg.defaultDurationMinutes,
+      defaultPaymentDueDay: result.pkg.defaultPaymentDueDay,
+      notes: result.pkg.notes,
       createdBy: result.pkg.createdBy,
       createdAt: new Date(result.pkg.createdAt),
       updatedAt: new Date(result.pkg.updatedAt),
@@ -1912,6 +1945,11 @@ export async function updatePackage(packageId: string, patch: PackagePatch): Pro
       price40Min: patch.price40Min,
       price50Min: patch.price50Min,
       termLabel: patch.termLabel,
+      monthlyLessonCount: patch.monthlyLessonCount,
+      groupLessonCount: patch.groupLessonCount,
+      defaultDurationMinutes: patch.defaultDurationMinutes,
+      defaultPaymentDueDay: patch.defaultPaymentDueDay,
+      notes: patch.notes,
     },
   });
   if (updateResult.count === 0) return { ok: false, message: "Paket bulunamadı." };

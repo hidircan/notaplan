@@ -157,6 +157,12 @@ export interface Student {
   educationMethod?: EducationMethod;
   lessonDurationMinutes?: LessonDurationPreference;
   paymentMethod?: StudentPaymentMethod;
+  /**
+   * ÖNCELİK 4 (devam) — Ödeme profili override. Set edilmişse hesaplanan
+   * paket/indirim tutarının yerine GEÇER (liste fiyatı + indirim yok
+   * sayılır). Boşsa aylık tutar paket+süre+indirimden hesaplanır — bkz.
+   * src/lib/student-payment-profile.ts.
+   */
   paymentAmount?: number;
   /** Ayın günü (1–28) vade hedefi */
   paymentDueDay?: number;
@@ -172,7 +178,17 @@ export interface Student {
   packageId?: string;
   birthPlace?: string;
   schoolOrOccupation?: string;
+  /**
+   * ÖNCELİK 4 (devam) — Ödeme profili indirimi. Paket liste fiyatına
+   * uygulanır (percentage: %, fixed: TL). `discountValue` olmadan
+   * `discountType` tek başına anlamsızdır — ikisi birlikte set edilir.
+   */
+  discountType?: DiscountType;
+  discountValue?: number;
 }
+
+/** ÖNCELİK 4 (devam) — Ödeme profili indirim türü. */
+export type DiscountType = "percentage" | "fixed";
 
 /** ÖNCELİK 4 — Yoklama Takvimi'nin gösterdiği ay aralığını belirler. */
 export type StudentTermType = "guz" | "yaz";
@@ -196,6 +212,16 @@ export interface Package {
   price50Min: number;
   /** "guz" | "yaz" | undefined (Genel — her iki dönemde de geçerli). */
   termLabel?: StudentTermType;
+  /** Aylık (bireysel) ders adedi. */
+  monthlyLessonCount?: number;
+  /** Grup solfej / ek ders adedi (aylık). */
+  groupLessonCount?: number;
+  /** Öğrenci kaydında önerilen varsayılan ders süresi. */
+  defaultDurationMinutes?: LessonDurationPreference;
+  /** Öğrenci kaydında önerilen varsayılan ödeme günü (1–28). */
+  defaultPaymentDueDay?: number;
+  /** Paket kapsamını açıklayan serbest metin not. */
+  notes?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -229,6 +255,8 @@ export type StudentProfilePatch = Partial<
     | "packageId"
     | "birthPlace"
     | "schoolOrOccupation"
+    | "discountType"
+    | "discountValue"
   >
 >;
 

@@ -71,17 +71,37 @@ export const studentSchema = z.object({
   }).optional(),
 });
 
-export const updateStudentProfileSchema = z.object({
-  studentId: z.string().min(1),
-  studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
-  enrollmentStartDate: optionalTrimmed,
-  enrollmentEndDate: optionalTrimmed,
-  level: optionalTrimmed,
-  targetExam: optionalTrimmed,
-  specialNotes: optionalTrimmed,
-  /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
-  termType: z.enum(["guz", "yaz"]).optional(),
-});
+export const updateStudentProfileSchema = z
+  .object({
+    studentId: z.string().min(1),
+    studentType: z.enum(STUDENT_TYPE_ENUM).optional(),
+    enrollmentStartDate: optionalTrimmed,
+    enrollmentEndDate: optionalTrimmed,
+    level: optionalTrimmed,
+    targetExam: optionalTrimmed,
+    specialNotes: optionalTrimmed,
+    /** ÖNCELİK 4 (devam) — öğrencinin Yoklama Takvimi dönemi (Güz/Yaz varsayılanı). */
+    termType: z.enum(["guz", "yaz"]).optional(),
+    /** ÖNCELİK 4 (devam) — Ödeme profili: paket, süre, indirim, ödeme günü/türü, override. */
+    packageId: z.string().optional(),
+    lessonDurationMinutes: z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+      message: "Ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+    }).optional(),
+    paymentMethod: z.enum(["credit_card", "cash", "transfer"]).optional(),
+    paymentDueDay: z.coerce.number().int().min(1).max(28).optional(),
+    discountType: z.enum(["percentage", "fixed"]).optional(),
+    discountValue: z.coerce.number().int().min(0).optional(),
+    /** Öğrenciye özel override tutar (TL) — set edilirse paket/indirim hesabının yerine geçer. */
+    paymentAmount: z.coerce.number().int().min(0).optional(),
+  })
+  .refine((v) => (v.discountType === undefined) === (v.discountValue === undefined), {
+    message: "İndirim türü ve değeri birlikte belirtilmeli.",
+    path: ["discountValue"],
+  })
+  .refine((v) => v.discountType !== "percentage" || v.discountValue === undefined || v.discountValue <= 100, {
+    message: "Yüzde indirim 100'ü geçemez.",
+    path: ["discountValue"],
+  });
 
 const TEACHER_INSTRUMENT_ENUM = ["Piyano", "Yan Flüt", "Gitar", "Bateri", "Keman", "Şan"] as const;
 const INSTRUMENT_LEVEL_ENUM = ["Başlangıç", "Orta", "İleri"] as const;
@@ -649,6 +669,12 @@ export const updateInstrumentCatalogSchema = z.object({
   status: z.enum(["active", "archived"]).optional(),
 });
 
+const packageDurationSchema = z.coerce.number().int().refine((v) => [30, 40, 50].includes(v), {
+  message: "Varsayılan ders süresi yalnızca 30, 40 veya 50 dakika olabilir.",
+});
+const packageDueDaySchema = z.coerce.number().int().min(1).max(28);
+const packageLessonCountSchema = z.coerce.number().int().min(0);
+
 export const createPackageSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -656,6 +682,11 @@ export const createPackageSchema = z.object({
   price40Min: z.coerce.number().int().min(0),
   price50Min: z.coerce.number().int().min(0),
   termLabel: z.enum(["guz", "yaz"]).optional(),
+  monthlyLessonCount: packageLessonCountSchema.optional(),
+  groupLessonCount: packageLessonCountSchema.optional(),
+  defaultDurationMinutes: packageDurationSchema.optional(),
+  defaultPaymentDueDay: packageDueDaySchema.optional(),
+  notes: z.string().optional(),
 });
 
 export const updatePackageSchema = z.object({
@@ -667,6 +698,11 @@ export const updatePackageSchema = z.object({
   price50Min: z.coerce.number().int().min(0).optional(),
   termLabel: z.enum(["guz", "yaz"]).optional(),
   status: z.enum(["active", "archived"]).optional(),
+  monthlyLessonCount: packageLessonCountSchema.optional(),
+  groupLessonCount: packageLessonCountSchema.optional(),
+  defaultDurationMinutes: packageDurationSchema.optional(),
+  defaultPaymentDueDay: packageDueDaySchema.optional(),
+  notes: z.string().optional(),
 });
 
 /** ÖNCELİK 4 (devam) — öğretmen çoklu enstrüman+seviye düzenleme (öğretmen detayı). */

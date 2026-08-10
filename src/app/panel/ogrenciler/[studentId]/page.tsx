@@ -24,6 +24,8 @@ import {
 } from "@/lib/services";
 import { computeOverallScore } from "@/lib/assessment/score";
 import { computeStudentPaymentSummary, sortPaymentsForProfile } from "@/lib/payment-profile";
+import { computeStudentMonthlyAmount } from "@/lib/student-payment-profile";
+import { StudentPaymentProfileEditor } from "@/components/student-payment-profile-editor";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { LessonOpsBadges } from "@/components/lesson-ops-actions";
 import { AttendanceCalendarPanel } from "@/components/attendance-calendar-panel";
@@ -119,6 +121,13 @@ export default async function StudentDetailPage({
   const documents = documentsResult.ok ? documentsResult.data.documents : [];
   const socialMediaConsent = consentResult.ok ? consentResult.data.consent : undefined;
   const packages = data.packages ?? [];
+  const canManagePaymentProfile = session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN";
+  const studentPackage = packages.find((p) => p.id === student.packageId);
+  const monthlyAmount = computeStudentMonthlyAmount(
+    student,
+    studentPackage,
+    (student.lessonDurationMinutes as 30 | 40 | 50 | undefined) ?? 30
+  );
 
   const age = student.birthDate ? computeAge(student.birthDate) : null;
 
@@ -226,11 +235,26 @@ export default async function StudentDetailPage({
             <Field label="Doğum yeri" value={student.birthPlace ?? "Belirtilmemiş"} />
             <Field label="Okulu / mesleği" value={student.schoolOrOccupation ?? "Belirtilmemiş"} />
             <Field
-              label="Paket Yönetimi paketi"
-              value={
-                student.packageId
-                  ? packages.find((p) => p.id === student.packageId)?.title ?? "Bulunamadı"
-                  : "Seçilmedi (serbest metin paket kullanılıyor)"
+              label="Ödeme profili"
+              custom={
+                canManagePaymentProfile ? (
+                  <StudentPaymentProfileEditor
+                    studentId={student.id}
+                    packages={packages}
+                    initialPackageId={student.packageId}
+                    initialDurationMinutes={student.lessonDurationMinutes}
+                    initialPaymentMethod={student.paymentMethod}
+                    initialPaymentDueDay={student.paymentDueDay}
+                    initialDiscountType={student.discountType}
+                    initialDiscountValue={student.discountValue}
+                    initialOverrideAmount={student.paymentAmount}
+                  />
+                ) : (
+                  <span className="text-[var(--color-text)]">
+                    {studentPackage ? studentPackage.title : "Seçilmedi (serbest metin paket kullanılıyor)"}
+                    {monthlyAmount.netAmount !== null ? ` — Net: ${formatMoney(monthlyAmount.netAmount)}` : ""}
+                  </span>
+                )
               }
             />
             <Field
@@ -357,6 +381,7 @@ export default async function StudentDetailPage({
           termType={student.termType ?? "guz"}
           canEdit={session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN"}
           studentActive={student.active}
+          defaultMonthlyAmount={monthlyAmount.netAmount ?? undefined}
         />
       </section>
 
@@ -399,6 +424,14 @@ export default async function StudentDetailPage({
           <MiniStat label="Kalan" value={formatMoney(paymentSummary.remaining)} />
           <MiniStat label="Gecikmiş kalan" value={formatMoney(paymentSummary.overdueRemaining)} />
         </div>
+        {monthlyAmount.netAmount !== null ? (
+          <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+            Beklenen aylık tutar (ödeme profilinden): {formatMoney(monthlyAmount.netAmount)}
+            {monthlyAmount.listPrice !== null ? ` · Liste: ${formatMoney(monthlyAmount.listPrice)}` : ""}
+            {monthlyAmount.discountAmount > 0 ? ` · İndirim: -${formatMoney(monthlyAmount.discountAmount)}` : ""}
+            {monthlyAmount.overrideAmount !== null ? " · Override uygulanıyor" : ""}
+          </p>
+        ) : null}
         {payments.length === 0 ? (
           <EmptyState title="Ödeme kaydı yok" />
         ) : (
