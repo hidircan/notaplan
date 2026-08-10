@@ -46,3 +46,21 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local AI/tooling artifacts
+.agents/
+.claude/
+dev.db
+skills-lock.json
+
+# local AI/tooling artifacts
+.agents/
+.claude/
+dev.db
+skills-lock.json
+
+# local AI/tooling artifacts
+.agents/
+.claude/
+dev.db
+skills-lock.json
