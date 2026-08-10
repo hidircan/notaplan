@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 /// Top-level multi-tenant boundary
@@ -752,7 +752,7 @@ model Homework {
   /// Paket 7 — öğretmenin ödevi verirken eklediği isteğe bağlı dosya/foto/video (base64).
   fileName     String?
   fileMimeType String?
-  fileData     String?  @db.LongText
+  fileData     String?
 
   @@index([tenantId, studentId])
   @@index([tenantId, teacherId])
@@ -773,7 +773,7 @@ model HomeworkSubmission {
   note            String?
   fileName        String?
   fileMimeType    String?
-  fileData        String?   @db.LongText
+  fileData        String?
   submittedAt     DateTime  @default(now())
   teacherFeedback String?
   reviewedAt      DateTime?
@@ -797,7 +797,7 @@ model TeachingMaterial {
   targetLevel       String?
   fileName          String?
   fileMimeType      String?
-  fileData          String?  @db.LongText
+  fileData          String?
   createdAt         DateTime @default(now())
 
   @@index([tenantId, teacherId])
@@ -1091,7 +1091,7 @@ model DocumentTemplate {
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   kind        String
   name        String
-  bodyHtml    String   @db.LongText
+  bodyHtml    String
   active      Boolean  @default(true)
   /// Şablonu oluşturan yönetici — varsayılan (otomatik seed) şablonlarda null.
   createdById String?
@@ -1116,14 +1116,14 @@ model DocumentInstance {
   trialLessonId String?
   branchId     String?
   fieldValues  Json
-  renderedHtml String?  @db.LongText
+  renderedHtml String?
   printCount   Int      @default(0)
   createdBy    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   fileName     String?
   fileMimeType String?
-  fileData     String?  @db.LongText
+  fileData     String?
   fileSize     Int?
   signedUploadedAt DateTime?
   /// İmzalı sürümü yükleyen sorumlu (kural E).
@@ -1254,7 +1254,7 @@ model TaskAttachment {
   fileName     String?
   fileMimeType String?
   fileSize     Int?
-  fileData     String?   @db.LongText
+  fileData     String?
   createdById  String
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
