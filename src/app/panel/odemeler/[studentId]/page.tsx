@@ -8,6 +8,7 @@ import { computeStudentPaymentSummary, filterPaymentHistory, sortPaymentsForProf
 import { AssistantPageContext } from "@/components/ai/assistant-page-context";
 import { StudentPaymentHistoryTable } from "@/components/student-payment-history-table";
 import { getUserById } from "@/lib/auth/users";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 export const dynamic = "force-dynamic";
 
@@ -71,14 +72,15 @@ export default async function StudentPaymentProfilePage({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/panel/is-takip?newTaskStudentId=${student.id}&returnTo=${encodeURIComponent(
-                `/panel/odemeler/${student.id}`
-              )}`}
+            <QuickTaskLink
+              relatedEntityType="student"
+              relatedEntityId={student.id}
+              relatedEntityLabel={student.name}
+              title={`Ödeme takibi — ${student.name}`}
+              label="Bu kayıt için görev oluştur"
+              returnTo={`/panel/odemeler/${student.id}`}
               className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
-            >
-              Bu kayıt için görev oluştur
-            </Link>
+            />
             <Link
               href="/panel/odemeler"
               className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"

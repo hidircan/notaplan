@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireSessionContext } from "@/lib/auth/session";
 import { Card, EmptyState } from "@/components/ui";
-import { getTaskDetailTool } from "@/lib/services";
+import { getTaskDetailTool, resolveTaskRelatedEntityTool } from "@/lib/services";
 import { TaskDetailPanel } from "@/components/task-detail-panel";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,15 @@ export default async function OgretmenIsTakipDetailPage({
   if (session.role !== "TEACHER") redirect("/panel");
 
   const detailRes = await getTaskDetailTool(session, { taskId });
+
+  let relatedEntityContext: { exists: boolean; href?: string } | null = null;
+  if (detailRes.ok && detailRes.data.task.relatedEntityType && detailRes.data.task.relatedEntityId) {
+    const relRes = await resolveTaskRelatedEntityTool(session, {
+      relatedEntityType: detailRes.data.task.relatedEntityType,
+      relatedEntityId: detailRes.data.task.relatedEntityId,
+    });
+    relatedEntityContext = relRes.ok ? relRes.data : { exists: false };
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-slate-50">
@@ -54,6 +63,7 @@ export default async function OgretmenIsTakipDetailPage({
               attachments={detailRes.data.attachments}
               isAdmin={false}
               currentActorIds={[session.userId, session.teacherId].filter((v): v is string => !!v)}
+              relatedEntityContext={relatedEntityContext}
             />
           </Card>
         )}

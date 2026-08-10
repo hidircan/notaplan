@@ -26,6 +26,7 @@ import { TeacherInstrumentsEditor } from "@/components/teacher-instruments-edito
 import { TeacherProfileEditor } from "@/components/teacher-profile-editor";
 import { BackButton } from "@/components/back-button";
 import { TeacherArchiveAction } from "@/components/teacher-archive-action";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 export const dynamic = "force-dynamic";
 
@@ -135,14 +136,15 @@ export default async function TeacherDetailPage({
             Geri Bildirim İncelemesi →
           </Link>
           {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
-            <Link
-              href={`/panel/is-takip?newTaskTeacherId=${teacher.id}&returnTo=${encodeURIComponent(
-                `/panel/ogretmenler/${teacher.id}`
-              )}`}
+            <QuickTaskLink
+              relatedEntityType="teacher"
+              relatedEntityId={teacher.id}
+              relatedEntityLabel={teacher.name}
+              title={`Öğretmen takibi — ${teacher.name}`}
+              label="Bu öğretmen için görev oluştur"
+              returnTo={`/panel/ogretmenler/${teacher.id}`}
               className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
-            >
-              Bu öğretmen için görev oluştur →
-            </Link>
+            />
           ) : null}
           {session.role === "SCHOOL_ADMIN" || session.role === "SUPER_ADMIN" ? (
             <TeacherArchiveAction teacherId={teacher.id} teacherName={teacher.name} archived={!teacher.active} />

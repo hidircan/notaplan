@@ -38,6 +38,7 @@ import { canViewFullNationalId } from "@/lib/pii";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { computeAge } from "@/lib/utils";
 import { documentKindLabel } from "@/lib/documents";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 export const dynamic = "force-dynamic";
 
@@ -134,14 +135,15 @@ export default async function StudentDetailPage({
         description={`${branch?.shortName ?? "—"} · ${student.packageName.split("—")[0]?.trim() ?? student.packageName}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={`/panel/is-takip?newTaskStudentId=${student.id}&returnTo=${encodeURIComponent(
-                `/panel/ogrenciler/${student.id}`
-              )}`}
+            <QuickTaskLink
+              relatedEntityType="student"
+              relatedEntityId={student.id}
+              relatedEntityLabel={student.name}
+              title={`Öğrenci takibi — ${student.name}`}
+              label="Bu öğrenci için görev oluştur"
+              returnTo={`/panel/ogrenciler/${student.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-bg)]"
-            >
-              Bu öğrenci için görev oluştur
-            </a>
+            />
             <StudentArchiveToggle studentId={student.id} active={student.active} />
           </div>
         }

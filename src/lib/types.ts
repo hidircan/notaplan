@@ -1226,9 +1226,28 @@ export interface Task {
   lessonId?: string;
   paymentId?: string;
   documentId?: string;
+  /**
+   * Genel ilişkili-kayıt bağlantısı — yukarıdaki özel FK alanlarının (studentId
+   * vb.) kapsamadığı ilişki tipleri için (örn. "makeup", "lessonCorrection").
+   * `relatedEntityLabel` oluşturma anında alınan denormalize bir görüntü
+   * etiketidir; kayıt sonradan silinse/değişse bile bağlam kaybolmaz.
+   */
+  relatedEntityType?: RelatedEntityType;
+  relatedEntityId?: string;
+  relatedEntityLabel?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Bağlamsal "Görev oluştur" aksiyonunun desteklediği ilişkili kayıt tipleri. */
+export type RelatedEntityType =
+  | "student"
+  | "teacher"
+  | "payment"
+  | "document"
+  | "makeup"
+  | "lessonCorrection"
+  | "branch";
 
 export interface TaskChecklistItem {
   id: string;

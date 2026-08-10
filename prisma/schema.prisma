@@ -1157,6 +1157,12 @@ model Task {
   lessonId     String?
   paymentId    String?
   documentId   String?
+  /// Genel ilişkili-kayıt bağlantısı (student|teacher|payment|document|makeup|lessonCorrection|branch) —
+  /// yukarıdaki özel FK alanlarına (studentId vb.) EK olarak, onlar karşılamadığında (telafi/ders düzeltme) kullanılır.
+  relatedEntityType  String?
+  relatedEntityId    String?
+  /// Oluşturma anında alınmış, denormalize görüntü etiketi (kayıt sonradan değişse/silinse bile bağlam korunur).
+  relatedEntityLabel String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -1170,6 +1176,7 @@ model Task {
   @@index([tenantId, dueDate])
   @@index([tenantId, studentId])
   @@index([tenantId, teacherId])
+  @@index([tenantId, relatedEntityType, relatedEntityId])
 }
 
 model TaskChecklistItem {

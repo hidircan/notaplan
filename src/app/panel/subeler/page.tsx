@@ -1,6 +1,7 @@
 import { actionAddBranch, actionUpdateBranch } from "@/lib/actions";
 import { readData } from "@/lib/store";
 import { Button, Card, Input, Label, PageHeader } from "@/components/ui";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,15 @@ export default async function SubelerPage() {
                       <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                         {b.address} · {b.phone}
                       </p>
+                      <div className="mt-2">
+                        <QuickTaskLink
+                          relatedEntityType="branch"
+                          relatedEntityId={b.id}
+                          relatedEntityLabel={b.name}
+                          title={`Şube takibi — ${b.name}`}
+                          returnTo="/panel/subeler"
+                        />
+                      </div>
                     </div>
                     <div className="flex gap-2 text-center text-xs text-[var(--color-text-muted)] dark:text-[var(--color-text-muted)]">
                       <div className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">

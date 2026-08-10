@@ -68,6 +68,10 @@ export default async function IsTakipPage({
     newTaskPaymentId?: string;
     newTaskDocumentId?: string;
     newTaskBranchId?: string;
+    newTaskRelatedType?: string;
+    newTaskRelatedId?: string;
+    newTaskRelatedLabel?: string;
+    newTaskTitle?: string;
     returnTo?: string;
   }>;
 }) {
@@ -110,17 +114,29 @@ export default async function IsTakipPage({
   const prefillPaymentId = sp.newTaskPaymentId || "";
   const prefillDocumentId = sp.newTaskDocumentId || "";
   const prefillBranchId = sp.newTaskBranchId || "";
+  const prefillRelatedType = sp.newTaskRelatedType || "";
+  const prefillRelatedId = sp.newTaskRelatedId || "";
+  const prefillRelatedLabel = sp.newTaskRelatedLabel || "";
   const safeReturnTo = resolveSafeReturnTo(sp.returnTo);
   const hasContext = Boolean(
-    prefillStudentId || prefillTeacherId || prefillLessonId || prefillPaymentId || prefillDocumentId || prefillBranchId
+    prefillStudentId ||
+      prefillTeacherId ||
+      prefillLessonId ||
+      prefillPaymentId ||
+      prefillDocumentId ||
+      prefillBranchId ||
+      (prefillRelatedType && prefillRelatedId)
   );
 
-  // İş Takip Faz 3B-1A — evrak bağlamından gelen başlık önerisi. Belge
-  // erişilemez/başka kuruma aitse (silinmiş, cross-tenant deneme vb.)
-  // sessizce boş kalır — sunucu tarafı validateTaskLinks zaten formu
-  // AYRICA reddedecektir, burada yalnızca öneri metni etkilenir.
-  let prefillTitle = "";
-  if (prefillDocumentId && canCreate) {
+  // İş Takip Merkezi — bağlamsal ekranlardan (İlişkili kayıt linki üzerinden)
+  // gelen düzenlenebilir başlık önerisi: çağıran ekran `newTaskTitle` ile
+  // hazır bir taslak geçirir (örn. "Ödeme takibi — Ada Yılmaz"). Evrak
+  // bağlamı (Faz 3B-1A) geriye dönük uyumluluk için ayrıca burada üretilir —
+  // belge erişilemez/başka kuruma aitse (silinmiş, cross-tenant deneme vb.)
+  // sessizce boş kalır; sunucu tarafı validateTaskLinks zaten formu AYRICA
+  // reddedecektir, burada yalnızca öneri metni etkilenir.
+  let prefillTitle = sp.newTaskTitle || "";
+  if (!prefillTitle && prefillDocumentId && canCreate) {
     const docRes = await getDocumentInstanceTool(session, { documentId: prefillDocumentId });
     if (docRes.ok) {
       prefillTitle = `${documentKindLabel(docRes.data.document.kind)} — ${docRes.data.document.reference}`;
@@ -331,6 +347,9 @@ export default async function IsTakipPage({
               <input type="hidden" name="lessonId" value={prefillLessonId} />
               <input type="hidden" name="paymentId" value={prefillPaymentId} />
               <input type="hidden" name="documentId" value={prefillDocumentId} />
+              <input type="hidden" name="relatedEntityType" value={prefillRelatedType} />
+              <input type="hidden" name="relatedEntityId" value={prefillRelatedId} />
+              <input type="hidden" name="relatedEntityLabel" value={prefillRelatedLabel} />
               <div>
                 <Label>Başlık</Label>
                 <Input

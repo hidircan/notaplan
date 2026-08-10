@@ -121,6 +121,9 @@ export type CreateTaskInput = {
   lessonId?: string;
   paymentId?: string;
   documentId?: string;
+  relatedEntityType?: Task["relatedEntityType"];
+  relatedEntityId?: string;
+  relatedEntityLabel?: string;
 };
 
 async function dbTask() {
@@ -152,6 +155,9 @@ function mapDbTask(r: {
   lessonId: string | null;
   paymentId: string | null;
   documentId: string | null;
+  relatedEntityType: string | null;
+  relatedEntityId: string | null;
+  relatedEntityLabel: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): StoredTask {
@@ -179,6 +185,9 @@ function mapDbTask(r: {
     lessonId: r.lessonId ?? undefined,
     paymentId: r.paymentId ?? undefined,
     documentId: r.documentId ?? undefined,
+    relatedEntityType: (r.relatedEntityType as StoredTask["relatedEntityType"]) ?? undefined,
+    relatedEntityId: r.relatedEntityId ?? undefined,
+    relatedEntityLabel: r.relatedEntityLabel ?? undefined,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -207,6 +216,9 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
     lessonId: input.lessonId,
     paymentId: input.paymentId,
     documentId: input.documentId,
+    relatedEntityType: input.relatedEntityType,
+    relatedEntityId: input.relatedEntityId,
+    relatedEntityLabel: input.relatedEntityLabel,
     createdAt: now,
     updatedAt: now,
   };
@@ -236,6 +248,9 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
         lessonId: record.lessonId ?? null,
         paymentId: record.paymentId ?? null,
         documentId: record.documentId ?? null,
+        relatedEntityType: record.relatedEntityType ?? null,
+        relatedEntityId: record.relatedEntityId ?? null,
+        relatedEntityLabel: record.relatedEntityLabel ?? null,
       },
     });
     return toPublicTask(mapDbTask(row));
@@ -338,6 +353,9 @@ export type UpdateTaskInput = Partial<
     | "lessonId"
     | "paymentId"
     | "documentId"
+    | "relatedEntityType"
+    | "relatedEntityId"
+    | "relatedEntityLabel"
   >
 >;
 
@@ -376,6 +394,9 @@ export async function updateTask(
         ...("lessonId" in patch ? { lessonId: patch.lessonId ?? null } : {}),
         ...("paymentId" in patch ? { paymentId: patch.paymentId ?? null } : {}),
         ...("documentId" in patch ? { documentId: patch.documentId ?? null } : {}),
+        ...("relatedEntityType" in patch ? { relatedEntityType: patch.relatedEntityType ?? null } : {}),
+        ...("relatedEntityId" in patch ? { relatedEntityId: patch.relatedEntityId ?? null } : {}),
+        ...("relatedEntityLabel" in patch ? { relatedEntityLabel: patch.relatedEntityLabel ?? null } : {}),
       },
     });
     return toPublicTask(mapDbTask(row));

@@ -5,6 +5,7 @@ import { Card, PageHeader } from "@/components/ui";
 import { LessonTimeCorrectionForm } from "@/components/lesson-time-correction-form";
 import { formatDateTime, formatTime } from "@/lib/utils";
 import { computeLessonDurationRow } from "@/lib/lesson-duration-report";
+import { QuickTaskLink } from "@/components/quick-task-link";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function AdminLessonCorrectionPage() {
       return {
         id: l.id,
         label: `${formatDateTime(l.startAt)} · ${student?.name ?? "—"} · ${teacher?.name ?? "—"} (${l.status})`,
+        studentName: student?.name,
       };
     });
 
@@ -115,6 +117,23 @@ export default async function AdminLessonCorrectionPage() {
 
       <Card>
         <LessonTimeCorrectionForm lessons={lessons} />
+      </Card>
+      <Card>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text)]">Ders için görev oluştur</h2>
+        <div className="space-y-1.5">
+          {lessons.slice(0, 10).map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate text-[var(--color-text-muted)]">{l.label}</span>
+              <QuickTaskLink
+                relatedEntityType="lessonCorrection"
+                relatedEntityId={l.id}
+                relatedEntityLabel={l.label}
+                title={`Ders düzeltme takibi — ${l.studentName ?? ""}`}
+                returnTo="/panel/ders-duzeltme"
+              />
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   );

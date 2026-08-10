@@ -125,6 +125,7 @@ export {
   createInstrumentCatalogTool,
   updateInstrumentCatalogTool,
   createTaskTool,
+  resolveTaskRelatedEntityTool,
   listTasksTool,
   getTaskTool,
   getTaskDetailTool,

@@ -1743,6 +1743,9 @@ async function createTaskFromFormData(formData: FormData): Promise<TaskActionRes
         lessonId: String(formData.get("lessonId") || "") || undefined,
         paymentId: String(formData.get("paymentId") || "") || undefined,
         documentId: String(formData.get("documentId") || "") || undefined,
+        relatedEntityType: String(formData.get("relatedEntityType") || "") || undefined,
+        relatedEntityId: String(formData.get("relatedEntityId") || "") || undefined,
+        relatedEntityLabel: String(formData.get("relatedEntityLabel") || "") || undefined,
       })
     );
     if (!result.ok) return { ok: false, message: result.error.message };
@@ -1773,6 +1776,12 @@ export async function actionCreateTaskForm(formData: FormData): Promise<void> {
   if (!result.ok) {
     logger.error("actionCreateTaskForm failed", new Error(result.message));
     throw new Error(result.message);
+  }
+  // Bağlamsal (İlişkili kayıt üzerinden açılan) görevlerde doğrudan görev
+  // detayına yönlendir — "Görevi görüntüle" davranışı (madde 4 gereksinimi).
+  // Bağlamsız (serbest) görevlerde mevcut davranış korunur: listede kal.
+  if (String(formData.get("relatedEntityType") || "")) {
+    redirect(`/panel/is-takip/${result.data.taskId}?created=1`);
   }
 }
 

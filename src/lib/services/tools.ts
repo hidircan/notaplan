@@ -234,6 +234,7 @@ import {
   createInstrumentCatalogSchema,
   updateInstrumentCatalogSchema,
   createTaskSchema,
+  resolveRelatedEntitySchema,
   updateTaskSchema,
   changeTaskStatusSchema,
   addTaskChecklistItemSchema,
@@ -5069,12 +5070,95 @@ async function validateTaskLinks(ctx: ServiceContext, links: TaskLinks): Promise
 /** Admin/TEACHER ortak — görev okuma erişimi olan roller. PARENT/STUDENT hiç erişemez. */
 const TASK_VIEW_ROLES: ServiceContext["role"][] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"];
 const TASK_ADMIN_ROLES: ServiceContext["role"][] = ["SUPER_ADMIN", "SCHOOL_ADMIN"];
+/**
+ * İş Takip Merkezi — bağlamsal görev oluşturma artık TEACHER'a da açık,
+ * ANCAK yalnızca kendi erişebildiği bir kayda (relatedEntityType/Id)
+ * bağlıysa (bkz. resolveRelatedEntityOwnership). Bağlantısız (serbest) görev
+ * oluşturma admin-only kalır — PARENT/STUDENT bu listede hiç yok, dolayısıyla
+ * requireRole ile fail-closed reddedilirler.
+ */
+const TASK_CREATE_ROLES: ServiceContext["role"][] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"];
+
+type RelatedEntityResolution = {
+  /** Bu kaydın "sahibi" sayılan öğretmen — TEACHER rolü için erişim kontrolünde kullanılır. */
+  ownerTeacherId?: string;
+  ownerStudentId?: string;
+  /** Var olan özel FK alanına (studentId/teacherId/...) otomatik doldurma — geriye dönük uyumluluk. */
+  derivedLinks: TaskLinks;
+};
+
+/**
+ * Genel `relatedEntityType/relatedEntityId` bağlantısını tenant-scoped olarak
+ * doğrular ve (varsa) sahiplik bilgisini + eşleşen özel FK alanını üretir.
+ * `readData()` zaten tenant-filtrelidir — cross-tenant bir id burada asla
+ * "bulunamaz" görünür (IDOR'a kapalı).
+ */
+async function resolveRelatedEntity(
+  ctx: ServiceContext,
+  type: NonNullable<Task["relatedEntityType"]>,
+  id: string
+): Promise<ServiceResult<RelatedEntityResolution>> {
+  const data = await readData();
+  switch (type) {
+    case "student": {
+      const s = data.students.find((x) => x.id === id);
+      if (!s) return fail("VALIDATION_ERROR", "Bağlı öğrenci bulunamadı veya bu kuruma ait değil.");
+      return ok({ ownerTeacherId: s.teacherId, ownerStudentId: s.id, derivedLinks: { studentId: s.id } });
+    }
+    case "teacher": {
+      const t = data.teachers.find((x) => x.id === id);
+      if (!t) return fail("VALIDATION_ERROR", "Bağlı öğretmen bulunamadı veya bu kuruma ait değil.");
+      return ok({ ownerTeacherId: t.id, derivedLinks: { teacherId: t.id } });
+    }
+    case "payment": {
+      const p = data.payments.find((x) => x.id === id);
+      if (!p) return fail("VALIDATION_ERROR", "Bağlı ödeme bulunamadı veya bu kuruma ait değil.");
+      const s = data.students.find((x) => x.id === p.studentId);
+      return ok({ ownerTeacherId: s?.teacherId, ownerStudentId: p.studentId, derivedLinks: { paymentId: p.id, studentId: p.studentId } });
+    }
+    case "document": {
+      const { getDocumentInstance } = await import("../documents");
+      const doc = await getDocumentInstance(ctx.tenantId, id);
+      if (!doc) return fail("VALIDATION_ERROR", "Bağlı evrak bulunamadı veya bu kuruma ait değil.");
+      return ok({ ownerTeacherId: doc.teacherId, ownerStudentId: doc.studentId, derivedLinks: { documentId: doc.id } });
+    }
+    case "makeup": {
+      const m = data.makeupRequests.find((x) => x.id === id);
+      if (!m) return fail("VALIDATION_ERROR", "Bağlı telafi kaydı bulunamadı veya bu kuruma ait değil.");
+      return ok({
+        ownerTeacherId: m.teacherId,
+        ownerStudentId: m.studentId,
+        derivedLinks: { studentId: m.studentId, teacherId: m.teacherId },
+      });
+    }
+    case "lessonCorrection": {
+      const l = data.lessons.find((x) => x.id === id);
+      if (!l) return fail("VALIDATION_ERROR", "Bağlı ders bulunamadı veya bu kuruma ait değil.");
+      return ok({
+        ownerTeacherId: l.teacherId,
+        ownerStudentId: l.studentId,
+        derivedLinks: { lessonId: l.id, studentId: l.studentId, teacherId: l.teacherId },
+      });
+    }
+    case "branch": {
+      const b = data.settings.branches.find((x) => x.id === id);
+      if (!b) return fail("VALIDATION_ERROR", "Bağlı şube bulunamadı veya bu kuruma ait değil.");
+      // Şube-context görevler personel/idari niteliktedir — TEACHER'a açık değil (aşağıda ayrıca reddedilir).
+      return ok({ derivedLinks: { branchId: b.id } });
+    }
+    default:
+      return fail("VALIDATION_ERROR", "Geçersiz ilişkili kayıt tipi.");
+  }
+}
+
+/** TEACHER rolünün doğrudan bağlanamayacağı ilişki tipleri — idari/finansal alan, ayrı bir sahiplik modeli yok. */
+const TEACHER_RESTRICTED_RELATED_TYPES: NonNullable<Task["relatedEntityType"]>[] = ["branch"];
 
 export async function createTaskTool(
   ctx: ServiceContext,
   input: unknown
 ): Promise<ServiceResult<{ taskId: string }>> {
-  const auth = requireRole(ctx, TASK_ADMIN_ROLES);
+  const auth = requireRole(ctx, TASK_CREATE_ROLES);
   if (!auth.ok) return fail("FORBIDDEN", auth.message);
 
   const v = parseOrFail(createTaskSchema, input);
@@ -5082,6 +5166,22 @@ export async function createTaskTool(
 
   const linkCheck = await validateTaskLinks(ctx, v.data);
   if (!linkCheck.ok) return linkCheck;
+
+  let derivedLinks: TaskLinks = {};
+  if (v.data.relatedEntityType && v.data.relatedEntityId) {
+    if (ctx.role === "TEACHER" && TEACHER_RESTRICTED_RELATED_TYPES.includes(v.data.relatedEntityType)) {
+      return fail("FORBIDDEN", "Öğretmenler bu tür bir kayda bağlı görev oluşturamaz.");
+    }
+    const resolved = await resolveRelatedEntity(ctx, v.data.relatedEntityType, v.data.relatedEntityId);
+    if (!resolved.ok) return resolved;
+    if (ctx.role === "TEACHER" && resolved.data.ownerTeacherId !== ctx.teacherId) {
+      return fail("FORBIDDEN", "Yalnızca erişebildiğiniz kayıtlara bağlı görev oluşturabilirsiniz.");
+    }
+    derivedLinks = resolved.data.derivedLinks;
+  } else if (ctx.role === "TEACHER") {
+    // Faz: TEACHER yalnızca bağlamsal (ilişkili kayıtlı) görev oluşturabilir — serbest görev admin-only.
+    return fail("FORBIDDEN", "Öğretmenler yalnızca erişebildikleri bir kayda bağlı görev oluşturabilir.");
+  }
 
   try {
     const task = await createTask({
@@ -5096,15 +5196,32 @@ export async function createTaskTool(
       startDate: v.data.startDate,
       dueDate: v.data.dueDate,
       tags: v.data.tags,
-      studentId: v.data.studentId,
-      teacherId: v.data.teacherId,
-      branchId: v.data.branchId,
-      lessonId: v.data.lessonId,
-      paymentId: v.data.paymentId,
-      documentId: v.data.documentId,
+      studentId: v.data.studentId ?? derivedLinks.studentId,
+      teacherId: v.data.teacherId ?? derivedLinks.teacherId,
+      branchId: v.data.branchId ?? derivedLinks.branchId,
+      lessonId: v.data.lessonId ?? derivedLinks.lessonId,
+      paymentId: v.data.paymentId ?? derivedLinks.paymentId,
+      documentId: v.data.documentId ?? derivedLinks.documentId,
+      relatedEntityType: v.data.relatedEntityType,
+      relatedEntityId: v.data.relatedEntityId,
+      relatedEntityLabel: v.data.relatedEntityLabel,
     });
     await addActivity(ctx.tenantId, task.id, ctx.userId, "created", `Görev oluşturuldu: "${task.title}"`);
-    audit(ctx, "task.create", "Task", task.id, { category: task.category, priority: task.priority });
+    audit(ctx, "task.create", "Task", task.id, {
+      category: task.category,
+      priority: task.priority,
+      relatedEntityType: task.relatedEntityType,
+      relatedEntityId: task.relatedEntityId,
+    });
+    if (task.relatedEntityType) {
+      await addActivity(
+        ctx.tenantId,
+        task.id,
+        ctx.userId,
+        "field_updated",
+        `İlişkili kayıt bağlandı: ${task.relatedEntityLabel ?? task.relatedEntityType}`
+      );
+    }
     if (task.assigneeId) {
       const { notifyTaskAssigned } = await import("../task-notifications");
       await notifyTaskAssigned(ctx.tenantId, task.assigneeId, task.title);
@@ -5116,6 +5233,41 @@ export async function createTaskTool(
 }
 
 export type TaskWithMeta = Task;
+
+/**
+ * Görev detayındaki "İlişkili kayıt" bölümü için — `relatedEntityType/Id`'yi
+ * tenant-scoped olarak çözer ve TIKLANABİLİR bir bağlantı üretir. Kayıt
+ * silinmiş/arşivlenmiş/başka kuruma aitse `exists:false` döner — UI bunu
+ * kırık link yerine "Bu kayda artık erişilemiyor" mesajıyla gösterir
+ * (bkz. task-detail-panel.tsx, evrak bağlamıyla AYNI desen).
+ */
+export async function resolveTaskRelatedEntityTool(
+  ctx: ServiceContext,
+  input: unknown
+): Promise<ServiceResult<{ exists: boolean; href?: string; label?: string }>> {
+  const auth = requireRole(ctx, TASK_VIEW_ROLES);
+  if (!auth.ok) return fail("FORBIDDEN", auth.message);
+
+  const v = parseOrFail(resolveRelatedEntitySchema, input);
+  if (!v.ok) return v;
+
+  const resolved = await resolveRelatedEntity(ctx, v.data.relatedEntityType, v.data.relatedEntityId);
+  if (!resolved.ok) return ok({ exists: false });
+
+  const hrefByType: Record<NonNullable<Task["relatedEntityType"]>, string> = {
+    student: `/panel/ogrenciler/${v.data.relatedEntityId}`,
+    teacher: `/panel/ogretmenler/${v.data.relatedEntityId}`,
+    payment: resolved.data.ownerStudentId
+      ? `/panel/odemeler/${resolved.data.ownerStudentId}`
+      : "/panel/odemeler",
+    document: `/panel/evraklar/${v.data.relatedEntityId}`,
+    makeup: "/panel/telafi",
+    lessonCorrection: "/panel/ders-duzeltme",
+    branch: "/panel/subeler",
+  };
+
+  return ok({ exists: true, href: hrefByType[v.data.relatedEntityType] });
+}
 
 export async function listTasksTool(
   ctx: ServiceContext,

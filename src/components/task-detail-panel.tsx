@@ -46,6 +46,16 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const RELATED_ENTITY_TYPE_LABEL: Record<string, string> = {
+  student: "Öğrenci",
+  teacher: "Öğretmen",
+  payment: "Ödeme",
+  document: "Evrak",
+  makeup: "Telafi",
+  lessonCorrection: "Ders Düzeltme",
+  branch: "Şube",
+};
+
 const STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "Yapılacak",
   IN_PROGRESS: "Devam Ediyor",
@@ -88,6 +98,7 @@ export function TaskDetailPanel({
   assigneeLabel,
   currentActorIds = [],
   documentContext,
+  relatedEntityContext,
 }: {
   task: Task;
   checklist: TaskChecklistItem[];
@@ -108,6 +119,13 @@ export function TaskDetailPanel({
    * TEACHER görünümüne bu prop hiç geçirilmez.
    */
   documentContext?: { id: string; reference: string } | null;
+  /**
+   * İş Takip Merkezi — `task.relatedEntityType/Id` varsa sunucu tarafında
+   * ÖNCEDEN tenant-scope doğrulanmış sonuç (`resolveTaskRelatedEntityTool`).
+   * `exists:false` → kayıt silinmiş/arşivlenmiş/başka kuruma ait; kırık link
+   * YERİNE güvenli bir mesaj gösterilir.
+   */
+  relatedEntityContext?: { exists: boolean; href?: string } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -279,6 +297,25 @@ export function TaskDetailPanel({
             </span>
           ) : null}
         </div>
+      ) : null}
+
+      {task.relatedEntityType && task.relatedEntityId ? (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-[var(--color-text)]">İlişkili kayıt</h2>
+          {relatedEntityContext?.exists && relatedEntityContext.href ? (
+            <a
+              href={relatedEntityContext.href}
+              className="inline-block rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-sm font-medium text-[var(--color-primary)] hover:underline"
+            >
+              {RELATED_ENTITY_TYPE_LABEL[task.relatedEntityType] ?? task.relatedEntityType}
+              {task.relatedEntityLabel ? `: ${task.relatedEntityLabel}` : ""} →
+            </a>
+          ) : (
+            <p className="rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-sm text-[var(--color-text-muted)]">
+              {task.relatedEntityLabel ? `${task.relatedEntityLabel} — ` : ""}Bu kayda artık erişilemiyor.
+            </p>
+          )}
+        </section>
       ) : null}
 
       <div className="flex flex-wrap gap-2">

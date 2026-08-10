@@ -890,6 +890,16 @@ export const TASK_CATEGORY_ENUM = [
   "Teknik",
 ] as const;
 
+export const RELATED_ENTITY_TYPE_ENUM = [
+  "student",
+  "teacher",
+  "payment",
+  "document",
+  "makeup",
+  "lessonCorrection",
+  "branch",
+] as const;
+
 const taskLinksSchema = z.object({
   studentId: z.string().min(1).optional(),
   teacherId: z.string().min(1).optional(),
@@ -897,6 +907,14 @@ const taskLinksSchema = z.object({
   lessonId: z.string().min(1).optional(),
   paymentId: z.string().min(1).optional(),
   documentId: z.string().min(1).optional(),
+  /**
+   * Genel bağlamsal ilişki — yukarıdaki özel FK alanlarının kapsamadığı
+   * ilişki tipleri (telafi, ders düzeltme, şube-context) için. Üçü birlikte
+   * ya hep ya hiç sağlanır (tool katmanında da doğrulanır).
+   */
+  relatedEntityType: z.enum(RELATED_ENTITY_TYPE_ENUM).optional(),
+  relatedEntityId: z.string().min(1).optional(),
+  relatedEntityLabel: z.string().min(1).max(200).optional(),
 });
 
 export const createTaskSchema = z
@@ -915,6 +933,10 @@ export const createTaskSchema = z
   .refine((v) => !v.startDate || !v.dueDate || v.startDate <= v.dueDate, {
     message: "Son tarih başlangıç tarihinden önce olamaz.",
     path: ["dueDate"],
+  })
+  .refine((v) => !v.relatedEntityType === !v.relatedEntityId, {
+    message: "İlişkili kayıt tipi ve kimliği birlikte verilmelidir.",
+    path: ["relatedEntityId"],
   });
 
 /**
@@ -942,6 +964,11 @@ export const updateTaskSchema = z
     message: "Son tarih başlangıç tarihinden önce olamaz.",
     path: ["dueDate"],
   });
+
+export const resolveRelatedEntitySchema = z.object({
+  relatedEntityType: z.enum(RELATED_ENTITY_TYPE_ENUM),
+  relatedEntityId: z.string().min(1),
+});
 
 export const changeTaskStatusSchema = z.object({
   taskId: z.string().min(1),

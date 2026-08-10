@@ -7,6 +7,7 @@ import { listAuditLogs } from "@/lib/audit/log";
 import { readData } from "@/lib/store";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { DocumentSignedUpload } from "@/components/document-signed-upload";
+import { QuickTaskLink } from "@/components/quick-task-link";
 import { DocumentSignedVersions, type SignedVersionRow } from "@/components/document-signed-versions";
 import { formatDateTime } from "@/lib/utils";
 
@@ -69,14 +70,15 @@ export default async function DocumentDetailPage({
               Yazdırma görünümü
             </Link>
             {canCreateTask ? (
-              <Link
-                href={`/panel/is-takip?newTaskDocumentId=${doc.id}&returnTo=${encodeURIComponent(
-                  `/panel/evraklar/${doc.id}`
-                )}`}
+              <QuickTaskLink
+                relatedEntityType="document"
+                relatedEntityId={doc.id}
+                relatedEntityLabel={doc.reference}
+                title={`Evrak inceleme — ${doc.reference}`}
+                label="Bu evrakla ilgili görev oluştur"
+                returnTo={`/panel/evraklar/${doc.id}`}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)]"
-              >
-                Bu evrakla ilgili görev oluştur
-              </Link>
+              />
             ) : null}
             <Badge status={doc.status}>{doc.status}</Badge>
           </div>

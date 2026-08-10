@@ -158,6 +158,14 @@ export default async function TelafiPage() {
                       <X className="h-4 w-4" />
                       İptal / reddet
                     </MakeupDecisionForm>
+                    <QuickTaskLink
+                      relatedEntityType="makeup"
+                      relatedEntityId={req.id}
+                      relatedEntityLabel={student?.name ?? req.id}
+                      title={`Telafi planlama — ${student?.name ?? ""}`}
+                      label="Görev oluştur"
+                      returnTo="/panel/telafi"
+                    />
                   </div>
                 </div>
 
