@@ -16,7 +16,7 @@
  * katmanındaki ikinci bir savunma.
  */
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,17 @@ const WEEKDAY_LABELS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cts", "Paz"];
  */
 export function currentAnchorYear(termType: string): number {
   return currentAcademicAnchorYear(termType === "yaz" ? "yaz" : "guz");
+}
+
+/**
+ * Yarış koşulu koruması — saf, DOM'suz test edilebilir (bkz.
+ * attendance-calendar-race.test.ts). Term/yıl hızlı değiştirildiğinde birden
+ * fazla `/month` isteği aynı anda uçuşabilir; yalnızca EN SON başlatılan
+ * isteğin yanıtı state'e yazılmalı — daha önce başlayıp geç dönen bir yanıt,
+ * sonradan başlayıp erken dönen daha güncel bir yanıtı EZMEMELİ.
+ */
+export function shouldApplyMonthsResult(latestRequestId: number, respondingRequestId: number): boolean {
+  return latestRequestId === respondingRequestId;
 }
 
 type LessonPaymentInfo = {
@@ -250,37 +261,58 @@ export function AttendanceCalendarPanel({
   const [methods, setMethods] = useState<Record<string, string>>({});
   const [savingMonth, setSavingMonth] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(false);
+  /** Her `loadMonths` çağrısını benzersiz kılar — yalnızca EN SON çağrının
+   * sonucu state'e yazılır. Term/yıl hızlı değiştirildiğinde önce başlayan
+   * ama GEÇ dönen (yavaş) bir isteğin, sonra başlayan ama ERKEN dönen daha
+   * güncel isteğin sonucunu ezmesini engeller (asıl kök neden buydu —
+   * `setByMonth(results)` koşulsuzca TÜM haritayı, artık geçersiz olan bir
+   * `cancelled` bayrağına bakmadan, değiştiriyordu).
+   */
+  const requestIdRef = useRef(0);
 
-  const loadMonths = useCallback(async () => {
-    setLoading(true);
-    const results: Record<string, MonthResponse> = {};
-    for (const m of months) {
-      try {
-        const res = await fetch(
-          `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${m.year}&month=${m.month}`
-        );
-        const json = (await res.json()) as { ok: boolean; data?: MonthResponse };
-        if (json.ok && json.data) results[`${m.year}-${m.month}`] = json.data;
-      } catch {
-        // sessizce atla — bir ayın hatası tüm takvimi bozmasın
+  const loadMonths = useCallback(
+    async (signal: AbortSignal, requestId: number) => {
+      setLoading(true);
+      setLoadError(false);
+      const results: Record<string, MonthResponse> = {};
+      let anyFailure = false;
+      for (const m of months) {
+        try {
+          const res = await fetch(
+            `/api/v1/attendance-calendar/month?studentId=${studentId}&year=${m.year}&month=${m.month}`,
+            { signal }
+          );
+          const json = (await res.json()) as { ok: boolean; data?: MonthResponse };
+          if (json.ok && json.data) results[`${m.year}-${m.month}`] = json.data;
+          else anyFailure = true;
+        } catch (err) {
+          if ((err as { name?: string })?.name === "AbortError") return;
+          anyFailure = true;
+        }
       }
-    }
-    setByMonth(results);
-    setLoading(false);
-  }, [studentId, months]);
+      // Yarışı önleyen asıl koruma: yanıt geldiğinde bu artık en son istek
+      // DEĞİLSE (kullanıcı arada term/yıl değiştirdiyse) state'e hiç yazma.
+      if (!shouldApplyMonthsResult(requestIdRef.current, requestId)) return;
+      setByMonth(results);
+      setLoadError(anyFailure);
+      setLoading(false);
+    },
+    [studentId, months]
+  );
+
+  const runLoadMonths = useCallback(() => {
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
+    void loadMonths(controller.signal, requestId);
+    return controller;
+  }, [loadMonths]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await loadMonths();
-      if (cancelled) return;
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, months]);
+    const controller = runLoadMonths();
+    return () => controller.abort();
+  }, [runLoadMonths]);
 
   function onDayClick(day: DayInfo) {
     setSelectedDay(day.date);
@@ -515,7 +547,38 @@ export function AttendanceCalendarPanel({
       ) : null}
 
       {loading && Object.keys(byMonth).length === 0 ? (
-        <p className="text-xs text-[var(--color-text-muted)]">Takvim yükleniyor…</p>
+        <div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          role="status"
+          aria-label="Takvim yükleniyor"
+        >
+          {months.map((m) => (
+            <div
+              key={`skeleton-${m.year}-${m.month}`}
+              className="h-40 animate-pulse rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
+            >
+              <div className="mb-3 h-4 w-24 rounded bg-[var(--color-bg)]" />
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 28 }).map((_, i) => (
+                  <div key={i} className="aspect-square rounded bg-[var(--color-bg)]" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {loadError ? (
+        <div className="flex items-center justify-between gap-3 rounded-md bg-[#f8ecec] px-3 py-2 text-xs font-medium text-[#6b2424]" role="alert">
+          <span>Takvim verisi yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.</span>
+          <button
+            type="button"
+            onClick={() => runLoadMonths()}
+            className="rounded-md border border-[#6b2424] px-2 py-1 text-[11px] font-semibold hover:bg-[#f1dede]"
+          >
+            Tekrar dene
+          </button>
+        </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

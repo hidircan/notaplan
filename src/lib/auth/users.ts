@@ -3,6 +3,7 @@ import type { AppRole, AuthUser } from "./types";
 import { APP_ROLES } from "./types";
 import { hashPasswordSync, verifyPassword } from "./password";
 import { isDbMode } from "../config";
+import { auditLog } from "./audit";
 
 type BootstrapUser = AuthUser & { password: string };
 
@@ -22,13 +23,77 @@ const BOOTSTRAP: BootstrapUser[] = [
     role: "SCHOOL_ADMIN",
     tenantId: DEFAULT_TENANT_ID,
   },
+  /**
+   * KÖK NEDEN (öğretmen girişi çalışmıyordu) — `src/lib/seed.ts`'teki t1..t7
+   * öğretmenleri (CSV'den içe aktarılan gerçek isimler/e-postalar) yalnızca
+   * `STORE_MODE=db`'de, `scripts/seed-demo-csv-teachers.ts` çalıştırıldığında
+   * gerçek bir Prisma `User` satırına kavuşuyordu. `json`/`memory` modunda
+   * (varsayılan yerel/demo mod — bkz. CLAUDE.md) `authenticateUser` yalnızca
+   * bu BOOTSTRAP listesine bakar; burada t1..t7 için HİÇ giriş kimliği YOKTU
+   * (yalnızca artık var olmayan "can@niluferacar.com.tr" adında, hiçbir
+   * gerçek Teacher kaydına karşılık gelmeyen tek bir satır vardı). Sonuç:
+   * `login-form.tsx`'deki 7 "Öğretmen — …" demo persona'sının TÜMÜ, mode
+   * parity ihlali yüzünden `json`/`memory` modunda her zaman "Invalid email
+   * or password" ile başarısız oluyordu — şifre yanlış değildi, kullanıcı
+   * satırı hiç yoktu. Düzeltme: her t1..t7 için, seed.ts'teki gerçek
+   * e-postayla ve login-form.tsx/seed-demo-csv-teachers.ts ile AYNI
+   * `demo-teacher-csv-N` şifresiyle bir BOOTSTRAP girişi eklendi.
+   */
+  {
+    userId: "user_teacher_t1",
+    email: "turgay.hosbas@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_1 || "demo-teacher-csv-1",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t1",
+  },
   {
     userId: "user_teacher_t2",
-    email: "can@niluferacar.com.tr",
-    password: process.env.AUTH_TEACHER_PASSWORD || "demo-teacher",
+    email: "olcay.ozdemir@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_2 || "demo-teacher-csv-2",
     role: "TEACHER",
     tenantId: DEFAULT_TENANT_ID,
     teacherId: "t2",
+  },
+  {
+    userId: "user_teacher_t3",
+    email: "ebru.sirince@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_3 || "demo-teacher-csv-3",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t3",
+  },
+  {
+    userId: "user_teacher_t4",
+    email: "sevval.aydin@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_4 || "demo-teacher-csv-4",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t4",
+  },
+  {
+    userId: "user_teacher_t5",
+    email: "gokhan.keskin@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_5 || "demo-teacher-csv-5",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t5",
+  },
+  {
+    userId: "user_teacher_t6",
+    email: "hilal.isci@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_6 || "demo-teacher-csv-6",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t6",
+  },
+  {
+    userId: "user_teacher_t7",
+    email: "pinar.celik@niluferacar.com.tr",
+    password: process.env.AUTH_DEMO_CSV_TEACHER_7 || "demo-teacher-csv-7",
+    role: "TEACHER",
+    tenantId: DEFAULT_TENANT_ID,
+    teacherId: "t7",
   },
   {
     userId: "user_parent_s1",
@@ -135,21 +200,56 @@ export function getBootstrapUsersForSeed(tenantId: string) {
   );
 }
 
+/**
+ * Audit-safe root-cause logging — NEVER logs the password, only a reason
+ * code (`no_such_user` / `bad_password` / `inactive` / `bad_role`) plus the
+ * normalized email, so a real login failure can be diagnosed from the audit
+ * trail without weakening the generic "Invalid email or password" response
+ * returned to the client (see /api/v1/auth/login).
+ */
+function logAuthFailureReason(email: string, reason: string, tenantId?: string) {
+  auditLog({
+    action: "auth.login_failure_reason",
+    requestId: "n/a",
+    outcome: "denied",
+    tenantId,
+    meta: { email, reason },
+  });
+}
+
 export async function authenticateUser(
-  email: string,
+  emailInput: string,
   password: string
 ): Promise<AuthUser | null> {
+  // Kök neden sınıfı: e-posta karşılaştırması normalize edilmezse (baştaki/
+  // sondaki boşluk, farklı büyük/küçük harf) girişte gözle görünür doğru bir
+  // e-posta ile giriş "Invalid email or password" ile başarısız olabilir.
+  const email = emailInput.trim().toLowerCase();
+
   if (isDbMode) {
     try {
       const { getPrisma } = await import("../db");
       const prisma = getPrisma();
       const row = await prisma.user.findFirst({
-        where: { email: email.toLowerCase(), active: true },
+        where: { email },
       });
-      if (!row) return null;
+      if (!row) {
+        logAuthFailureReason(email, "no_such_user");
+        return null;
+      }
+      if (!row.active) {
+        logAuthFailureReason(email, "inactive", row.tenantId);
+        return null;
+      }
       const valid = await verifyPassword(password, row.passwordHash);
-      if (!valid) return null;
-      if (!isAppRole(row.role)) return null;
+      if (!valid) {
+        logAuthFailureReason(email, "bad_password", row.tenantId);
+        return null;
+      }
+      if (!isAppRole(row.role)) {
+        logAuthFailureReason(email, "bad_role", row.tenantId);
+        return null;
+      }
       return toAuthUser({
         userId: row.id,
         role: row.role,
@@ -163,10 +263,16 @@ export async function authenticateUser(
     }
   }
 
-  const row = HASHED.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  if (!row) return null;
+  const row = HASHED.find((u) => u.email?.toLowerCase() === email);
+  if (!row) {
+    logAuthFailureReason(email, "no_such_user");
+    return null;
+  }
   const valid = await verifyPassword(password, row.passwordHash);
-  if (!valid) return null;
+  if (!valid) {
+    logAuthFailureReason(email, "bad_password", row.tenantId);
+    return null;
+  }
   return toAuthUser(row);
 }
 

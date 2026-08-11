@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { parseTeacherCsvContent } from "../import/demo-teacher-csv";
 
 const SAMPLE_CSV = `ad;eposta;telefon;sube;enstruman
-Turgay Hoşbaş;1@mail.com;0545 341 09 19;Evka 3;Piyano
-Olcay Özdemir;2@mail.com;0535 262 06 23;Evka 3;Gitar
-Ebru Şirince;3@mail.com;0 507 361 78 90;Evka 3;Keman
+Turgay Hoşbaş;turgay.hosbas@niluferacar.com.tr;0545 341 09 19;Evka 3;Piyano
+Olcay Özdemir;olcay.ozdemir@niluferacar.com.tr;0535 262 06 23;Evka 3;Gitar
+Ebru Şirince:ebru.sirince@niluferacar.com.tr;0 507 361 78 90;Evka 3;Keman
 `;
 
 describe("parseTeacherCsvContent — Öğretmenler.csv (ad;eposta;telefon;sube;enstruman)", () => {
@@ -13,7 +13,7 @@ describe("parseTeacherCsvContent — Öğretmenler.csv (ad;eposta;telefon;sube;e
     expect(rows).toHaveLength(3);
     expect(rows[0]).toEqual({
       name: "Turgay Hoşbaş",
-      email: "1@mail.com",
+      email: "turgay.hosbas@niluferacar.com.tr",
       phone: "0545 341 09 19",
       branchName: "Evka 3",
       instrument: "Piyano",
@@ -39,7 +39,7 @@ describe("Demo CSV öğretmen seed — e-posta ile idempotenlik kuralı", () => 
 
   it("hiçbiri mevcut değilse tüm CSV satırları oluşturulacak listeye girer", () => {
     const rows = parseTeacherCsvContent(SAMPLE_CSV);
-    expect(planCreations(rows, [])).toEqual(["1@mail.com", "2@mail.com", "3@mail.com"]);
+    expect(planCreations(rows, [])).toEqual(["turgay.hosbas@niluferacar.com.tr", "olcay.ozdemir@niluferacar.com.tr", "ebru.sirince@niluferacar.com.tr"]);
   });
 
   it("aynı seed ikinci kez çalıştırıldığında (tüm e-postalar zaten var) hiçbir yeni satır planlanmaz — çoğalma yok", () => {
@@ -50,6 +50,6 @@ describe("Demo CSV öğretmen seed — e-posta ile idempotenlik kuralı", () => 
 
   it("e-posta karşılaştırması case-insensitive'dir", () => {
     const rows = parseTeacherCsvContent(SAMPLE_CSV);
-    expect(planCreations(rows, ["1@MAIL.COM", "2@mail.com", "3@mail.com"])).toEqual([]);
+    expect(planCreations(rows, ["TURGAY.HOSBAS@NILUFERACAR.COM.TR", "OLCAY.OZDEMIR@NILUFERACAR.COM.TR", "EBRU.SIRINCE@NILUFERACAR.COM.TR"])).toEqual([]);
   });
 });

@@ -5,7 +5,9 @@ export type Instrument =
   | "Gitar"
   | "Bateri"
   | "Keman"
-  | "Şan";
+  | "Şan"
+  | "Bağlama"
+  | "Elektro Gitar";
 
 export const INSTRUMENTS: Instrument[] = [
   "Piyano",
@@ -14,6 +16,8 @@ export const INSTRUMENTS: Instrument[] = [
   "Bateri",
   "Keman",
   "Şan",
+  "Bağlama",
+  "Elektro Gitar"
 ];
 
 /**

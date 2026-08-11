@@ -300,6 +300,7 @@ export default async function StudentDetailPage({
             <StudentProfileEditor
               studentId={student.id}
               branches={data.settings.branches.map((b) => ({ id: b.id, name: b.name }))}
+              hasNationalId={!!student.nationalIdCipher}
               initial={{
                 name: student.name,
                 email: student.email,

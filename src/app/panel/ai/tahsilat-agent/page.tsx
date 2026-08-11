@@ -45,7 +45,6 @@ export default async function TahsilatAgentPage({
       <KurumScopeNote scope={kurum.scope} />
       <PageHeader
         title="Tahsilat"
-        description="Riskteki ödemeleri önceliklendirir, veliye gönderilecek mesaj taslağını hazırlar; hiçbir mesaj insan onayı olmadan gönderilmez."
         actions={
           <Link href="/panel/odemeler" className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-amber-700">
             Ödemeleri yönet <ArrowRight className="h-4 w-4" />
